@@ -1,9 +1,20 @@
 # Pusharoo
 
-Pusharoo is scaffolded as a two-part application:
+Pusharoo is a Neo smart contract artifact workspace. It helps you organize contract projects, upload compiled `.nef` files with their manifest JSON, inspect contract methods/events/permissions, and keep build artifacts in MongoDB so versions can be reviewed before deployment.
 
-- `frontend/` - Angular app
-- `backend/` - ASP.NET Core Web API
+The app is split into:
+
+- `frontend/` - Angular 21 app with the Pusharoo UI
+- `backend/` - ASP.NET Core 10 Web API
+- `mongo` - MongoDB storage through Docker Compose
+
+## What It Does
+
+- Creates and lists contract projects.
+- Uploads contract artifacts as `multipart/form-data`.
+- Stores the `.nef` file metadata and manifest document in MongoDB.
+- Summarizes each manifest with method, event, permission, and supported standard counts.
+- Shows a manifest viewer with overview, methods, events, permissions, and raw JSON tabs.
 
 ## Structure
 
@@ -15,6 +26,18 @@ pusharoo/
 +-- README.md
 ```
 
+## Run With Docker
+
+```powershell
+docker compose up --build
+```
+
+The frontend runs at `http://localhost:4200`.
+
+The API runs at `http://localhost:5000`.
+
+MongoDB runs at `mongodb://localhost:27017`.
+
 ## Run Locally
 
 ### Backend
@@ -25,38 +48,41 @@ The backend targets .NET `10.0`.
 dotnet run --project backend/backend.csproj
 ```
 
-Backend API routes:
-
-```text
-POST   /api/projects
-GET    /api/projects
-GET    /api/projects/{projectId}
-POST   /api/projects/{projectId}/artifacts
-GET    /api/projects/{projectId}/artifacts
-GET    /api/artifacts/{artifactId}
-GET    /api/artifacts/{artifactId}/manifest
-GET    /api/artifacts/{artifactId}/summary
-```
-
-Uploaded artifacts are saved in MongoDB database `Pusharoo`, collection `contractArtifacts`.
-
-Artifact uploads expect `multipart/form-data` with `.nef` and `.manifest.json` files plus `version` and optional `notes` fields.
-
 ### Frontend
 
 Angular 21 requires Node.js `20.19+`, `22.12+`, or `24+`.
 
 ```powershell
 cd frontend
+npm install
 npm start
 ```
 
-Angular will serve the app at `http://localhost:4200`.
+Angular serves the app at `http://localhost:4200`.
 
-## Docker
+## API
 
-```powershell
-docker compose up --build
+```text
+POST   /api/projects
+GET    /api/projects
+GET    /api/projects/{projectId}
+
+POST   /api/projects/{projectId}/artifacts
+GET    /api/projects/{projectId}/artifacts
+GET    /api/artifacts/{artifactId}
+
+GET    /api/artifacts/{artifactId}/manifest
+GET    /api/artifacts/{artifactId}/summary
 ```
 
-The frontend is exposed on `http://localhost:4200` and the API is exposed on `http://localhost:5000`.
+Artifact uploads expect `multipart/form-data`:
+
+```text
+files:
+- contract.nef
+- contract.manifest.json
+
+fields:
+- version = 0.1.0
+- notes = Initial upload
+```
