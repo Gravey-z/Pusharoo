@@ -1,0 +1,61 @@
+@if (overview$ | async; as overview) {
+  <app-page-shell [title]="'Project: ' + overview.project.name">
+    <div actions class="actions">
+      <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
+        Upload Artifact
+      </a>
+      <a
+        class="secondary-button"
+        [class.disabled]="!overview.latestArtifact"
+        [routerLink]="overview.latestArtifact ? ['/artifacts', overview.latestArtifact.id, 'manifest'] : null"
+      >
+        View Manifest
+      </a>
+      <button class="secondary-button" type="button" [disabled]="overview.artifacts.length < 2">
+        Compare Versions
+      </button>
+      <button class="secondary-button" type="button" disabled>Add Deployment</button>
+    </div>
+
+    <section class="overview-layout">
+      <div class="latest-panel">
+        <span class="eyebrow">Latest artifact</span>
+        <strong>{{ overview.latestArtifact?.version ?? 'None' }}</strong>
+        <p>{{ overview.latestArtifact?.notes ?? 'No artifact uploaded yet.' }}</p>
+      </div>
+
+      <dl class="metric-grid">
+        <div>
+          <dt>Contract</dt>
+          <dd>{{ overview.latestArtifact?.contractName ?? '-' }}</dd>
+        </div>
+        <div>
+          <dt>Methods</dt>
+          <dd>{{ overview.latestArtifact?.summary?.methodCount ?? 0 }}</dd>
+        </div>
+        <div>
+          <dt>Events</dt>
+          <dd>{{ overview.latestArtifact?.summary?.eventCount ?? 0 }}</dd>
+        </div>
+        <div>
+          <dt>Permissions</dt>
+          <dd>{{ overview.latestArtifact?.summary?.permissionCount ?? 0 }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="artifact-list" aria-label="Artifacts">
+      @for (artifact of overview.artifacts; track artifact.id) {
+        <a [routerLink]="['/artifacts', artifact.id, 'manifest']">
+          <span>{{ artifact.version }}</span>
+          <span>{{ artifact.contractName }}</span>
+          <span>{{ artifact.nefFileName }}</span>
+        </a>
+      }
+    </section>
+  </app-page-shell>
+} @else {
+  <app-page-shell title="Project">
+    <p class="missing">Project not found.</p>
+  </app-page-shell>
+}

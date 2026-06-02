@@ -1,0 +1,10 @@
+.git/
+.vs/
+.vscode/
+frontend/
+**/bin/
+**/obj/
+**/node_modules/
+**/.angular/
+**/dist/
+**/coverage/

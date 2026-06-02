@@ -1,0 +1,18 @@
+<div class="app-shell">
+  <header class="topbar">
+    <a routerLink="/projects" class="brand" aria-label="Pusharoo projects">
+      <img src="pusharoo-logo.png?v=20260528-transparent" alt="Pusharoo" />
+    </a>
+    <nav aria-label="Main navigation">
+      <a routerLink="/projects">Projects</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <div class="page-heading">
+      <h1>{{ title }}</h1>
+      <ng-content select="[actions]" />
+    </div>
+    <ng-content />
+  </main>
+</div>

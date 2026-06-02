@@ -1,0 +1,51 @@
+<app-page-shell title="Projects">
+  <button actions class="primary-button" type="button" (click)="openCreateProject()">
+    <span aria-hidden="true">+</span>
+    New Project
+  </button>
+
+  @if (isCreating) {
+    <section class="create-panel" aria-label="New project">
+      <div class="field-grid">
+        <label>
+          <span>Name</span>
+          <input type="text" name="projectName" [(ngModel)]="newProjectName" />
+        </label>
+        <label>
+          <span>Description</span>
+          <input type="text" name="projectDescription" [(ngModel)]="newProjectDescription" />
+        </label>
+      </div>
+      @if (errorMessage) {
+        <p class="form-error">{{ errorMessage }}</p>
+      }
+      <div class="button-row">
+        <button class="primary-button" type="button" (click)="createProject()" [disabled]="isSaving">
+          Save
+        </button>
+        <button class="secondary-button" type="button" (click)="cancelCreateProject()">Cancel</button>
+      </div>
+    </section>
+  }
+
+  <section class="project-grid">
+    @for (item of projects$ | async; track item.project.id) {
+      <a class="project-card" [routerLink]="['/projects', item.project.id]">
+        <div>
+          <h2>{{ item.project.name }}</h2>
+          <p>{{ item.artifacts.length }} artifacts</p>
+        </div>
+        <dl>
+          <div>
+            <dt>Latest</dt>
+            <dd>{{ item.latestArtifact?.version ?? 'None' }}</dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd>{{ item.deployed ? 'Deployed' : 'Not deployed' }}</dd>
+          </div>
+        </dl>
+      </a>
+    }
+  </section>
+</app-page-shell>

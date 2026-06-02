@@ -1,0 +1,93 @@
+.app-shell {
+  min-height: 100vh;
+  background: transparent;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 64px;
+  padding: 0 32px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(8, 11, 18, 0.82);
+  backdrop-filter: blur(12px);
+}
+
+.brand,
+nav a {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-weight: 750;
+}
+
+.brand img {
+  display: block;
+  width: 44px;
+  height: auto;
+  filter: drop-shadow(0 0 10px rgba(21, 244, 200, 0.16));
+}
+
+nav a {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-family: var(--font-display);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+nav a:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.page {
+  width: min(1120px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 34px 0 54px;
+}
+
+.page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+h1 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-display);
+  text-shadow: 0 0 18px rgba(0, 214, 255, 0.12);
+  font-size: 28px;
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+@media (max-width: 720px) {
+  .topbar {
+    padding: 0 18px;
+  }
+
+  .page {
+    width: min(100% - 28px, 1120px);
+    padding-top: 24px;
+  }
+
+  .page-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

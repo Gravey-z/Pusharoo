@@ -1,0 +1,36 @@
+<app-page-shell title="Upload Artifact">
+  <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
+
+  <form class="upload-form" (ngSubmit)="upload()">
+    <label>
+      <span>Version</span>
+      <input type="text" name="version" [(ngModel)]="version" />
+    </label>
+
+    <label>
+      <span>NEF file</span>
+      <input type="file" name="nefFile" accept=".nef" (change)="onNefSelected($event)" />
+    </label>
+
+    <label>
+      <span>Manifest file</span>
+      <input
+        type="file"
+        name="manifestFile"
+        accept=".json,.manifest.json"
+        (change)="onManifestSelected($event)"
+      />
+    </label>
+
+    <label>
+      <span>Notes</span>
+      <textarea name="notes" rows="4" [(ngModel)]="notes"></textarea>
+    </label>
+
+    @if (errorMessage) {
+      <p class="form-error">{{ errorMessage }}</p>
+    }
+
+    <button class="primary-button" type="submit" [disabled]="isUploading">Upload</button>
+  </form>
+</app-page-shell>

@@ -1,0 +1,66 @@
+@backend_HostAddress = http://localhost:5221
+@projectId = replace-with-project-id
+@artifactId = replace-with-artifact-id
+
+POST {{backend_HostAddress}}/api/projects
+Content-Type: application/json
+
+{
+  "name": "Vaulten",
+  "description": "Example smart contract project"
+}
+
+###
+
+GET {{backend_HostAddress}}/api/projects
+Accept: application/json
+
+###
+
+GET {{backend_HostAddress}}/api/projects/{{projectId}}
+Accept: application/json
+
+###
+
+POST {{backend_HostAddress}}/api/projects/{{projectId}}/artifacts
+Content-Type: multipart/form-data; boundary=PusharooBoundary
+
+--PusharooBoundary
+Content-Disposition: form-data; name="version"
+
+0.1.0
+--PusharooBoundary
+Content-Disposition: form-data; name="notes"
+
+Initial upload
+--PusharooBoundary
+Content-Disposition: form-data; name="files"; filename="Vaulten.nef"
+Content-Type: application/octet-stream
+
+< ./samples/Vaulten.nef
+--PusharooBoundary
+Content-Disposition: form-data; name="files"; filename="Vaulten.manifest.json"
+Content-Type: application/json
+
+< ./samples/Vaulten.manifest.json
+--PusharooBoundary--
+
+###
+
+GET {{backend_HostAddress}}/api/projects/{{projectId}}/artifacts
+Accept: application/json
+
+###
+
+GET {{backend_HostAddress}}/api/artifacts/{{artifactId}}
+Accept: application/json
+
+###
+
+GET {{backend_HostAddress}}/api/artifacts/{{artifactId}}/manifest
+Accept: application/json
+
+###
+
+GET {{backend_HostAddress}}/api/artifacts/{{artifactId}}/summary
+Accept: application/json

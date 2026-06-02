@@ -1,0 +1,104 @@
+@if (artifact$ | async; as artifact) {
+  <app-page-shell [title]="artifact.contractName + ' Manifest'">
+    <a actions class="secondary-button" [routerLink]="['/projects', artifact.projectId]">Back</a>
+
+    <section class="viewer">
+      <div class="tabs" role="tablist" aria-label="Manifest sections">
+        @for (tab of tabs; track tab.id) {
+          <button
+            type="button"
+            role="tab"
+            [class.active]="activeTab === tab.id"
+            [attr.aria-selected]="activeTab === tab.id"
+            (click)="selectTab(tab.id)"
+          >
+            {{ tab.label }}
+          </button>
+        }
+      </div>
+
+      @if (activeTab === 'overview') {
+        <dl class="overview-grid">
+          <div>
+            <dt>Name</dt>
+            <dd>{{ artifact.manifest.name }}</dd>
+          </div>
+          <div>
+            <dt>Standards</dt>
+            <dd>{{ artifact.manifest.supportedstandards.join(', ') || '-' }}</dd>
+          </div>
+          <div>
+            <dt>Methods</dt>
+            <dd>{{ artifact.summary.methodCount }}</dd>
+          </div>
+          <div>
+            <dt>Events</dt>
+            <dd>{{ artifact.summary.eventCount }}</dd>
+          </div>
+        </dl>
+      }
+
+      @if (activeTab === 'methods') {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Parameters</th>
+                <th>Return</th>
+                <th>Safe</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (method of artifact.manifest.abi.methods; track method.name) {
+                <tr>
+                  <td>{{ method.name }}</td>
+                  <td>{{ formatParameters(method.parameters) }}</td>
+                  <td>{{ methodReturnType(method) }}</td>
+                  <td>{{ method.safe ? 'Yes' : 'No' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      @if (activeTab === 'events') {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Parameters</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (event of artifact.manifest.abi.events; track event.name) {
+                <tr>
+                  <td>{{ event.name }}</td>
+                  <td>{{ formatEventParameters(event) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      @if (activeTab === 'permissions') {
+        <div class="permission-list">
+          @for (permission of artifact.manifest.permissions; track $index) {
+            <pre>{{ permission | json }}</pre>
+          }
+        </div>
+      }
+
+      @if (activeTab === 'raw') {
+        <pre class="raw-json">{{ rawJson(artifact) }}</pre>
+      }
+    </section>
+  </app-page-shell>
+} @else {
+  <app-page-shell title="Manifest">
+    <p class="missing">Artifact not found.</p>
+  </app-page-shell>
+}
