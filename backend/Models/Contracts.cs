@@ -28,3 +28,14 @@ public sealed record ArtifactResponse(
     ArtifactSummary Summary,
     IReadOnlyList<string> Warnings,
     DateTime CreatedAt);
+
+public sealed record ArtifactComparisonResponse(
+    IReadOnlyList<string> AddedMethods,
+    IReadOnlyList<string> RemovedMethods,
+    IReadOnlyList<ChangedMethodResponse> ChangedMethods,
+    IReadOnlyList<string> AddedEvents,
+    IReadOnlyList<string> PermissionChanges);
+
+public sealed record ChangedMethodResponse(
+    string Name,
+    IReadOnlyList<string> Changes);

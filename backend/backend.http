@@ -52,6 +52,11 @@ Accept: application/json
 
 ###
 
+GET {{backend_HostAddress}}/api/projects/{{projectId}}/artifacts/compare?from=v0.1.0&to=v0.1.1
+Accept: application/json
+
+###
+
 GET {{backend_HostAddress}}/api/artifacts/{{artifactId}}
 Accept: application/json
 

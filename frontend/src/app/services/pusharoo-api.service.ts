@@ -3,6 +3,11 @@ import { Injectable } from '@angular/core';
 import { catchError, forkJoin, map, Observable, of, switchMap } from 'rxjs';
 import {
   Artifact,
+  ArtifactComparison,
+  ChangedMethod,
+  NeoMethod,
+  NeoParameter,
+  NeoPermission,
   Project,
   ProjectCardViewModel,
   ProjectOverviewViewModel
@@ -87,6 +92,34 @@ export class PusharooApiService {
     );
   }
 
+  compareArtifacts(
+    projectId: string,
+    fromVersion: string,
+    toVersion: string
+  ): Observable<ArtifactComparison | null> {
+    const demoArtifactsForProject = demoArtifacts.filter(
+      (artifact) => artifact.projectId === projectId
+    );
+
+    if (demoArtifactsForProject.length > 0) {
+      const fromArtifact = this.findArtifactByVersion(demoArtifactsForProject, fromVersion);
+      const toArtifact = this.findArtifactByVersion(demoArtifactsForProject, toVersion);
+
+      return of(
+        fromArtifact && toArtifact
+          ? this.compareLocalArtifacts(fromArtifact, toArtifact)
+          : null
+      );
+    }
+
+    return this.http
+      .get<ArtifactComparison>(
+        `${this.apiBaseUrl}/projects/${projectId}/artifacts/compare`,
+        { params: { from: fromVersion, to: toVersion } }
+      )
+      .pipe(catchError(() => of(null)));
+  }
+
   private getArtifacts(projectId: string): Observable<Artifact[]> {
     return this.http
       .get<Artifact[]>(`${this.apiBaseUrl}/projects/${projectId}/artifacts`)
@@ -105,5 +138,173 @@ export class PusharooApiService {
       latestArtifact: sortedArtifacts[0] ?? null,
       deployed: false
     };
+  }
+
+  private compareLocalArtifacts(fromArtifact: Artifact, toArtifact: Artifact): ArtifactComparison {
+    const fromMethods = this.toMethodMap(fromArtifact.manifest.abi.methods);
+    const toMethods = this.toMethodMap(toArtifact.manifest.abi.methods);
+    const addedMethods = [...toMethods.keys()]
+      .filter((name) => !fromMethods.has(name))
+      .sort();
+    const removedMethods = [...fromMethods.keys()]
+      .filter((name) => !toMethods.has(name))
+      .sort();
+    const changedMethods = [...fromMethods.keys()]
+      .filter((name) => toMethods.has(name))
+      .map((name) => this.getChangedMethod(name, fromMethods.get(name), toMethods.get(name)))
+      .filter((change): change is ChangedMethod => change !== null)
+      .sort((left, right) => left.name.localeCompare(right.name));
+    const fromEventNames = new Set(
+      fromArtifact.manifest.abi.events.map((event) => event.name)
+    );
+    const addedEvents = toArtifact.manifest.abi.events
+      .map((event) => event.name)
+      .filter((name) => !fromEventNames.has(name))
+      .sort();
+    const permissionChanges = this.getPermissionChanges(
+      fromArtifact.manifest.permissions,
+      toArtifact.manifest.permissions
+    );
+
+    return {
+      addedMethods,
+      removedMethods,
+      changedMethods,
+      addedEvents,
+      permissionChanges
+    };
+  }
+
+  private toMethodMap(methods: NeoMethod[]): Map<string, NeoMethod> {
+    return new Map(methods.map((method) => [method.name, method]));
+  }
+
+  private getChangedMethod(
+    name: string,
+    fromMethod?: NeoMethod,
+    toMethod?: NeoMethod
+  ): ChangedMethod | null {
+    if (!fromMethod || !toMethod) {
+      return null;
+    }
+
+    if (this.getMethodSignature(fromMethod) === this.getMethodSignature(toMethod)) {
+      return null;
+    }
+
+    const changes: string[] = [];
+    const fromParameters = this.getParameterSignature(fromMethod.parameters);
+    const toParameters = this.getParameterSignature(toMethod.parameters);
+    const fromReturnType = this.methodReturnType(fromMethod);
+    const toReturnType = this.methodReturnType(toMethod);
+
+    if (fromParameters !== toParameters) {
+      changes.push(
+        `Parameters changed from ${this.formatParameters(fromMethod.parameters)} to ${this.formatParameters(toMethod.parameters)}`
+      );
+    }
+
+    if (fromReturnType !== toReturnType) {
+      changes.push(`Return type changed from ${fromReturnType} to ${toReturnType}`);
+    }
+
+    if (fromMethod.safe !== toMethod.safe) {
+      changes.push(`Safe flag changed from ${fromMethod.safe} to ${toMethod.safe}`);
+    }
+
+    return { name, changes: changes.length ? changes : ['Method signature changed'] };
+  }
+
+  private getMethodSignature(method: NeoMethod): string {
+    return `${method.name}(${this.getParameterSignature(method.parameters)}):${this.methodReturnType(method)}:safe=${method.safe}`;
+  }
+
+  private getParameterSignature(parameters: NeoParameter[]): string {
+    return parameters.map((parameter) => `${parameter.name}:${parameter.type}`).join(',');
+  }
+
+  private methodReturnType(method: NeoMethod): string {
+    return method.returntype ?? method.returnType ?? '';
+  }
+
+  private formatParameters(parameters: NeoParameter[]): string {
+    if (parameters.length === 0) {
+      return '-';
+    }
+
+    return parameters.map((parameter) => `${parameter.name}: ${parameter.type}`).join(', ');
+  }
+
+  private getPermissionChanges(
+    fromPermissions: NeoPermission[],
+    toPermissions: NeoPermission[]
+  ): string[] {
+    const fromPermissionMap = this.toPermissionMap(fromPermissions);
+    const toPermissionMap = this.toPermissionMap(toPermissions);
+    const changes: string[] = [];
+
+    for (const [permission, value] of toPermissionMap) {
+      if (!fromPermissionMap.has(permission)) {
+        changes.push(
+          this.isWildcardPermission(value)
+            ? 'Added wildcard permission'
+            : `Added permission ${permission}`
+        );
+      }
+    }
+
+    for (const permission of fromPermissionMap.keys()) {
+      if (!toPermissionMap.has(permission)) {
+        changes.push(`Removed permission ${permission}`);
+      }
+    }
+
+    return changes;
+  }
+
+  private toPermissionMap(permissions: NeoPermission[]): Map<string, NeoPermission> {
+    return new Map(
+      permissions.map((permission) => [this.normalizePermission(permission), permission])
+    );
+  }
+
+  private normalizePermission(permission: NeoPermission): string {
+    return `${this.normalizeValue(permission.contract)}::${this.normalizeValue(permission.methods)}`;
+  }
+
+  private isWildcardPermission(permission: NeoPermission): boolean {
+    return this.hasWildcard(permission.contract) || this.hasWildcard(permission.methods);
+  }
+
+  private hasWildcard(value: unknown): boolean {
+    if (value === '*') {
+      return true;
+    }
+
+    if (Array.isArray(value)) {
+      return value.some((item) => this.hasWildcard(item));
+    }
+
+    return false;
+  }
+
+  private normalizeValue(value: unknown): string {
+    if (Array.isArray(value)) {
+      return `[${value.map((item) => this.normalizeValue(item)).join(',')}]`;
+    }
+
+    if (value && typeof value === 'object') {
+      return JSON.stringify(value, Object.keys(value).sort());
+    }
+
+    return String(value);
+  }
+
+  private findArtifactByVersion(artifacts: Artifact[], version: string): Artifact | undefined {
+    const normalizedVersion = version.trim().replace(/^v/i, '');
+
+    return artifacts.find(
+      (artifact) => artifact.version.replace(/^v/i, '') === normalizedVersion
+    );
   }
 }

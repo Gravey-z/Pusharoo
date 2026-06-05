@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { ArtifactCompareComponent } from './pages/artifact-compare/artifact-compare.component';
 import { ArtifactUploadComponent } from './pages/artifact-upload/artifact-upload.component';
 import { ManifestViewerComponent } from './pages/manifest-viewer/manifest-viewer.component';
 import { LandingComponent } from './pages/landing/landing.component';
@@ -11,6 +12,7 @@ export const routes: Routes = [
   { path: 'projects', component: ProjectsComponent },
   { path: 'projects/:projectId', component: ProjectOverviewComponent },
   { path: 'projects/:projectId/upload', component: ArtifactUploadComponent },
+  { path: 'projects/:projectId/compare', component: ArtifactCompareComponent },
   { path: 'artifacts/:artifactId/manifest', component: ManifestViewerComponent },
   { path: '**', redirectTo: 'projects' }
 ];

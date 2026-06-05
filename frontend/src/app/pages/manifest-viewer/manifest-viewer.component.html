@@ -55,7 +55,11 @@
                   <td>{{ method.name }}</td>
                   <td>{{ formatParameters(method.parameters) }}</td>
                   <td>{{ methodReturnType(method) }}</td>
-                  <td>{{ method.safe ? 'Yes' : 'No' }}</td>
+                  <td>
+                    <span class="safe-chip" [class.safe]="method.safe" [class.unsafe]="!method.safe">
+                      {{ method.safe ? 'Yes' : 'No' }}
+                    </span>
+                  </td>
                 </tr>
               }
             </tbody>

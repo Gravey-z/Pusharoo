@@ -5,6 +5,16 @@
     <label>
       <span>Version</span>
       <input type="text" name="version" [(ngModel)]="version" />
+      @if (latestVersion) {
+        <small class="version-hint">
+          Latest: {{ latestVersion }} · Suggested: {{ suggestedVersion }}
+        </small>
+      }
+      @if (versionAlreadyExists) {
+        <small class="version-warning">
+          Version {{ version }} already exists for this project.
+        </small>
+      }
     </label>
 
     <label>
@@ -31,6 +41,8 @@
       <p class="form-error">{{ errorMessage }}</p>
     }
 
-    <button class="primary-button" type="submit" [disabled]="isUploading">Upload</button>
+    <button class="primary-button" type="submit" [disabled]="isUploading || versionAlreadyExists">
+      Upload
+    </button>
   </form>
 </app-page-shell>

@@ -75,6 +75,20 @@ textarea {
   resize: vertical;
 }
 
+.version-hint,
+.version-warning {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.version-hint {
+  color: var(--accent);
+}
+
+.version-warning {
+  color: var(--danger);
+}
+
 .form-error {
   margin: 0;
   color: var(--danger);

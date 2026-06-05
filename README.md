@@ -15,6 +15,15 @@ The app is split into:
 - Stores the `.nef` file metadata and manifest document in MongoDB.
 - Summarizes each manifest with method, event, permission, and supported standard counts.
 - Shows a manifest viewer with overview, methods, events, permissions, and raw JSON tabs.
+- Compares artifact versions to highlight method, event, and permission changes.
+
+## Planned
+
+- Deployment tracking, including which artifact version is currently deployed.
+- Easy deployment of previous artifact versions.
+- Contract Interaction Console for invoking contract methods from the site and viewing results.
+- Blockchain event subscriptions for monitoring, notifications, and webhooks.
+- Public and private artifacts/contracts.
 
 ## Structure
 
@@ -69,6 +78,7 @@ GET    /api/projects/{projectId}
 
 POST   /api/projects/{projectId}/artifacts
 GET    /api/projects/{projectId}/artifacts
+GET    /api/projects/{projectId}/artifacts/compare?from=v0.1.0&to=v0.1.1
 GET    /api/artifacts/{artifactId}
 
 GET    /api/artifacts/{artifactId}/manifest
@@ -86,3 +96,5 @@ fields:
 - version = 0.1.0
 - notes = Initial upload
 ```
+
+The compare endpoint returns added/removed methods, changed method signatures, added events, and permission changes between two stored artifact versions.

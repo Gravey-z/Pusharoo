@@ -1,0 +1,254 @@
+@if (overview) {
+  <app-page-shell [title]="'Compare: ' + overview.project.name">
+    <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
+
+    @if (artifacts.length >= 2) {
+      <form class="compare-controls" (ngSubmit)="compare()">
+        <label>
+          <span>From</span>
+          <select name="fromVersion" [(ngModel)]="fromVersion">
+            @for (artifact of artifacts; track artifact.id) {
+              <option [value]="artifact.version">{{ artifact.version }}</option>
+            }
+          </select>
+        </label>
+
+        <label>
+          <span>To</span>
+          <select name="toVersion" [(ngModel)]="toVersion">
+            @for (artifact of artifacts; track artifact.id) {
+              <option [value]="artifact.version">{{ artifact.version }}</option>
+            }
+          </select>
+        </label>
+
+        <button class="primary-button" type="submit" [disabled]="isLoading">
+          {{ isLoading ? 'Comparing' : 'Compare' }}
+        </button>
+      </form>
+
+      @if (errorMessage) {
+        <p class="form-error">{{ errorMessage }}</p>
+      }
+
+      @if (comparison) {
+        <section class="diff-summary">
+          <div>
+            <span>Added</span>
+            <strong>{{ comparison.addedMethods.length }}</strong>
+          </div>
+          <div>
+            <span>Removed</span>
+            <strong>{{ comparison.removedMethods.length }}</strong>
+          </div>
+          <div>
+            <span>Changed</span>
+            <strong>{{ comparison.changedMethods.length }}</strong>
+          </div>
+          <div>
+            <span>Events</span>
+            <strong>{{ comparison.addedEvents.length }}</strong>
+          </div>
+        </section>
+
+        @if (hasChanges(comparison)) {
+          <section class="diff-grid">
+            <article class="diff-panel">
+              <h2>Added Methods</h2>
+              @if (comparison.addedMethods.length) {
+                <div class="changed-list">
+                  @for (method of comparison.addedMethods; track method) {
+                    @if (methodDetails(toVersion, method); as detail) {
+                      <div class="method-change">
+                        <div class="method-change-header">
+                          <strong>{{ detail.name }}</strong>
+                          <span>Return {{ detail.returnType }} · Safe {{ detail.safe ? 'Yes' : 'No' }}</span>
+                        </div>
+
+                        <section class="parameter-change">
+                          <div class="change-label">Parameters</div>
+                          @if (detail.parameters.length) {
+                            <div class="chip-list">
+                              @for (parameter of detail.parameters; track parameter.label) {
+                                <span class="param-chip added">{{ parameter.label }}</span>
+                              }
+                            </div>
+                          } @else {
+                            <p class="simple-change">No parameters.</p>
+                          }
+                        </section>
+                      </div>
+                    } @else {
+                      <p class="simple-change">{{ method }}</p>
+                    }
+                  }
+                </div>
+              } @else {
+                <p>No added methods.</p>
+              }
+            </article>
+
+            <article class="diff-panel">
+              <h2>Removed Methods</h2>
+              @if (comparison.removedMethods.length) {
+                <div class="changed-list">
+                  @for (method of comparison.removedMethods; track method) {
+                    @if (methodDetails(fromVersion, method); as detail) {
+                      <div class="method-change">
+                        <div class="method-change-header">
+                          <strong>{{ detail.name }}</strong>
+                          <span>Return {{ detail.returnType }} · Safe {{ detail.safe ? 'Yes' : 'No' }}</span>
+                        </div>
+
+                        <section class="parameter-change">
+                          <div class="change-label">Parameters</div>
+                          @if (detail.parameters.length) {
+                            <div class="chip-list">
+                              @for (parameter of detail.parameters; track parameter.label) {
+                                <span class="param-chip removed">{{ parameter.label }}</span>
+                              }
+                            </div>
+                          } @else {
+                            <p class="simple-change">No parameters.</p>
+                          }
+                        </section>
+                      </div>
+                    } @else {
+                      <p class="simple-change">{{ method }}</p>
+                    }
+                  }
+                </div>
+              } @else {
+                <p>No removed methods.</p>
+              }
+            </article>
+
+            <article class="diff-panel wide">
+              <h2>Changed Methods</h2>
+              @if (comparison.changedMethods.length) {
+                <div class="changed-list">
+                  @for (method of comparison.changedMethods; track method.name) {
+                    <div class="method-change">
+                      <div class="method-change-header">
+                        <strong>{{ method.name }}</strong>
+                        <span>{{ method.changes.length }} change{{ method.changes.length === 1 ? '' : 's' }}</span>
+                      </div>
+
+                      <div class="change-stack">
+                        @for (change of method.changes; track change) {
+                          @if (parameterDiff(change); as diff) {
+                            <section class="parameter-change">
+                              <div class="change-label">Parameters</div>
+
+                              @if (diff.hasVisibleChanges) {
+                                <div class="parameter-columns">
+                                  @if (diff.removed.length) {
+                                    <div>
+                                      <span class="column-label removed">Removed</span>
+                                      <div class="chip-list">
+                                        @for (parameter of diff.removed; track parameter.label) {
+                                          <span class="param-chip removed">{{ parameter.label }}</span>
+                                        }
+                                      </div>
+                                    </div>
+                                  }
+
+                                  @if (diff.added.length) {
+                                    <div>
+                                      <span class="column-label added">Added</span>
+                                      <div class="chip-list">
+                                        @for (parameter of diff.added; track parameter.label) {
+                                          <span class="param-chip added">{{ parameter.label }}</span>
+                                        }
+                                      </div>
+                                    </div>
+                                  }
+
+                                  @if (diff.changed.length) {
+                                    <div>
+                                      <span class="column-label changed">Type Changed</span>
+                                      <div class="type-list">
+                                        @for (parameter of diff.changed; track parameter.name) {
+                                          <span>
+                                            {{ parameter.name }}:
+                                            <del>{{ parameter.fromType }}</del>
+                                            <b>{{ parameter.toType }}</b>
+                                          </span>
+                                        }
+                                      </div>
+                                    </div>
+                                  }
+
+                                  @if (diff.unchanged.length) {
+                                    <div>
+                                      <span class="column-label unchanged">Unchanged</span>
+                                      <div class="chip-list">
+                                        @for (parameter of diff.unchanged; track parameter.label) {
+                                          <span class="param-chip unchanged">{{ parameter.label }}</span>
+                                        }
+                                      </div>
+                                    </div>
+                                  }
+                                </div>
+                              } @else {
+                                <p class="simple-change">Parameter order changed.</p>
+                              }
+                            </section>
+                          } @else {
+                            <p class="simple-change">{{ change }}</p>
+                          }
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <p>No changed methods.</p>
+              }
+            </article>
+
+            <article class="diff-panel">
+              <h2>Added Events</h2>
+              @if (comparison.addedEvents.length) {
+                <ul>
+                  @for (event of comparison.addedEvents; track event) {
+                    <li>{{ event }}</li>
+                  }
+                </ul>
+              } @else {
+                <p>No added events.</p>
+              }
+            </article>
+
+            <article class="diff-panel">
+              <h2>Permissions</h2>
+              @if (comparison.permissionChanges.length) {
+                <ul>
+                  @for (change of comparison.permissionChanges; track change) {
+                    <li>{{ change }}</li>
+                  }
+                </ul>
+              } @else {
+                <p>No permission changes.</p>
+              }
+            </article>
+          </section>
+        } @else {
+          <section class="empty-state">
+            <strong>No differences found</strong>
+            <p>These two artifact manifests have matching methods, events, and permissions.</p>
+          </section>
+        }
+      }
+    } @else {
+      <section class="empty-state">
+        <strong>Two artifacts needed</strong>
+        <p>Upload another artifact version before comparing this project.</p>
+      </section>
+    }
+  </app-page-shell>
+} @else {
+  <app-page-shell title="Compare Versions">
+    <p class="missing">Project not found.</p>
+  </app-page-shell>
+}

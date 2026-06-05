@@ -21,6 +21,17 @@ public sealed class ArtifactRepository(MongoDbContext db) : IArtifactRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<ArtifactDocument?> GetByProjectIdAndVersionAsync(
+        string projectId,
+        string version,
+        CancellationToken cancellationToken)
+    {
+        return await db.ContractArtifacts
+            .Find(artifact => artifact.ProjectId == projectId && artifact.Version == version)
+            .SortByDescending(artifact => artifact.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<ArtifactDocument?> GetByIdAsync(string artifactId, CancellationToken cancellationToken)
     {
         return await db.ContractArtifacts

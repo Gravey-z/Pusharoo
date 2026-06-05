@@ -125,6 +125,40 @@ public sealed class ProjectsController(
         return Ok(response);
     }
 
+    [HttpGet("{projectId}/artifacts/compare")]
+    public async Task<ActionResult<ArtifactComparisonResponse>> CompareArtifactsAsync(
+        string projectId,
+        [FromQuery(Name = "from")] string? fromVersion,
+        [FromQuery(Name = "to")] string? toVersion,
+        CancellationToken cancellationToken)
+    {
+        var project = await projectService.GetByIdAsync(projectId, cancellationToken);
+        if (project is null)
+        {
+            return NotFound(new { error = "Project was not found." });
+        }
+
+        if (string.IsNullOrWhiteSpace(fromVersion))
+        {
+            return BadRequest(new { error = "The from version is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(toVersion))
+        {
+            return BadRequest(new { error = "The to version is required." });
+        }
+
+        var comparison = await artifactService.CompareVersionsAsync(
+            projectId,
+            fromVersion,
+            toVersion,
+            cancellationToken);
+
+        return comparison is null
+            ? NotFound(new { error = "One or both artifact versions were not found." })
+            : Ok(comparison);
+    }
+
     private static IFormFile? FindNefFile(IFormFileCollection files)
     {
         return files.FirstOrDefault(file =>

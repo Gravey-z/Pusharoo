@@ -11,9 +11,13 @@
       >
         View Manifest
       </a>
-      <button class="secondary-button" type="button" [disabled]="overview.artifacts.length < 2">
+      <a
+        class="secondary-button"
+        [class.disabled]="overview.artifacts.length < 2"
+        [routerLink]="overview.artifacts.length >= 2 ? ['/projects', overview.project.id, 'compare'] : null"
+      >
         Compare Versions
-      </button>
+      </a>
       <button class="secondary-button" type="button" disabled>Add Deployment</button>
     </div>
 

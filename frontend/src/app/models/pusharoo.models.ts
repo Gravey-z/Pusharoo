@@ -66,6 +66,19 @@ export interface Artifact {
   createdAt: string;
 }
 
+export interface ArtifactComparison {
+  addedMethods: string[];
+  removedMethods: string[];
+  changedMethods: ChangedMethod[];
+  addedEvents: string[];
+  permissionChanges: string[];
+}
+
+export interface ChangedMethod {
+  name: string;
+  changes: string[];
+}
+
 export interface ProjectCardViewModel {
   project: Project;
   artifacts: Artifact[];

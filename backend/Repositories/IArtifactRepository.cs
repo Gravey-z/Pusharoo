@@ -8,5 +8,10 @@ public interface IArtifactRepository
 
     Task<IReadOnlyList<ArtifactDocument>> GetByProjectIdAsync(string projectId, CancellationToken cancellationToken);
 
+    Task<ArtifactDocument?> GetByProjectIdAndVersionAsync(
+        string projectId,
+        string version,
+        CancellationToken cancellationToken);
+
     Task<ArtifactDocument?> GetByIdAsync(string artifactId, CancellationToken cancellationToken);
 }
