@@ -1,0 +1,81 @@
+<div class="wallet-widget">
+  <button type="button" class="wallet-trigger" (click)="openDialog()">
+    @if (wallet.account()) {
+      {{ wallet.shortAddress() }}
+    } @else {
+      Wallet
+    }
+  </button>
+
+  @if (wallet.errorMessage()) {
+    <p class="wallet-error">{{ wallet.errorMessage() }}</p>
+  }
+
+  @if (isDialogOpen) {
+    <button type="button" class="dialog-backdrop" aria-label="Close wallet dialog" (click)="closeDialog()"></button>
+
+    <section class="wallet-dialog" role="dialog" aria-modal="true" aria-labelledby="wallet-dialog-title">
+      <div class="dialog-header">
+        <h2 id="wallet-dialog-title">Wallet</h2>
+        <button type="button" class="icon-button" aria-label="Close wallet dialog" (click)="closeDialog()">x</button>
+      </div>
+
+      @if (wallet.account(); as account) {
+        <div class="wallet-account" [title]="account.address">
+          <span>Connected</span>
+          <strong>{{ wallet.shortAddress() }}</strong>
+        </div>
+        <button type="button" class="wallet-option danger" (click)="disconnect()">Disconnect</button>
+      } @else if (dialogView === 'options') {
+        <div class="wallet-options">
+          <button type="button" class="wallet-option" (click)="connectNeoLine()">
+            <strong>NeoLine</strong>
+            <span>Browser extension</span>
+          </button>
+          <button type="button" class="wallet-option" (click)="connectNeon()">
+            <strong>Neon Wallet</strong>
+            <span>WalletConnect</span>
+          </button>
+          <button type="button" class="wallet-option" (click)="connectOneGate()">
+            <strong>OneGate</strong>
+            <span>Mobile or dApp browser</span>
+          </button>
+        </div>
+      } @else {
+        @if (wallet.walletConnectUri()) {
+          <div class="walletconnect-panel">
+            <div class="neon-heading">
+              <strong>Connect Neon Wallet</strong>
+              <span>Scan the QR code or copy the WalletConnect URI.</span>
+            </div>
+            @if (wallet.walletConnectQrCode()) {
+              <img [src]="wallet.walletConnectQrCode()" alt="WalletConnect QR code" />
+            }
+            <a class="neon-link" [href]="wallet.neonConnectUrl()" target="_blank" rel="noreferrer">
+              Open Neon Wallet
+            </a>
+            <label>
+              <span>WalletConnect URI</span>
+              <textarea
+                readonly
+                rows="4"
+                title="Click to copy"
+                (click)="copyWalletConnectUri()"
+              >{{ wallet.walletConnectUri() }}</textarea>
+            </label>
+            @if (copiedMessage) {
+              <p class="copy-toast">{{ copiedMessage }}</p>
+            }
+          </div>
+        } @else {
+          <div class="walletconnect-panel">
+            <div class="neon-heading">
+              <strong>Preparing Neon Wallet</strong>
+              <span>Creating a WalletConnect session.</span>
+            </div>
+          </div>
+        }
+      }
+    </section>
+  }
+</div>

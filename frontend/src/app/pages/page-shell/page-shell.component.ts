@@ -1,9 +1,10 @@
 import { Component, Input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { WalletConnectComponent } from '../../components/wallet-connect/wallet-connect.component';
 
 @Component({
   selector: 'app-page-shell',
-  imports: [RouterLink],
+  imports: [RouterLink, WalletConnectComponent],
   templateUrl: './page-shell.component.html',
   styleUrl: './page-shell.component.scss'
 })

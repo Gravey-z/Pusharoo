@@ -52,6 +52,12 @@ nav a:hover {
   color: var(--accent);
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .page {
   width: min(1120px, calc(100% - 40px));
   margin: 0 auto;
@@ -78,7 +84,16 @@ h1 {
 
 @media (max-width: 720px) {
   .topbar {
-    padding: 0 18px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 18px;
+  }
+
+  .topbar-actions {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .page {

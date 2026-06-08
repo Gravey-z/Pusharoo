@@ -3,9 +3,12 @@
     <a routerLink="/projects" class="brand" aria-label="Pusharoo projects">
       <img src="pusharoo-logo.png?v=20260528-transparent" alt="Pusharoo" />
     </a>
-    <nav aria-label="Main navigation">
-      <a routerLink="/projects">Projects</a>
-    </nav>
+    <div class="topbar-actions">
+      <nav aria-label="Main navigation">
+        <a routerLink="/projects">Projects</a>
+      </nav>
+      <app-wallet-connect />
+    </div>
   </header>
 
   <main class="page">
