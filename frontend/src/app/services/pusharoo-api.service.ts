@@ -5,6 +5,8 @@ import {
   Artifact,
   ArtifactComparison,
   ChangedMethod,
+  CreateDeploymentRequest,
+  Deployment,
   NeoMethod,
   NeoParameter,
   NeoPermission,
@@ -27,13 +29,7 @@ export class PusharooApiService {
           return of(demoProjectCards);
         }
 
-        return forkJoin(
-          projects.map((project) =>
-            this.getArtifacts(project.id).pipe(
-              map((artifacts) => this.toProjectCard(project, artifacts))
-            )
-          )
-        );
+        return forkJoin(projects.map((project) => this.getProjectCard(project)));
       }),
       catchError(() => of(demoProjectCards))
     );
@@ -46,11 +42,7 @@ export class PusharooApiService {
     }
 
     return this.http.get<Project>(`${this.apiBaseUrl}/projects/${projectId}`).pipe(
-      switchMap((project) =>
-        this.getArtifacts(project.id).pipe(
-          map((artifacts) => this.toProjectCard(project, artifacts))
-        )
-      ),
+      switchMap((project) => this.getProjectCard(project)),
       catchError(() => of(null))
     );
   }
@@ -64,6 +56,12 @@ export class PusharooApiService {
     return this.http
       .get<Artifact>(`${this.apiBaseUrl}/artifacts/${artifactId}`)
       .pipe(catchError(() => of(null)));
+  }
+
+  getArtifactNefHex(artifactId: string): Observable<string> {
+    return this.http
+      .get(`${this.apiBaseUrl}/artifacts/${artifactId}/nef`, { responseType: 'arraybuffer' })
+      .pipe(map((buffer) => this.arrayBufferToHex(buffer)));
   }
 
   createProject(name: string, description: string): Observable<Project> {
@@ -120,14 +118,47 @@ export class PusharooApiService {
       .pipe(catchError(() => of(null)));
   }
 
+  createDeployment(
+    projectId: string,
+    request: CreateDeploymentRequest
+  ): Observable<Deployment> {
+    return this.http.post<Deployment>(
+      `${this.apiBaseUrl}/projects/${projectId}/deployments`,
+      request
+    );
+  }
+
+  getDeployments(projectId: string): Observable<Deployment[]> {
+    return this.http
+      .get<Deployment[]>(`${this.apiBaseUrl}/projects/${projectId}/deployments`)
+      .pipe(catchError(() => of([])));
+  }
+
   private getArtifacts(projectId: string): Observable<Artifact[]> {
     return this.http
       .get<Artifact[]>(`${this.apiBaseUrl}/projects/${projectId}/artifacts`)
       .pipe(catchError(() => of([])));
   }
 
-  private toProjectCard(project: Project, artifacts: Artifact[]): ProjectCardViewModel {
+  private getProjectCard(project: Project): Observable<ProjectCardViewModel> {
+    return forkJoin({
+      artifacts: this.getArtifacts(project.id),
+      deployments: this.getDeployments(project.id)
+    }).pipe(
+      map(({ artifacts, deployments }) => this.toProjectCard(project, artifacts, deployments))
+    );
+  }
+
+  private toProjectCard(
+    project: Project,
+    artifacts: Artifact[],
+    deployments: Deployment[] = []
+  ): ProjectCardViewModel {
     const sortedArtifacts = [...artifacts].sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+    );
+    const sortedDeployments = [...deployments].sort(
       (left, right) =>
         new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
     );
@@ -136,7 +167,9 @@ export class PusharooApiService {
       project,
       artifacts: sortedArtifacts,
       latestArtifact: sortedArtifacts[0] ?? null,
-      deployed: false
+      deployments: sortedDeployments,
+      latestDeployment: sortedDeployments[0] ?? null,
+      deployed: sortedDeployments.length > 0
     };
   }
 
@@ -306,5 +339,11 @@ export class PusharooApiService {
     return artifacts.find(
       (artifact) => artifact.version.replace(/^v/i, '') === normalizedVersion
     );
+  }
+
+  private arrayBufferToHex(buffer: ArrayBuffer): string {
+    return [...new Uint8Array(buffer)]
+      .map((value) => value.toString(16).padStart(2, '0'))
+      .join('');
   }
 }

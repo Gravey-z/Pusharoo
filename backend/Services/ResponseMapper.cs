@@ -24,4 +24,19 @@ public static class ResponseMapper
             artifact.Warnings,
             artifact.CreatedAt);
     }
+
+    public static DeploymentResponse ToResponse(this DeploymentDocument deployment)
+    {
+        return new DeploymentResponse(
+            deployment.Id,
+            deployment.ProjectId,
+            deployment.ArtifactId,
+            deployment.Version,
+            deployment.Network,
+            deployment.ContractHash,
+            deployment.TransactionId,
+            deployment.DeployedBy,
+            deployment.Notes,
+            deployment.CreatedAt);
+    }
 }

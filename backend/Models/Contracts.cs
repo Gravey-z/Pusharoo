@@ -39,3 +39,23 @@ public sealed record ArtifactComparisonResponse(
 public sealed record ChangedMethodResponse(
     string Name,
     IReadOnlyList<string> Changes);
+
+public sealed record CreateDeploymentRequest(
+    string ArtifactId,
+    string Network,
+    string? ContractHash,
+    string? TransactionId,
+    string DeployedBy,
+    string? Notes);
+
+public sealed record DeploymentResponse(
+    string Id,
+    string ProjectId,
+    string ArtifactId,
+    string Version,
+    string Network,
+    string? ContractHash,
+    string? TransactionId,
+    string DeployedBy,
+    string? Notes,
+    DateTime CreatedAt);

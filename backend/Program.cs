@@ -8,8 +8,10 @@ builder.Services.Configure<MongoDbOptions>(builder.Configuration.GetSection(Mong
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<IArtifactRepository, ArtifactRepository>();
+builder.Services.AddScoped<IDeploymentRepository, DeploymentRepository>();
 builder.Services.AddScoped<ProjectService>();
 builder.Services.AddScoped<ArtifactService>();
+builder.Services.AddScoped<DeploymentService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>

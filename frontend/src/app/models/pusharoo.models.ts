@@ -66,6 +66,28 @@ export interface Artifact {
   createdAt: string;
 }
 
+export interface Deployment {
+  id: string;
+  projectId: string;
+  artifactId: string;
+  version: string;
+  network: string;
+  contractHash?: string | null;
+  transactionId?: string | null;
+  deployedBy: string;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface CreateDeploymentRequest {
+  artifactId: string;
+  network: string;
+  contractHash?: string | null;
+  transactionId?: string | null;
+  deployedBy: string;
+  notes?: string | null;
+}
+
 export interface ArtifactComparison {
   addedMethods: string[];
   removedMethods: string[];
@@ -83,6 +105,8 @@ export interface ProjectCardViewModel {
   project: Project;
   artifacts: Artifact[];
   latestArtifact: Artifact | null;
+  deployments: Deployment[];
+  latestDeployment: Deployment | null;
   deployed: boolean;
 }
 

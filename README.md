@@ -79,9 +79,12 @@ GET    /api/projects/{projectId}
 POST   /api/projects/{projectId}/artifacts
 GET    /api/projects/{projectId}/artifacts
 GET    /api/projects/{projectId}/artifacts/compare?from=v0.1.0&to=v0.1.1
+POST   /api/projects/{projectId}/deployments
+GET    /api/projects/{projectId}/deployments
 GET    /api/artifacts/{artifactId}
 
 GET    /api/artifacts/{artifactId}/manifest
+GET    /api/artifacts/{artifactId}/nef
 GET    /api/artifacts/{artifactId}/summary
 ```
 

@@ -3,6 +3,8 @@ import { WalletKit } from 'neo-n3-walletkit';
 import { toDataURL } from 'qrcode';
 import type {
   ConnectedAccount,
+  ContractArgs,
+  NetworkType,
   WalletProvider,
   WalletSession
 } from 'neo-n3-walletkit';
@@ -87,6 +89,52 @@ export class WalletService {
       this.status.set('idle');
       this.selectedProvider.set(null);
     }
+  }
+
+  async deployContract(
+    network: NetworkType,
+    nefHex: string,
+    manifestJson: string,
+    contractName: string
+  ): Promise<string> {
+    const session = this.session();
+    const walletKit = this.walletKit;
+
+    if (!walletKit || !session) {
+      throw new Error('Connect a wallet before deploying.');
+    }
+
+    if (session.network !== network) {
+      throw new Error(`Connected wallet is on ${session.network}. Select ${session.network} or reconnect on ${network}.`);
+    }
+
+    const contractManagementHash = walletConfig.contractManagement[network];
+    const contractManagement = walletKit.contract(contractManagementHash);
+    const nefValue = session.provider === 'onegate'
+      ? nefHex
+      : this.hexToBase64(nefHex);
+    const args: ContractArgs = [
+      { type: 'ByteArray', value: nefValue },
+      { type: 'String', value: manifestJson },
+      { type: 'Any', value: null }
+    ];
+
+    return await contractManagement.invoke(
+      'deploy',
+      args,
+      { context: `Deploy ${contractName} with Pusharoo` }
+    );
+  }
+
+  private hexToBase64(hex: string): string {
+    const cleanHex = hex.trim().replace(/^0x/i, '');
+    const bytes: string[] = [];
+
+    for (let index = 0; index < cleanHex.length; index += 2) {
+      bytes.push(String.fromCharCode(Number.parseInt(cleanHex.slice(index, index + 2), 16)));
+    }
+
+    return btoa(bytes.join(''));
   }
 
   private setWalletKit(walletKit: WalletKit): void {

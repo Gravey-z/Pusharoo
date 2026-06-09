@@ -57,6 +57,25 @@ Accept: application/json
 
 ###
 
+POST {{backend_HostAddress}}/api/projects/{{projectId}}/deployments
+Content-Type: application/json
+
+{
+  "artifactId": "{{artifactId}}",
+  "network": "neo3:testnet",
+  "contractHash": "0x0000000000000000000000000000000000000000",
+  "transactionId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "deployedBy": "NexampleWalletAddress",
+  "notes": "Initial testnet deployment"
+}
+
+###
+
+GET {{backend_HostAddress}}/api/projects/{{projectId}}/deployments
+Accept: application/json
+
+###
+
 GET {{backend_HostAddress}}/api/artifacts/{{artifactId}}
 Accept: application/json
 

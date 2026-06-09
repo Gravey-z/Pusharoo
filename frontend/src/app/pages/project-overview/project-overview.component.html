@@ -18,7 +18,13 @@
       >
         Compare Versions
       </a>
-      <button class="secondary-button" type="button" disabled>Add Deployment</button>
+      <a
+        class="secondary-button"
+        [class.disabled]="!overview.latestArtifact"
+        [routerLink]="overview.latestArtifact ? ['/projects', overview.project.id, 'deployments', 'new'] : null"
+      >
+        Deploy Contract
+      </a>
     </div>
 
     <section class="overview-layout">
@@ -26,6 +32,11 @@
         <span class="eyebrow">Latest artifact</span>
         <strong>{{ overview.latestArtifact?.version ?? 'None' }}</strong>
         <p>{{ overview.latestArtifact?.notes ?? 'No artifact uploaded yet.' }}</p>
+        @if (overview.latestDeployment) {
+          <p class="deployment-note">
+            Deployed {{ overview.latestDeployment.version }} on {{ overview.latestDeployment.network }}
+          </p>
+        }
       </div>
 
       <dl class="metric-grid">
@@ -55,6 +66,22 @@
           <span>{{ artifact.contractName }}</span>
           <span>{{ artifact.nefFileName }}</span>
         </a>
+      }
+    </section>
+
+    <section class="deployment-list" aria-label="Deployments">
+      <h2>Deployments</h2>
+      @if (overview.deployments.length) {
+        @for (deployment of overview.deployments; track deployment.id) {
+          <div>
+            <span>{{ deployment.version }}</span>
+            <span>{{ deployment.network }}</span>
+            <span>{{ deployment.contractHash ?? 'No contract hash' }}</span>
+            <span>{{ deployment.deployedBy }}</span>
+          </div>
+        }
+      } @else {
+        <p>No deployments recorded yet.</p>
       }
     </section>
   </app-page-shell>

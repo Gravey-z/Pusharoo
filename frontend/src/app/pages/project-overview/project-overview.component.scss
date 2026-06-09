@@ -120,6 +120,59 @@ dd {
   background: var(--card);
 }
 
+.deployment-note {
+  color: var(--sage);
+}
+
+.deployment-list {
+  display: grid;
+  gap: 0;
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.deployment-list h2 {
+  margin: 0;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 760;
+}
+
+.deployment-list div {
+  display: grid;
+  grid-template-columns: 100px 130px 1fr 1fr;
+  gap: 14px;
+  min-height: 48px;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.deployment-list div:last-child {
+  border-bottom: 0;
+}
+
+.deployment-list span {
+  overflow-wrap: anywhere;
+}
+
+.deployment-list span:first-child {
+  color: var(--accent);
+  font-weight: 760;
+}
+
+.deployment-list p {
+  padding: 16px;
+}
+
 .artifact-list a {
   display: grid;
   grid-template-columns: 120px 1fr 1fr;
@@ -152,7 +205,8 @@ dd {
 @media (max-width: 860px) {
   .overview-layout,
   .metric-grid,
-  .artifact-list a {
+  .artifact-list a,
+  .deployment-list div {
     grid-template-columns: 1fr;
   }
 

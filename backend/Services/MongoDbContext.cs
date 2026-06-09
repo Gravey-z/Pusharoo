@@ -15,9 +15,12 @@ public sealed class MongoDbContext
 
         Projects = database.GetCollection<ProjectDocument>("projects");
         ContractArtifacts = database.GetCollection<ArtifactDocument>("contractArtifacts");
+        Deployments = database.GetCollection<DeploymentDocument>("deployments");
     }
 
     public IMongoCollection<ProjectDocument> Projects { get; }
 
     public IMongoCollection<ArtifactDocument> ContractArtifacts { get; }
+
+    public IMongoCollection<DeploymentDocument> Deployments { get; }
 }

@@ -231,18 +231,24 @@ export const demoProjectCards: ProjectCardViewModel[] = [
     project: demoProject,
     artifacts: demoArtifacts.filter((artifact) => artifact.projectId === demoProject.id),
     latestArtifact: demoArtifacts.find((artifact) => artifact.projectId === demoProject.id) ?? null,
+    deployments: [],
+    latestDeployment: null,
     deployed: false
   },
   {
     project: pusharooProject,
     artifacts: demoArtifacts.filter((artifact) => artifact.projectId === pusharooProject.id),
     latestArtifact: demoArtifacts.find((artifact) => artifact.projectId === pusharooProject.id) ?? null,
+    deployments: [],
+    latestDeployment: null,
     deployed: false
   },
   {
     project: brainTeseeProject,
     artifacts: demoArtifacts.filter((artifact) => artifact.projectId === brainTeseeProject.id),
     latestArtifact: demoArtifacts.find((artifact) => artifact.projectId === brainTeseeProject.id) ?? null,
+    deployments: [],
+    latestDeployment: null,
     deployed: false
   }
 ];

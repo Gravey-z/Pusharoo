@@ -9,7 +9,8 @@ namespace backend.Controllers;
 [Route("api/projects")]
 public sealed class ProjectsController(
     ProjectService projectService,
-    ArtifactService artifactService) : ControllerBase
+    ArtifactService artifactService,
+    DeploymentService deploymentService) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<ProjectResponse>> CreateAsync(
@@ -157,6 +158,65 @@ public sealed class ProjectsController(
         return comparison is null
             ? NotFound(new { error = "One or both artifact versions were not found." })
             : Ok(comparison);
+    }
+
+    [HttpPost("{projectId}/deployments")]
+    public async Task<ActionResult<DeploymentResponse>> CreateDeploymentAsync(
+        string projectId,
+        CreateDeploymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var project = await projectService.GetByIdAsync(projectId, cancellationToken);
+        if (project is null)
+        {
+            return NotFound(new { error = "Project was not found." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ArtifactId))
+        {
+            return BadRequest(new { error = "Artifact is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Network))
+        {
+            return BadRequest(new { error = "Network is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.DeployedBy))
+        {
+            return BadRequest(new { error = "Wallet address is required." });
+        }
+
+        var artifact = await artifactService.GetByIdAsync(request.ArtifactId, cancellationToken);
+        if (artifact is null || artifact.ProjectId != projectId)
+        {
+            return BadRequest(new { error = "Artifact does not belong to this project." });
+        }
+
+        var deployment = await deploymentService.CreateAsync(
+            projectId,
+            artifact,
+            request,
+            cancellationToken);
+
+        return Created($"/api/projects/{projectId}/deployments/{deployment.Id}", deployment.ToResponse());
+    }
+
+    [HttpGet("{projectId}/deployments")]
+    public async Task<ActionResult<IReadOnlyList<DeploymentResponse>>> GetDeploymentsAsync(
+        string projectId,
+        CancellationToken cancellationToken)
+    {
+        var project = await projectService.GetByIdAsync(projectId, cancellationToken);
+        if (project is null)
+        {
+            return NotFound(new { error = "Project was not found." });
+        }
+
+        var deployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
+        var response = deployments.Select(deployment => deployment.ToResponse()).ToArray();
+
+        return Ok(response);
     }
 
     private static IFormFile? FindNefFile(IFormFileCollection files)

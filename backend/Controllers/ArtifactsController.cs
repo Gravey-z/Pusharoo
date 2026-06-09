@@ -28,6 +28,18 @@ public sealed class ArtifactsController(ArtifactService artifactService) : Contr
         return artifact is null ? NotFound() : Ok(artifact.Manifest);
     }
 
+    [HttpGet("{artifactId}/nef")]
+    public async Task<IActionResult> GetNefAsync(
+        string artifactId,
+        CancellationToken cancellationToken)
+    {
+        var artifact = await artifactService.GetByIdAsync(artifactId, cancellationToken);
+
+        return artifact is null
+            ? NotFound()
+            : File(artifact.Nef, "application/octet-stream", artifact.NefFileName);
+    }
+
     [HttpGet("{artifactId}/summary")]
     public async Task<ActionResult<ArtifactSummary>> GetSummaryAsync(
         string artifactId,
