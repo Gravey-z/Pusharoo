@@ -17,6 +17,7 @@ export class ArtifactUploadComponent implements OnInit {
   manifestFile: File | null = null;
   isUploading = false;
   errorMessage = '';
+  manifestWarning = '';
   latestVersion = '';
   suggestedVersion = '';
   existingVersions: string[] = [];
@@ -52,8 +53,30 @@ export class ArtifactUploadComponent implements OnInit {
     this.nefFile = this.getFile(event);
   }
 
-  onManifestSelected(event: Event): void {
+  async onManifestSelected(event: Event): Promise<void> {
     this.manifestFile = this.getFile(event);
+    this.manifestWarning = '';
+
+    if (!this.manifestFile) {
+      return;
+    }
+
+    try {
+      const manifest = JSON.parse(await this.manifestFile.text()) as {
+        abi?: {
+          methods?: Array<{ name?: string }>;
+        };
+      };
+      const hasUpdateMethod = manifest.abi?.methods?.some((method) =>
+        method.name === 'update'
+      ) ?? false;
+
+      if (!hasUpdateMethod) {
+        this.manifestWarning = 'This contract manifest has no update method. If something is wrong after deployment, Pusharoo cannot update this contract.';
+      }
+    } catch {
+      this.manifestWarning = 'Pusharoo could not read this manifest yet. Make sure it is valid contract manifest JSON before uploading.';
+    }
   }
 
   upload(): void {

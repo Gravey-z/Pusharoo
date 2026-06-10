@@ -76,7 +76,8 @@ textarea {
 }
 
 .version-hint,
-.version-warning {
+.version-warning,
+.manifest-warning {
   font-size: 13px;
   font-weight: 650;
 }
@@ -87,6 +88,15 @@ textarea {
 
 .version-warning {
   color: var(--danger);
+}
+
+.manifest-warning {
+  border: 1px solid rgba(255, 198, 107, 0.28);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 198, 107, 0.08);
+  color: #ffc66b;
+  line-height: 1.45;
 }
 
 .form-error {

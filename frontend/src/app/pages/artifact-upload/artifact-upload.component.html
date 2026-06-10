@@ -30,6 +30,9 @@
         accept=".json,.manifest.json"
         (change)="onManifestSelected($event)"
       />
+      @if (manifestWarning) {
+        <small class="manifest-warning">{{ manifestWarning }}</small>
+      }
     </label>
 
     <label>
