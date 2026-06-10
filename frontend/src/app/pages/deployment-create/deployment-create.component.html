@@ -1,4 +1,4 @@
-<app-page-shell title="Deploy Contract">
+<app-page-shell [title]="pageTitle">
   <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
 
   @if (overview) {
@@ -25,10 +25,7 @@
           <input type="text" name="deployedBy" [value]="walletAddress() || 'Connect wallet first'" readonly />
         </label>
 
-        <label>
-          <span>Contract hash</span>
-          <input type="text" name="contractHash" [(ngModel)]="contractHash" placeholder="Optional, if already known" />
-        </label>
+        <p class="network-status">{{ networkDeploymentStatus }}</p>
 
         <label>
           <span>Notes</span>
@@ -44,7 +41,7 @@
         }
 
         <button class="primary-button" type="submit" [disabled]="isSaving">
-          {{ isSaving ? 'Deploying...' : 'Deploy Contract' }}
+          {{ submitLabel }}
         </button>
       </form>
     } @else {

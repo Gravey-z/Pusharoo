@@ -44,6 +44,10 @@
             <dt>Status</dt>
             <dd>{{ item.deployed ? 'Deployed' : 'Not deployed' }}</dd>
           </div>
+          <div>
+            <dt>Networks</dt>
+            <dd>{{ deploymentNetworkSummary(item) }}</dd>
+          </div>
         </dl>
       </a>
     }

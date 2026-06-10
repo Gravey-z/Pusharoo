@@ -60,6 +60,12 @@ export class ProjectsComponent implements OnInit {
     });
   }
 
+  deploymentNetworkSummary(item: ProjectCardViewModel): string {
+    const networks = [...new Set(item.deployments.map((deployment) => deployment.network))];
+
+    return networks.length > 0 ? networks.join(', ') : 'Not deployed';
+  }
+
   private loadProjects(): void {
     this.projects$ = this.api.getProjectCards();
   }

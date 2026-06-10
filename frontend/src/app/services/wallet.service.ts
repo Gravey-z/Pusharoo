@@ -126,6 +126,40 @@ export class WalletService {
     );
   }
 
+  async updateContract(
+    network: NetworkType,
+    contractHash: string,
+    nefHex: string,
+    manifestJson: string,
+    contractName: string
+  ): Promise<string> {
+    const session = this.session();
+    const walletKit = this.walletKit;
+
+    if (!walletKit || !session) {
+      throw new Error('Connect a wallet before updating.');
+    }
+
+    if (session.network !== network) {
+      throw new Error(`Connected wallet is on ${session.network}. Reconnect on ${network}.`);
+    }
+
+    const contract = walletKit.contract(contractHash);
+    const nefValue = session.provider === 'onegate'
+      ? nefHex
+      : this.hexToBase64(nefHex);
+    const args: ContractArgs = [
+      { type: 'ByteArray', value: nefValue },
+      { type: 'String', value: manifestJson }
+    ];
+
+    return await contract.invoke(
+      'update',
+      args,
+      { context: `Update ${contractName} with Pusharoo` }
+    );
+  }
+
   private hexToBase64(hex: string): string {
     const cleanHex = hex.trim().replace(/^0x/i, '');
     const bytes: string[] = [];

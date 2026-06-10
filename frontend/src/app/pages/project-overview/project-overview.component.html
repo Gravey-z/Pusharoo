@@ -61,10 +61,20 @@
 
     <section class="artifact-list" aria-label="Artifacts">
       @for (artifact of overview.artifacts; track artifact.id) {
-        <a [routerLink]="['/artifacts', artifact.id, 'manifest']">
+        <a
+          [class.deployed-artifact]="isArtifactDeployed(overview, artifact)"
+          [routerLink]="['/artifacts', artifact.id, 'manifest']"
+        >
           <span>{{ artifact.version }}</span>
           <span>{{ artifact.contractName }}</span>
           <span>{{ artifact.nefFileName }}</span>
+          <span class="artifact-deployment-state">
+            @if (artifactNetworks(overview, artifact).length) {
+              @for (network of artifactNetworks(overview, artifact); track network) {
+                <span class="network-pill">{{ network }}</span>
+              }
+            }
+          </span>
         </a>
       }
     </section>
@@ -75,9 +85,39 @@
         @for (deployment of overview.deployments; track deployment.id) {
           <div>
             <span>{{ deployment.version }}</span>
-            <span>{{ deployment.network }}</span>
-            <span>{{ deployment.contractHash ?? 'No contract hash' }}</span>
-            <span>{{ deployment.deployedBy }}</span>
+            <span class="network-pill">{{ deployment.network }}</span>
+            @if (deployment.contractHash) {
+              <button
+                class="copy-chip"
+                type="button"
+                [title]="deployment.contractHash"
+                (click)="copyValue(deployment.contractHash, $event)"
+              >
+                {{ copiedValue === deployment.contractHash ? 'Copied' : shortText(deployment.contractHash, 10, 4) }}
+              </button>
+            } @else {
+              <span>No contract hash</span>
+            }
+            @if (deployment.transactionId) {
+              <button
+                class="copy-chip"
+                type="button"
+                [title]="deployment.transactionId"
+                (click)="copyValue(deployment.transactionId, $event)"
+              >
+                {{ copiedValue === deployment.transactionId ? 'Copied' : shortTransactionId(deployment.transactionId) }}
+              </button>
+            } @else {
+              <span>No txid</span>
+            }
+            <button
+              class="copy-chip"
+              type="button"
+              [title]="deployment.deployedBy"
+              (click)="copyValue(deployment.deployedBy, $event)"
+            >
+              {{ copiedValue === deployment.deployedBy ? 'Copied' : shortText(deployment.deployedBy) }}
+            </button>
           </div>
         }
       } @else {

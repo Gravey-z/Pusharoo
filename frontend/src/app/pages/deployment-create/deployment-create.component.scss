@@ -82,6 +82,23 @@ textarea {
   resize: vertical;
 }
 
+.hint,
+.network-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.network-status {
+  border: 1px solid rgba(21, 244, 200, 0.24);
+  border-radius: 8px;
+  padding: 11px 12px;
+  background: rgba(21, 244, 200, 0.07);
+  color: var(--sage);
+  font-weight: 690;
+}
+
 .form-status,
 .form-error,
 .missing {

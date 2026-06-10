@@ -146,7 +146,7 @@ dd {
 
 .deployment-list div {
   display: grid;
-  grid-template-columns: 100px 130px 1fr 1fr;
+  grid-template-columns: 100px 130px 1fr 1fr 1fr;
   gap: 14px;
   min-height: 48px;
   align-items: center;
@@ -169,13 +169,41 @@ dd {
   font-weight: 760;
 }
 
+.network-pill {
+  width: fit-content;
+  border: 1px solid rgba(21, 244, 200, 0.28);
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: rgba(21, 244, 200, 0.08);
+  color: var(--sage);
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.copy-chip {
+  width: fit-content;
+  border: 0;
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: rgba(0, 214, 255, 0.08);
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.copy-chip:hover {
+  background: rgba(0, 214, 255, 0.16);
+}
+
 .deployment-list p {
   padding: 16px;
 }
 
 .artifact-list a {
   display: grid;
-  grid-template-columns: 120px 1fr 1fr;
+  grid-template-columns: 120px 1fr 1fr minmax(160px, auto);
   gap: 14px;
   min-height: 48px;
   align-items: center;
@@ -190,12 +218,24 @@ dd {
   background: var(--accent-soft);
 }
 
+.artifact-list a.deployed-artifact {
+  background: linear-gradient(90deg, rgba(21, 244, 200, 0.1), rgba(0, 214, 255, 0.04));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
 .artifact-list a:last-child {
   border-bottom: 0;
 }
 
 .artifact-list span:first-child {
   font-weight: 760;
+}
+
+.artifact-deployment-state {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .missing {
@@ -208,6 +248,10 @@ dd {
   .artifact-list a,
   .deployment-list div {
     grid-template-columns: 1fr;
+  }
+
+  .artifact-deployment-state {
+    justify-content: flex-start;
   }
 
   .metric-grid div {

@@ -146,6 +146,8 @@ dd {
   font-size: 13px;
   font-weight: 760;
   color: var(--accent);
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 680px) {
