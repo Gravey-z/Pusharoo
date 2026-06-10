@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { ClipboardService } from '../../services/clipboard.service';
 import { WalletService } from '../../services/wallet.service';
 
 type WalletDialogView = 'options' | 'neon';
@@ -14,7 +15,10 @@ export class WalletConnectComponent {
   copiedMessage = '';
   private copiedMessageTimeoutId: number | null = null;
 
-  constructor(readonly wallet: WalletService) {}
+  constructor(
+    private readonly clipboard: ClipboardService,
+    readonly wallet: WalletService
+  ) {}
 
   openDialog(): void {
     this.isDialogOpen = true;
@@ -54,26 +58,10 @@ export class WalletConnectComponent {
       return;
     }
 
-    void this.copyText(uri).then(() => {
+    void this.clipboard.copy(uri).then(() => {
       this.copiedMessage = 'Copied';
       this.resetCopiedMessageTimer();
     });
-  }
-
-  private async copyText(value: string): Promise<void> {
-    if (navigator.clipboard) {
-      await navigator.clipboard.writeText(value);
-      return;
-    }
-
-    const textarea = document.createElement('textarea');
-    textarea.value = value;
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.append(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    textarea.remove();
   }
 
   private resetCopiedMessageTimer(): void {

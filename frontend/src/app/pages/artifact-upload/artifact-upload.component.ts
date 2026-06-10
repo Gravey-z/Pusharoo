@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ContractManifestAnalyzerService } from '../../services/contract-manifest-analyzer.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 
@@ -26,7 +27,8 @@ export class ArtifactUploadComponent implements OnInit {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly router: Router,
-    private readonly api: PusharooApiService
+    private readonly api: PusharooApiService,
+    private readonly manifestAnalyzer: ContractManifestAnalyzerService
   ) {
     this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
   }
@@ -61,22 +63,7 @@ export class ArtifactUploadComponent implements OnInit {
       return;
     }
 
-    try {
-      const manifest = JSON.parse(await this.manifestFile.text()) as {
-        abi?: {
-          methods?: Array<{ name?: string }>;
-        };
-      };
-      const hasUpdateMethod = manifest.abi?.methods?.some((method) =>
-        method.name === 'update'
-      ) ?? false;
-
-      if (!hasUpdateMethod) {
-        this.manifestWarning = 'This contract manifest has no update method. If something is wrong after deployment, Pusharoo cannot update this contract.';
-      }
-    } catch {
-      this.manifestWarning = 'Pusharoo could not read this manifest yet. Make sure it is valid contract manifest JSON before uploading.';
-    }
+    this.manifestWarning = await this.manifestAnalyzer.getUpdateWarning(this.manifestFile);
   }
 
   upload(): void {

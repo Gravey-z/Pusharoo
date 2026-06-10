@@ -3,6 +3,8 @@ import { AsyncPipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable, map, switchMap } from 'rxjs';
 import { Artifact, Deployment, ProjectOverviewViewModel } from '../../models/pusharoo.models';
+import { ClipboardService } from '../../services/clipboard.service';
+import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 
@@ -18,7 +20,9 @@ export class ProjectOverviewComponent implements OnInit {
 
   constructor(
     private readonly route: ActivatedRoute,
-    private readonly api: PusharooApiService
+    private readonly api: PusharooApiService,
+    private readonly clipboard: ClipboardService,
+    private readonly deploymentHistory: DeploymentHistoryService
   ) {}
 
   ngOnInit(): void {
@@ -29,12 +33,11 @@ export class ProjectOverviewComponent implements OnInit {
   }
 
   artifactDeployments(overview: ProjectOverviewViewModel, artifact: Artifact): Deployment[] {
-    return this.latestDeploymentsByNetwork(overview)
-      .filter((deployment) => deployment.artifactId === artifact.id);
+    return this.deploymentHistory.latestForArtifact(overview, artifact);
   }
 
   artifactNetworks(overview: ProjectOverviewViewModel, artifact: Artifact): string[] {
-    return [...new Set(this.artifactDeployments(overview, artifact).map((deployment) => deployment.network))];
+    return this.deploymentHistory.networksForLatestArtifact(overview, artifact);
   }
 
   isArtifactDeployed(overview: ProjectOverviewViewModel, artifact: Artifact): boolean {
@@ -65,26 +68,12 @@ export class ProjectOverviewComponent implements OnInit {
       return;
     }
 
-    await navigator.clipboard.writeText(value);
+    await this.clipboard.copy(value);
     this.copiedValue = value;
     window.setTimeout(() => {
       if (this.copiedValue === value) {
         this.copiedValue = '';
       }
     }, 1400);
-  }
-
-  private latestDeploymentsByNetwork(overview: ProjectOverviewViewModel): Deployment[] {
-    return [...overview.deployments.reduce((latestByNetwork, deployment) => {
-      const current = latestByNetwork.get(deployment.network);
-      const deploymentTime = new Date(deployment.createdAt).getTime();
-      const currentTime = current ? new Date(current.createdAt).getTime() : 0;
-
-      if (!current || deploymentTime > currentTime) {
-        latestByNetwork.set(deployment.network, deployment);
-      }
-
-      return latestByNetwork;
-    }, new Map<string, Deployment>()).values()];
   }
 }
