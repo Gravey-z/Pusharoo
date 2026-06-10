@@ -15,6 +15,7 @@ type ConnectableWalletProvider = Extract<WalletProvider, 'neoline' | 'onegate' |
 
 @Injectable({ providedIn: 'root' })
 export class WalletService {
+  private readonly providerStorageKey = 'pusharoo.walletProvider';
   private walletKit: WalletKit | null = null;
   private unsubscribeSession: (() => void) | null = null;
 
@@ -43,6 +44,39 @@ export class WalletService {
     return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
   });
 
+  async restoreSavedSession(): Promise<void> {
+    if (this.session() || this.status() === 'connecting') {
+      return;
+    }
+
+    const provider = this.getSavedProvider();
+
+    if (!provider) {
+      return;
+    }
+
+    this.status.set('connecting');
+    this.errorMessage.set('');
+    this.selectedProvider.set(provider);
+
+    try {
+      const walletKit = await this.initWalletKit(provider);
+      const session = walletKit.isConnected ? walletKit.wallet.session : null;
+
+      if (!session) {
+        this.clearSavedProvider();
+        this.resetWalletState();
+        return;
+      }
+
+      this.setWalletKit(walletKit);
+      this.setSession(session);
+    } catch {
+      this.clearSavedProvider();
+      this.resetWalletState();
+    }
+  }
+
   async connect(provider: ConnectableWalletProvider): Promise<void> {
     this.status.set('connecting');
     this.errorMessage.set('');
@@ -51,11 +85,9 @@ export class WalletService {
     this.walletConnectQrCode.set('');
 
     try {
-      const walletKit = provider === 'neoline'
-        ? await WalletKit.initNeoLine({ network: walletConfig.network })
-        : provider === 'onegate'
-          ? await WalletKit.initOneGate({ network: walletConfig.network })
-          : await this.startWalletConnectApproval();
+      const walletKit = provider === 'walletconnect'
+        ? await this.startWalletConnectApproval()
+        : await this.initWalletKit(provider);
 
       const session = provider === 'walletconnect'
         ? null
@@ -88,6 +120,7 @@ export class WalletService {
       this.walletConnectQrCode.set('');
       this.status.set('idle');
       this.selectedProvider.set(null);
+      this.clearSavedProvider();
     }
   }
 
@@ -178,6 +211,14 @@ export class WalletService {
       this.session.set(session);
       this.account.set(walletKit.account);
       this.status.set(session ? 'connected' : 'idle');
+
+      if (session && this.isConnectableProvider(session.provider)) {
+        this.selectedProvider.set(session.provider);
+        this.saveProvider(session.provider);
+      } else if (!session) {
+        this.selectedProvider.set(null);
+        this.clearSavedProvider();
+      }
     });
   }
 
@@ -185,6 +226,75 @@ export class WalletService {
     this.session.set(session);
     this.account.set(this.walletKit?.account ?? null);
     this.status.set('connected');
+
+    if (this.isConnectableProvider(session.provider)) {
+      this.selectedProvider.set(session.provider);
+      this.saveProvider(session.provider);
+    }
+  }
+
+  private resetWalletState(): void {
+    this.unsubscribeSession?.();
+    this.unsubscribeSession = null;
+    this.walletKit = null;
+    this.account.set(null);
+    this.session.set(null);
+    this.walletConnectUri.set('');
+    this.walletConnectQrCode.set('');
+    this.status.set('idle');
+    this.selectedProvider.set(null);
+  }
+
+  private async initWalletKit(provider: ConnectableWalletProvider): Promise<WalletKit> {
+    if (provider === 'neoline') {
+      return await WalletKit.initNeoLine({ network: walletConfig.network });
+    }
+
+    if (provider === 'onegate') {
+      return await WalletKit.initOneGate({ network: walletConfig.network });
+    }
+
+    return await WalletKit.init({
+      projectId: this.getWalletConnectProjectId(),
+      relayUrl: 'wss://relay.walletconnect.com',
+      metadata: {
+        name: 'Pusharoo',
+        description: 'Neo smart contract artifact workspace',
+        url: window.location.origin,
+        icons: [`${window.location.origin}/pusharoo-logo.png`]
+      },
+      network: walletConfig.network
+    });
+  }
+
+  private getSavedProvider(): ConnectableWalletProvider | null {
+    try {
+      const provider = localStorage.getItem(this.providerStorageKey);
+
+      return this.isConnectableProvider(provider) ? provider : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private saveProvider(provider: ConnectableWalletProvider): void {
+    try {
+      localStorage.setItem(this.providerStorageKey, provider);
+    } catch {
+      // Storage can be blocked in private or embedded browser contexts.
+    }
+  }
+
+  private clearSavedProvider(): void {
+    try {
+      localStorage.removeItem(this.providerStorageKey);
+    } catch {
+      // Storage can be blocked in private or embedded browser contexts.
+    }
+  }
+
+  private isConnectableProvider(provider: unknown): provider is ConnectableWalletProvider {
+    return provider === 'neoline' || provider === 'onegate' || provider === 'walletconnect';
   }
 
   private getErrorMessage(error: unknown, provider: ConnectableWalletProvider): string {
@@ -214,17 +324,7 @@ export class WalletService {
   }
 
   private async startWalletConnectApproval(): Promise<WalletKit> {
-    const walletKit = await WalletKit.init({
-      projectId: this.getWalletConnectProjectId(),
-      relayUrl: 'wss://relay.walletconnect.com',
-      metadata: {
-        name: 'Pusharoo',
-        description: 'Neo smart contract artifact workspace',
-        url: window.location.origin,
-        icons: [`${window.location.origin}/pusharoo-logo.png`]
-      },
-      network: walletConfig.network
-    });
+    const walletKit = await this.initWalletKit('walletconnect');
     const { uri, approval } = await walletKit.createConnection();
 
     if (!uri) {
