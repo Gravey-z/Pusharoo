@@ -1,2 +1,4 @@
 /backend/bin/
 /backend/obj/
+/event-relay/bin/
+/event-relay/obj/

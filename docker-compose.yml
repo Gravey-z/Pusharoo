@@ -22,6 +22,24 @@ services:
     ports:
       - "4200:80"
 
+  event-relay:
+    build:
+      context: ./event-relay
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      MongoDb__ConnectionString: mongodb://mongo:27017
+      MongoDb__DatabaseName: Pusharoo
+      NeoRpc__Endpoint: https://mainnet1.neo.coz.io:443
+      NeoRpc__Network: mainnet
+      NeoRpc__PollIntervalSeconds: 15
+      NeoRpc__MaxBlocksPerPoll: 10
+    ports:
+      - "5001:8080"
+    depends_on:
+      - mongo
+
   mongo:
     image: mongo:8
     ports:
