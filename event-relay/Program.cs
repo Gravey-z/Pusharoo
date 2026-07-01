@@ -15,6 +15,16 @@ builder.Services.AddScoped<IEventCheckpointRepository, EventCheckpointRepository
 builder.Services.AddHttpClient<NeoRpcClient>();
 builder.Services.AddHttpClient<WebhookDeliveryService>();
 builder.Services.AddHostedService<NeoEventMonitorService>();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:4200")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
@@ -26,6 +36,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.UseCors("Frontend");
 app.MapControllers();
 
 app.Run();

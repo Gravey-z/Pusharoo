@@ -1,0 +1,126 @@
+<app-page-shell [title]="pageTitle">
+  <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
+
+  @if (overview) {
+    @if (deploymentOptions.length) {
+      <section class="webhook-layout">
+        <form class="webhook-form" (ngSubmit)="save()">
+          <label>
+            <span>Name</span>
+            <input
+              type="text"
+              name="name"
+              [(ngModel)]="name"
+              placeholder="Transfer notifications"
+            />
+          </label>
+
+          <label>
+            <span>Contract</span>
+            <select name="contractHash" [(ngModel)]="contractHash">
+              @for (deployment of deploymentOptions; track deployment.contractHash) {
+                <option [value]="deployment.contractHash">
+                  {{ deployment.label }} - {{ shortHash(deployment.contractHash) }}
+                </option>
+              }
+            </select>
+          </label>
+
+          <label>
+            <span>Event</span>
+            <select name="eventName" [(ngModel)]="eventName">
+              <option value="">All events</option>
+              @for (event of eventOptions; track event) {
+                <option [value]="event">{{ event }}</option>
+              }
+            </select>
+          </label>
+
+          <label>
+            <span>Endpoint URL</span>
+            <input
+              type="url"
+              name="webhookUrl"
+              [(ngModel)]="webhookUrl"
+              placeholder="https://example.com/neo-events"
+            />
+          </label>
+
+          <label>
+            <span>Signing secret</span>
+            <input
+              type="password"
+              name="secret"
+              [(ngModel)]="secret"
+              placeholder="Optional"
+              autocomplete="new-password"
+            />
+          </label>
+
+          <p class="hint">
+            Pusharoo Relay will POST matching Neo events to this endpoint. A signing secret adds
+            an HMAC signature header.
+          </p>
+
+          @if (formStatus) {
+            <p class="form-status">{{ formStatus }}</p>
+          }
+
+          @if (errorMessage) {
+            <p class="form-error">{{ errorMessage }}</p>
+          }
+
+          <button class="primary-button" type="submit" [disabled]="isSaving">
+            {{ isSaving ? 'Creating...' : 'Create Webhook' }}
+          </button>
+        </form>
+
+        <section class="subscription-list" aria-label="Event webhook subscriptions">
+          <h2>Project webhooks</h2>
+          @if (subscriptions.length) {
+            @for (subscription of subscriptions; track subscription.id) {
+              @let delivery = latestDelivery(subscription.id);
+              <article>
+                <div>
+                  <strong>{{ subscription.name }}</strong>
+                  <span>{{ eventLabel(subscription) }}</span>
+                </div>
+                <span>{{ shortHash(subscription.contractHash) }}</span>
+                <span class="url">{{ subscription.webhookUrl }}</span>
+                <span
+                  class="status-pill"
+                  [class.success]="delivery?.succeeded"
+                  [class.failed]="delivery && !delivery.succeeded"
+                >
+                  @if (delivery) {
+                    {{ delivery.succeeded ? 'Delivered' : 'Failed' }}
+                  } @else {
+                    No deliveries
+                  }
+                </span>
+                <span>
+                  {{ delivery?.deliveredAt ? (delivery?.deliveredAt | date: 'short') : '-' }}
+                </span>
+              </article>
+            }
+          } @else {
+            <div class="empty-webhooks">
+              <strong>No webhooks yet</strong>
+              <p>Create one to send matching Neo contract events to your endpoint.</p>
+            </div>
+          }
+        </section>
+      </section>
+    } @else {
+      <section class="empty-state">
+        <strong>No deployed contract yet</strong>
+        <p>Deploy this project and save a contract hash before creating event webhooks.</p>
+        <a class="primary-button" [routerLink]="['/projects', projectId, 'deployments', 'new']">
+          Deploy Contract
+        </a>
+      </section>
+    }
+  } @else {
+    <p class="missing">Project not found.</p>
+  }
+</app-page-shell>

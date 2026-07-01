@@ -6,19 +6,23 @@ import {
   ArtifactComparison,
   ChangedMethod,
   CreateDeploymentRequest,
+  CreateWebhookSubscriptionRequest,
   Deployment,
   NeoMethod,
   NeoParameter,
   NeoPermission,
   Project,
   ProjectCardViewModel,
-  ProjectOverviewViewModel
+  ProjectOverviewViewModel,
+  WebhookDelivery,
+  WebhookSubscription
 } from '../models/pusharoo.models';
 import { demoArtifacts, demoProjectCards } from './demo-data';
 
 @Injectable({ providedIn: 'root' })
 export class PusharooApiService {
   private readonly apiBaseUrl = 'http://localhost:5000/api';
+  private readonly eventRelayBaseUrl = 'http://localhost:5001/api';
 
   constructor(private readonly http: HttpClient) {}
 
@@ -131,6 +135,32 @@ export class PusharooApiService {
   getDeployments(projectId: string): Observable<Deployment[]> {
     return this.http
       .get<Deployment[]>(`${this.apiBaseUrl}/projects/${projectId}/deployments`)
+      .pipe(catchError(() => of([])));
+  }
+
+  getWebhookSubscriptions(projectId?: string): Observable<WebhookSubscription[]> {
+    return this.http.get<WebhookSubscription[]>(`${this.eventRelayBaseUrl}/subscriptions`).pipe(
+      map((subscriptions) =>
+        projectId
+          ? subscriptions.filter((subscription) => subscription.projectId === projectId)
+          : subscriptions
+      ),
+      catchError(() => of([]))
+    );
+  }
+
+  createWebhookSubscription(
+    request: CreateWebhookSubscriptionRequest
+  ): Observable<WebhookSubscription> {
+    return this.http.post<WebhookSubscription>(
+      `${this.eventRelayBaseUrl}/subscriptions`,
+      request
+    );
+  }
+
+  getWebhookDeliveries(subscriptionId: string): Observable<WebhookDelivery[]> {
+    return this.http
+      .get<WebhookDelivery[]>(`${this.eventRelayBaseUrl}/subscriptions/${subscriptionId}/deliveries`)
       .pipe(catchError(() => of([])));
   }
 

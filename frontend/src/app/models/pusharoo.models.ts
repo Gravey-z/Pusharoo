@@ -101,6 +101,41 @@ export interface ChangedMethod {
   changes: string[];
 }
 
+export interface WebhookSubscription {
+  id: string;
+  projectId?: string | null;
+  name: string;
+  contractHash: string;
+  eventName?: string | null;
+  webhookUrl: string;
+  headers: Record<string, string>;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateWebhookSubscriptionRequest {
+  name: string;
+  contractHash: string;
+  eventName?: string | null;
+  webhookUrl: string;
+  projectId?: string | null;
+  secret?: string | null;
+  headers?: Record<string, string>;
+  isEnabled: boolean;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  subscriptionId: string;
+  eventId: string;
+  webhookUrl: string;
+  statusCode?: number | null;
+  succeeded: boolean;
+  error?: string | null;
+  deliveredAt: string;
+}
+
 export interface ProjectCardViewModel {
   project: Project;
   artifacts: Artifact[];

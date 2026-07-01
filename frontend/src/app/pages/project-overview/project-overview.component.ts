@@ -44,6 +44,10 @@ export class ProjectOverviewComponent implements OnInit {
     return this.artifactDeployments(overview, artifact).length > 0;
   }
 
+  hasWebhookTarget(overview: ProjectOverviewViewModel): boolean {
+    return overview.deployments.some((deployment) => Boolean(deployment.contractHash));
+  }
+
   shortText(value: string | null | undefined, leading = 3, trailing = 4): string {
     if (!value) {
       return '-';

@@ -25,6 +25,13 @@
       >
         Deploy Contract
       </a>
+      <a
+        class="secondary-button"
+        [class.disabled]="!hasWebhookTarget(overview)"
+        [routerLink]="hasWebhookTarget(overview) ? ['/projects', overview.project.id, 'webhooks'] : null"
+      >
+        Event Webhooks
+      </a>
     </div>
 
     <section class="overview-layout">
