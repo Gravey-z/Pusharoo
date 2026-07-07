@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { ContractManifestAnalyzerService } from '../../services/contract-manifest-analyzer.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
@@ -73,7 +74,7 @@ export class ArtifactUploadComponent implements OnInit {
     this.manifestWarning = await this.manifestAnalyzer.getUpdateWarning(this.manifestFile);
   }
 
-  upload(): void {
+  async upload(): Promise<void> {
     this.errorMessage = '';
 
     if (!this.version.trim()) {
@@ -104,26 +105,41 @@ export class ArtifactUploadComponent implements OnInit {
       return;
     }
 
+    const nefFile = this.nefFile;
+    const manifestFile = this.manifestFile;
     this.isUploading = true;
-    this.api
-      .uploadArtifact(
+
+    try {
+      const signature = await this.wallet.signArtifactUpload(
         this.projectId,
         this.version.trim(),
         this.notes,
-        walletAddress,
-        this.nefFile,
-        this.manifestFile
-      )
-      .subscribe({
-        next: () => {
-          this.isUploading = false;
-          void this.router.navigate(['/projects', this.projectId]);
-        },
-        error: () => {
-          this.isUploading = false;
-          this.errorMessage = 'Could not upload artifact.';
-        }
-      });
+        nefFile,
+        manifestFile
+      );
+
+      await firstValueFrom(this.api.uploadArtifact(
+        this.projectId,
+        this.version.trim(),
+        this.notes,
+        signature,
+        nefFile,
+        manifestFile
+      ));
+      await this.router.navigate(['/projects', this.projectId]);
+    } catch (error) {
+      this.errorMessage = this.getErrorMessage(error);
+    } finally {
+      this.isUploading = false;
+    }
+  }
+
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    return 'Could not upload artifact.';
   }
 
   private getFile(event: Event): File | null {

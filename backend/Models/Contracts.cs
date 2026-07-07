@@ -3,9 +3,9 @@ namespace backend.Models;
 public sealed record CreateProjectRequest(
     string Name,
     string? Description,
-    ProjectCreationSignatureRequest? Signature);
+    WalletSignatureRequest? Signature);
 
-public sealed record ProjectCreationSignatureRequest(
+public sealed record WalletSignatureRequest(
     string Address,
     string ScriptHash,
     string Network,

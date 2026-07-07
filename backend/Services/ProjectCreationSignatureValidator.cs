@@ -5,7 +5,7 @@ using backend.Models;
 
 namespace backend.Services;
 
-public sealed class ProjectCreationSignatureValidator
+public sealed class ProjectCreationSignatureValidator(NeoWalletSignatureVerifier signatureVerifier)
 {
     private static readonly TimeSpan MaxSignatureAge = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan MaxClockSkew = TimeSpan.FromMinutes(2);
@@ -74,10 +74,16 @@ public sealed class ProjectCreationSignatureValidator
             return Fail("Wallet signature message does not match the project request.");
         }
 
+        var walletSignatureValidation = signatureVerifier.Verify(signature, expectedMessage);
+        if (!walletSignatureValidation.IsValid)
+        {
+            return Fail(walletSignatureValidation.Error);
+        }
+
         return ProjectCreationSignatureValidationResult.Valid;
     }
 
-    private static string? ValidateRequiredFields(ProjectCreationSignatureRequest signature)
+    private static string? ValidateRequiredFields(WalletSignatureRequest signature)
     {
         if (string.IsNullOrWhiteSpace(signature.Address))
         {
@@ -150,7 +156,7 @@ public sealed class ProjectCreationSignatureValidator
 
     private static string BuildMessage(
         CreateProjectRequest request,
-        ProjectCreationSignatureRequest signature)
+        WalletSignatureRequest signature)
     {
         var normalizedName = request.Name.Trim();
         var normalizedDescription = string.IsNullOrWhiteSpace(request.Description)

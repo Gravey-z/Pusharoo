@@ -18,6 +18,7 @@ public sealed class ProjectService(IProjectRepository projects)
             Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
             CreatedByWalletAddress = signature.Address.Trim(),
             CreatedByWalletScriptHash = signature.ScriptHash.Trim(),
+            CreatedByWalletPublicKey = signature.PublicKey.Trim(),
             CreatorNetwork = signature.Network.Trim(),
             CreatedAt = DateTime.UtcNow
         };

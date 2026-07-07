@@ -12,8 +12,11 @@ public sealed class ProjectsController(
     ArtifactService artifactService,
     DeploymentService deploymentService,
     ProjectCreationSignatureValidator projectCreationSignatureValidator,
+    ProjectManagementSignatureValidator projectManagementSignatureValidator,
     ProjectOwnershipService projectOwnershipService) : ControllerBase
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
     [HttpPost]
     public async Task<ActionResult<ProjectResponse>> CreateAsync(
         CreateProjectRequest request,
@@ -76,13 +79,6 @@ public sealed class ProjectsController(
         var form = await Request.ReadFormAsync(cancellationToken);
         var version = form["version"].FirstOrDefault();
         var notes = form["notes"].FirstOrDefault();
-        var uploadedBy = form["uploadedBy"].FirstOrDefault();
-
-        var ownershipValidation = projectOwnershipService.ValidateCanManage(project, uploadedBy);
-        if (!ownershipValidation.IsValid)
-        {
-            return ForbidWithError(ownershipValidation.Error);
-        }
 
         if (string.IsNullOrWhiteSpace(version))
         {
@@ -103,6 +99,23 @@ public sealed class ProjectsController(
 
         var nefBytes = await ReadBytesAsync(nefFile, cancellationToken);
         var manifestJson = await ReadTextAsync(manifestFile, cancellationToken);
+        var signature = ReadWalletSignature(form);
+        if (!signature.IsValid)
+        {
+            return BadRequest(new { error = signature.Error });
+        }
+
+        var signatureValidation = projectManagementSignatureValidator.ValidateArtifactUpload(
+            project,
+            version,
+            notes,
+            nefBytes,
+            manifestJson,
+            signature.Signature);
+        if (!signatureValidation.IsValid)
+        {
+            return SignatureError(signatureValidation.Error);
+        }
 
         try
         {
@@ -251,6 +264,35 @@ public sealed class ProjectsController(
         return StatusCode(StatusCodes.Status403Forbidden, new { error });
     }
 
+    private ActionResult SignatureError(string error)
+    {
+        return error.StartsWith("Only the project creator", StringComparison.Ordinal)
+            ? ForbidWithError(error)
+            : BadRequest(new { error });
+    }
+
+    private static WalletSignatureFormResult ReadWalletSignature(IFormCollection form)
+    {
+        var signatureJson = form["signature"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(signatureJson))
+        {
+            return new WalletSignatureFormResult(null, false, "Wallet signature is required.");
+        }
+
+        try
+        {
+            var signature = JsonSerializer.Deserialize<WalletSignatureRequest>(signatureJson, JsonOptions);
+
+            return signature is null
+                ? new WalletSignatureFormResult(null, false, "Wallet signature is invalid.")
+                : new WalletSignatureFormResult(signature, true, string.Empty);
+        }
+        catch (JsonException)
+        {
+            return new WalletSignatureFormResult(null, false, "Wallet signature must be valid JSON.");
+        }
+    }
+
     private static IFormFile? FindManifestFile(IFormFileCollection files)
     {
         return files.FirstOrDefault(file =>
@@ -276,4 +318,9 @@ public sealed class ProjectsController(
 
         return await reader.ReadToEndAsync(cancellationToken);
     }
+
+    private sealed record WalletSignatureFormResult(
+        WalletSignatureRequest? Signature,
+        bool IsValid,
+        string Error);
 }

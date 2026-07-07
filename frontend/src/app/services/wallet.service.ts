@@ -10,8 +10,11 @@ import type {
   WalletSession
 } from 'neo-n3-walletkit';
 import { walletConfig } from '../config/wallet.config';
-import { ProjectCreationSignature } from '../models/pusharoo.models';
-import { ProjectCreationSignatureMessageService } from './project-creation-signature-message.service';
+import { ProjectCreationSignature, WalletActionSignature } from '../models/pusharoo.models';
+import {
+  ProjectCreationSignatureMessageService,
+  WalletActionSignatureChallenge
+} from './project-creation-signature-message.service';
 
 type WalletStatus = 'idle' | 'connecting' | 'connected' | 'error';
 type ConnectableWalletProvider = Extract<WalletProvider, 'neoline' | 'onegate' | 'walletconnect'>;
@@ -237,23 +240,43 @@ export class WalletService {
       session,
       account.address,
       challenge.message,
-      projectName
+      `Create Pusharoo project ${projectName.trim()}`
     );
 
-    return {
-      address: account.address,
-      scriptHash: account.scriptHash,
-      network: session.network,
-      provider: session.provider,
-      origin: challenge.origin,
-      issuedAtUtc: challenge.issuedAtUtc,
-      nonce: challenge.nonce,
-      message: challenge.message,
-      publicKey: this.requireSignedMessageField(signedMessage.publicKey, 'publicKey'),
-      data: this.requireSignedMessageField(signedMessage.data, 'data'),
-      salt: this.optionalSignedMessageField(signedMessage.salt),
-      messageHex: this.optionalSignedMessageField(signedMessage.messageHex)
-    };
+    return this.toWalletActionSignature(account, session, challenge, signedMessage);
+  }
+
+  async signArtifactUpload(
+    projectId: string,
+    version: string,
+    notes: string,
+    nefFile: File,
+    manifestFile: File
+  ): Promise<WalletActionSignature> {
+    const session = this.session();
+    const account = this.account();
+
+    if (!this.walletKit || !session || !account) {
+      throw new Error('Connect a wallet before uploading an artifact.');
+    }
+
+    const challenge = await this.projectCreationMessage.createArtifactUpload(
+      projectId,
+      version,
+      notes,
+      nefFile,
+      manifestFile,
+      account,
+      session
+    );
+    const signedMessage = await this.signMessage(
+      session,
+      account.address,
+      challenge.message,
+      `Upload Pusharoo artifact ${version.trim()}`
+    );
+
+    return this.toWalletActionSignature(account, session, challenge, signedMessage);
   }
 
   async invokeContract(
@@ -298,10 +321,8 @@ export class WalletService {
     session: WalletSession,
     accountAddress: string,
     message: string,
-    projectName: string
+    context: string
   ): Promise<SignedMessageResponse> {
-    const context = `Create Pusharoo project ${projectName.trim()}`;
-
     if (session.provider === 'walletconnect') {
       if (!session.methods.includes('signMessage')) {
         throw new Error('Reconnect Neon Wallet so Pusharoo can request message signatures.');
@@ -326,6 +347,28 @@ export class WalletService {
     return this.normalizeSignedMessage(
       await provider.signMessage({ message, version: 3 })
     );
+  }
+
+  private toWalletActionSignature(
+    account: ConnectedAccount,
+    session: WalletSession,
+    challenge: WalletActionSignatureChallenge,
+    signedMessage: SignedMessageResponse
+  ): WalletActionSignature {
+    return {
+      address: account.address,
+      scriptHash: account.scriptHash,
+      network: session.network,
+      provider: session.provider,
+      origin: challenge.origin,
+      issuedAtUtc: challenge.issuedAtUtc,
+      nonce: challenge.nonce,
+      message: challenge.message,
+      publicKey: this.requireSignedMessageField(signedMessage.publicKey, 'publicKey'),
+      data: this.requireSignedMessageField(signedMessage.data, 'data'),
+      salt: this.optionalSignedMessageField(signedMessage.salt),
+      messageHex: this.optionalSignedMessageField(signedMessage.messageHex)
+    };
   }
 
   private normalizeSignedMessage(value: unknown): SignedMessageResponse {

@@ -7,7 +7,7 @@ export interface Project {
   createdAt: string;
 }
 
-export interface ProjectCreationSignature {
+export interface WalletActionSignature {
   address: string;
   scriptHash: string;
   network: string;
@@ -21,6 +21,8 @@ export interface ProjectCreationSignature {
   salt?: string | null;
   messageHex?: string | null;
 }
+
+export type ProjectCreationSignature = WalletActionSignature;
 
 export interface ArtifactSummary {
   methodCount: number;

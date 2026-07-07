@@ -20,6 +20,9 @@ public sealed class ProjectDocument
     [BsonElement("createdByWalletScriptHash")]
     public string? CreatedByWalletScriptHash { get; init; }
 
+    [BsonElement("createdByWalletPublicKey")]
+    public string? CreatedByWalletPublicKey { get; init; }
+
     [BsonElement("creatorNetwork")]
     public string? CreatorNetwork { get; init; }
 

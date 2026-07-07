@@ -128,13 +128,14 @@ export class DeploymentCreateComponent implements OnInit {
       );
 
       this.deployStatus = 'Saving deployment record...';
+      const deploymentNotes = this.notes.trim() || null;
       await firstValueFrom(this.api.createDeployment(this.projectId, {
         artifactId: this.artifactId,
         network: session.network,
         contractHash: contractChange.contractHash,
         transactionId: contractChange.transactionId,
         deployedBy: this.walletAddress(),
-        notes: this.notes.trim() || null
+        notes: deploymentNotes
       }));
 
       await this.router.navigate(['/projects', this.projectId]);

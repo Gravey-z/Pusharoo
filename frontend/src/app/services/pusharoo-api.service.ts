@@ -15,6 +15,7 @@ import {
   ProjectCardViewModel,
   ProjectCreationSignature,
   ProjectOverviewViewModel,
+  WalletActionSignature,
   WebhookDelivery,
   WebhookSubscription
 } from '../models/pusharoo.models';
@@ -85,14 +86,14 @@ export class PusharooApiService {
     projectId: string,
     version: string,
     notes: string,
-    uploadedBy: string,
+    signature: WalletActionSignature,
     nefFile: File,
     manifestFile: File
   ): Observable<Artifact> {
     const formData = new FormData();
     formData.append('version', version);
     formData.append('notes', notes);
-    formData.append('uploadedBy', uploadedBy);
+    formData.append('signature', JSON.stringify(signature));
     formData.append('files', nefFile, nefFile.name);
     formData.append('files', manifestFile, manifestFile.name);
 
