@@ -22,6 +22,11 @@ public sealed class ProjectsController(
             return BadRequest(new { error = "Project name is required." });
         }
 
+        if (!ProjectCreationSignatureValidator.TryValidate(request, out var signatureError))
+        {
+            return BadRequest(new { error = signatureError });
+        }
+
         var project = await projectService.CreateAsync(request, cancellationToken);
 
         return Created($"/api/projects/{project.Id}", project.ToResponse());

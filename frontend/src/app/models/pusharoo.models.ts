@@ -2,7 +2,24 @@ export interface Project {
   id: string;
   name: string;
   description?: string | null;
+  createdByWalletAddress?: string | null;
+  creatorNetwork?: string | null;
   createdAt: string;
+}
+
+export interface ProjectCreationSignature {
+  address: string;
+  scriptHash: string;
+  network: string;
+  provider: string;
+  origin: string;
+  issuedAtUtc: string;
+  nonce: string;
+  message: string;
+  publicKey: string;
+  data: string;
+  salt?: string | null;
+  messageHex?: string | null;
 }
 
 export interface ArtifactSummary {

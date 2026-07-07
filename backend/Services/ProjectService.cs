@@ -13,6 +13,9 @@ public sealed class ProjectService(IProjectRepository projects)
             Id = ObjectId.GenerateNewId().ToString(),
             Name = request.Name.Trim(),
             Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
+            CreatedByWalletAddress = request.Signature?.Address.Trim(),
+            CreatedByWalletScriptHash = request.Signature?.ScriptHash.Trim(),
+            CreatorNetwork = request.Signature?.Network.Trim(),
             CreatedAt = DateTime.UtcNow
         };
 

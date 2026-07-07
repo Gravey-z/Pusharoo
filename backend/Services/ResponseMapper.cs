@@ -6,7 +6,13 @@ public static class ResponseMapper
 {
     public static ProjectResponse ToResponse(this ProjectDocument project)
     {
-        return new ProjectResponse(project.Id, project.Name, project.Description, project.CreatedAt);
+        return new ProjectResponse(
+            project.Id,
+            project.Name,
+            project.Description,
+            project.CreatedByWalletAddress,
+            project.CreatorNetwork,
+            project.CreatedAt);
     }
 
     public static ArtifactResponse ToResponse(this ArtifactDocument artifact)

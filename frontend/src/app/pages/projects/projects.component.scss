@@ -76,6 +76,13 @@ input {
   font-weight: 650;
 }
 
+.signature-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 620;
+}
+
 .button-row {
   display: flex;
   gap: 10px;

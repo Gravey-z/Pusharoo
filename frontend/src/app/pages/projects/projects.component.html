@@ -16,12 +16,15 @@
           <input type="text" name="projectDescription" [(ngModel)]="newProjectDescription" />
         </label>
       </div>
+      <p class="signature-note">
+        {{ wallet.shortAddress() || 'Connect a wallet' }} signs a readable creation message before the project is saved.
+      </p>
       @if (errorMessage) {
         <p class="form-error">{{ errorMessage }}</p>
       }
       <div class="button-row">
         <button class="primary-button" type="button" (click)="createProject()" [disabled]="isSaving">
-          Save
+          {{ isSaving ? 'Waiting for signature...' : 'Sign & Save' }}
         </button>
         <button class="secondary-button" type="button" (click)="cancelCreateProject()">Cancel</button>
       </div>
@@ -43,6 +46,10 @@
           <div>
             <dt>Status</dt>
             <dd>{{ item.deployed ? 'Deployed' : 'Not deployed' }}</dd>
+          </div>
+          <div>
+            <dt>Creator</dt>
+            <dd>{{ item.project.createdByWalletAddress ? item.project.createdByWalletAddress.slice(0, 6) + '...' + item.project.createdByWalletAddress.slice(-4) : 'Legacy' }}</dd>
           </div>
           <div>
             <dt>Networks</dt>

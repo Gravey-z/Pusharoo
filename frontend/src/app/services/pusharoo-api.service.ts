@@ -13,6 +13,7 @@ import {
   NeoPermission,
   Project,
   ProjectCardViewModel,
+  ProjectCreationSignature,
   ProjectOverviewViewModel,
   WebhookDelivery,
   WebhookSubscription
@@ -68,10 +69,15 @@ export class PusharooApiService {
       .pipe(map((buffer) => this.arrayBufferToHex(buffer)));
   }
 
-  createProject(name: string, description: string): Observable<Project> {
+  createProject(
+    name: string,
+    description: string,
+    signature: ProjectCreationSignature
+  ): Observable<Project> {
     return this.http.post<Project>(`${this.apiBaseUrl}/projects`, {
       name,
-      description: description.trim() || null
+      description: description.trim() || null,
+      signature
     });
   }
 

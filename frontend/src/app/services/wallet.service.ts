@@ -4,17 +4,31 @@ import { toDataURL } from 'qrcode';
 import type {
   ConnectedAccount,
   ContractArgs,
+  Method,
   NetworkType,
   WalletProvider,
   WalletSession
 } from 'neo-n3-walletkit';
 import { walletConfig } from '../config/wallet.config';
+import { ProjectCreationSignature } from '../models/pusharoo.models';
 
 type WalletStatus = 'idle' | 'connecting' | 'connected' | 'error';
 type ConnectableWalletProvider = Extract<WalletProvider, 'neoline' | 'onegate' | 'walletconnect'>;
 interface ContractCallParameter {
   type: string;
   value: unknown;
+}
+
+interface SignedMessageResponse {
+  publicKey?: unknown;
+  data?: unknown;
+  salt?: unknown;
+  message?: unknown;
+  messageHex?: unknown;
+}
+
+interface MessageSigningProvider {
+  signMessage: (...args: unknown[]) => Promise<unknown>;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -197,6 +211,47 @@ export class WalletService {
     );
   }
 
+  async signProjectCreation(
+    projectName: string,
+    projectDescription: string
+  ): Promise<ProjectCreationSignature> {
+    const session = this.session();
+    const account = this.account();
+
+    if (!this.walletKit || !session || !account) {
+      throw new Error('Connect a wallet before creating a project.');
+    }
+
+    const issuedAtUtc = new Date().toISOString();
+    const nonce = this.createNonce();
+    const origin = window.location.origin;
+    const message = await this.buildProjectCreationMessage(
+      projectName,
+      projectDescription,
+      account,
+      session,
+      origin,
+      issuedAtUtc,
+      nonce
+    );
+    const signedMessage = await this.signMessage(session, account.address, message, projectName);
+
+    return {
+      address: account.address,
+      scriptHash: account.scriptHash,
+      network: session.network,
+      provider: session.provider,
+      origin,
+      issuedAtUtc,
+      nonce,
+      message,
+      publicKey: this.requireSignedMessageField(signedMessage.publicKey, 'publicKey'),
+      data: this.requireSignedMessageField(signedMessage.data, 'data'),
+      salt: this.optionalSignedMessageField(signedMessage.salt),
+      messageHex: this.optionalSignedMessageField(signedMessage.messageHex)
+    };
+  }
+
   async invokeContract(
     network: NetworkType,
     contractHash: string,
@@ -233,6 +288,111 @@ export class WalletService {
     }
 
     return btoa(bytes.join(''));
+  }
+
+  private async buildProjectCreationMessage(
+    projectName: string,
+    projectDescription: string,
+    account: ConnectedAccount,
+    session: WalletSession,
+    origin: string,
+    issuedAtUtc: string,
+    nonce: string
+  ): Promise<string> {
+    const descriptionHash = await this.sha256Hex(projectDescription.trim());
+
+    return [
+      'Pusharoo project creation',
+      `Project: ${projectName.trim()}`,
+      `Description SHA-256: ${descriptionHash}`,
+      `Wallet: ${account.address}`,
+      `Script hash: ${account.scriptHash}`,
+      `Network: ${session.network}`,
+      `Origin: ${origin}`,
+      `Issued at UTC: ${issuedAtUtc}`,
+      `Nonce: ${nonce}`
+    ].join('\n');
+  }
+
+  private async signMessage(
+    session: WalletSession,
+    accountAddress: string,
+    message: string,
+    projectName: string
+  ): Promise<SignedMessageResponse> {
+    const context = `Create Pusharoo project ${projectName.trim()}`;
+
+    if (session.provider === 'walletconnect') {
+      if (!session.methods.includes('signMessage')) {
+        throw new Error('Reconnect Neon Wallet so Pusharoo can request message signatures.');
+      }
+
+      return this.normalizeSignedMessage(
+        await this.walletKit?.wallet.request('signMessage', { message, version: 3 }, context)
+      );
+    }
+
+    const provider = session.raw;
+    if (!this.isMessageSigningProvider(provider)) {
+      throw new Error('The connected wallet does not expose message signing.');
+    }
+
+    if (session.provider === 'onegate') {
+      return this.normalizeSignedMessage(
+        await provider.signMessage(message, accountAddress, { withoutSalt: true })
+      );
+    }
+
+    return this.normalizeSignedMessage(
+      await provider.signMessage({ message, version: 3 })
+    );
+  }
+
+  private normalizeSignedMessage(value: unknown): SignedMessageResponse {
+    if (!value || typeof value !== 'object') {
+      throw new Error('The wallet returned an invalid signature response.');
+    }
+
+    return value as SignedMessageResponse;
+  }
+
+  private requireSignedMessageField(value: unknown, fieldName: string): string {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      throw new Error(`The wallet signature did not include ${fieldName}.`);
+    }
+
+    return value;
+  }
+
+  private optionalSignedMessageField(value: unknown): string | null {
+    return typeof value === 'string' && value.trim().length > 0 ? value : null;
+  }
+
+  private isMessageSigningProvider(provider: unknown): provider is MessageSigningProvider {
+    return !!provider
+      && typeof provider === 'object'
+      && 'signMessage' in provider
+      && typeof provider.signMessage === 'function';
+  }
+
+  private createNonce(): string {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+
+    return this.bytesToHex(bytes);
+  }
+
+  private async sha256Hex(value: string): Promise<string> {
+    const bytes = new TextEncoder().encode(value);
+    const hash = await crypto.subtle.digest('SHA-256', bytes);
+
+    return this.bytesToHex(new Uint8Array(hash));
+  }
+
+  private bytesToHex(bytes: Uint8Array): string {
+    return [...bytes]
+      .map((value) => value.toString(16).padStart(2, '0'))
+      .join('');
   }
 
   private setWalletKit(walletKit: WalletKit): void {
@@ -285,6 +445,8 @@ export class WalletService {
       return await WalletKit.initOneGate({ network: walletConfig.network });
     }
 
+    const walletConnectMethods: Method[] = ['invokeFunction', 'testInvoke', 'signMessage'];
+
     return await WalletKit.init({
       projectId: this.getWalletConnectProjectId(),
       relayUrl: 'wss://relay.walletconnect.com',
@@ -294,7 +456,8 @@ export class WalletService {
         url: window.location.origin,
         icons: [`${window.location.origin}/pusharoo-logo.png`]
       },
-      network: walletConfig.network
+      network: walletConfig.network,
+      methods: walletConnectMethods
     });
   }
 

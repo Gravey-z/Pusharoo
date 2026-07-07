@@ -1,6 +1,23 @@
 namespace backend.Models;
 
-public sealed record CreateProjectRequest(string Name, string? Description);
+public sealed record CreateProjectRequest(
+    string Name,
+    string? Description,
+    ProjectCreationSignatureRequest? Signature);
+
+public sealed record ProjectCreationSignatureRequest(
+    string Address,
+    string ScriptHash,
+    string Network,
+    string Provider,
+    string Origin,
+    string IssuedAtUtc,
+    string Nonce,
+    string Message,
+    string PublicKey,
+    string Data,
+    string? Salt,
+    string? MessageHex);
 
 public sealed record ArtifactUploadInput(
     string ProjectId,
@@ -14,6 +31,8 @@ public sealed record ProjectResponse(
     string Id,
     string Name,
     string? Description,
+    string? CreatedByWalletAddress,
+    string? CreatorNetwork,
     DateTime CreatedAt);
 
 public sealed record ArtifactResponse(

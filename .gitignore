@@ -2,3 +2,11 @@
 /backend/obj/
 /event-relay/bin/
 /event-relay/obj/
+
+# Logs
+*.log
+*.log.*
+ng-serve.err.log
+ng-serve.out.log
+backend-run.err.log
+backend-run.out.log

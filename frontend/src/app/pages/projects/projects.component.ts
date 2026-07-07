@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 import { ProjectCardViewModel } from '../../models/pusharoo.models';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
+import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 
 @Component({
@@ -21,7 +22,10 @@ export class ProjectsComponent implements OnInit {
   newProjectDescription = '';
   errorMessage = '';
 
-  constructor(private readonly api: PusharooApiService) {}
+  constructor(
+    private readonly api: PusharooApiService,
+    readonly wallet: WalletService
+  ) {}
 
   ngOnInit(): void {
     this.loadProjects();
@@ -39,25 +43,40 @@ export class ProjectsComponent implements OnInit {
     this.errorMessage = '';
   }
 
-  createProject(): void {
+  async createProject(): Promise<void> {
     const name = this.newProjectName.trim();
     if (!name) {
       this.errorMessage = 'Project name is required.';
       return;
     }
 
+    if (!this.wallet.account()) {
+      this.errorMessage = 'Connect a wallet before creating a project.';
+      return;
+    }
+
     this.isSaving = true;
-    this.api.createProject(name, this.newProjectDescription).subscribe({
-      next: () => {
-        this.isSaving = false;
-        this.cancelCreateProject();
-        this.loadProjects();
-      },
-      error: () => {
-        this.isSaving = false;
-        this.errorMessage = 'Could not create project.';
-      }
-    });
+    this.errorMessage = '';
+
+    try {
+      const signature = await this.wallet.signProjectCreation(name, this.newProjectDescription);
+      this.api.createProject(name, this.newProjectDescription, signature).subscribe({
+        next: () => {
+          this.isSaving = false;
+          this.cancelCreateProject();
+          this.loadProjects();
+        },
+        error: () => {
+          this.isSaving = false;
+          this.errorMessage = 'Could not create project.';
+        }
+      });
+    } catch (error) {
+      this.isSaving = false;
+      this.errorMessage = error instanceof Error
+        ? error.message
+        : 'Wallet signature was not completed.';
+    }
   }
 
   deploymentNetworkSummary(item: ProjectCardViewModel): string {
