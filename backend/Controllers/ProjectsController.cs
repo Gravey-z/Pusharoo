@@ -10,7 +10,8 @@ namespace backend.Controllers;
 public sealed class ProjectsController(
     ProjectService projectService,
     ArtifactService artifactService,
-    DeploymentService deploymentService) : ControllerBase
+    DeploymentService deploymentService,
+    ProjectCreationSignatureValidator projectCreationSignatureValidator) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<ProjectResponse>> CreateAsync(
@@ -22,9 +23,10 @@ public sealed class ProjectsController(
             return BadRequest(new { error = "Project name is required." });
         }
 
-        if (!ProjectCreationSignatureValidator.TryValidate(request, out var signatureError))
+        var signatureValidation = projectCreationSignatureValidator.Validate(request);
+        if (!signatureValidation.IsValid)
         {
-            return BadRequest(new { error = signatureError });
+            return BadRequest(new { error = signatureValidation.Error });
         }
 
         var project = await projectService.CreateAsync(request, cancellationToken);

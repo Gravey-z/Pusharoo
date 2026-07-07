@@ -5,8 +5,10 @@ using backend.Models;
 
 namespace backend.Services;
 
-public static class ProjectCreationSignatureValidator
+public sealed class ProjectCreationSignatureValidator
 {
+    private static readonly TimeSpan MaxSignatureAge = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan MaxClockSkew = TimeSpan.FromMinutes(2);
     private static readonly HashSet<string> SupportedNetworks = new(StringComparer.Ordinal)
     {
         "neo3:private",
@@ -21,125 +23,157 @@ public static class ProjectCreationSignatureValidator
         "walletconnect"
     };
 
-    public static bool TryValidate(
-        CreateProjectRequest request,
-        out string error)
+    public ProjectCreationSignatureValidationResult Validate(CreateProjectRequest request)
     {
-        error = string.Empty;
         var signature = request.Signature;
 
         if (signature is null)
         {
-            error = "Wallet signature is required before creating a project.";
-            return false;
+            return Fail("Wallet signature is required before creating a project.");
         }
 
-        if (string.IsNullOrWhiteSpace(signature.Address))
+        var requiredFieldError = ValidateRequiredFields(signature);
+        if (requiredFieldError is not null)
         {
-            error = "Wallet address is required.";
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(signature.ScriptHash))
-        {
-            error = "Wallet script hash is required.";
-            return false;
+            return Fail(requiredFieldError);
         }
 
         if (!SupportedNetworks.Contains(signature.Network))
         {
-            error = "Unsupported wallet network.";
-            return false;
+            return Fail("Unsupported wallet network.");
         }
 
         if (!SupportedProviders.Contains(signature.Provider))
         {
-            error = "Unsupported wallet provider.";
-            return false;
+            return Fail("Unsupported wallet provider.");
         }
 
-        if (!Uri.TryCreate(signature.Origin, UriKind.Absolute, out var origin)
-            || (origin.Scheme != Uri.UriSchemeHttp && origin.Scheme != Uri.UriSchemeHttps))
+        if (!HasValidOrigin(signature.Origin))
         {
-            error = "Signature origin is invalid.";
-            return false;
+            return Fail("Signature origin is invalid.");
         }
 
-        if (!DateTimeOffset.TryParse(
-                signature.IssuedAtUtc,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                out var issuedAt))
+        if (!TryParseIssuedAt(signature.IssuedAtUtc, out var issuedAt))
         {
-            error = "Signature timestamp is invalid.";
-            return false;
+            return Fail("Signature timestamp is invalid.");
         }
 
-        var now = DateTimeOffset.UtcNow;
-        if (issuedAt < now.AddMinutes(-10) || issuedAt > now.AddMinutes(2))
+        if (!IsFresh(issuedAt, DateTimeOffset.UtcNow))
         {
-            error = "Wallet signature has expired. Try creating the project again.";
-            return false;
+            return Fail("Wallet signature has expired. Try creating the project again.");
         }
 
         if (signature.Nonce.Trim().Length < 16)
         {
-            error = "Signature nonce is invalid.";
-            return false;
+            return Fail("Signature nonce is invalid.");
+        }
+
+        var expectedMessage = BuildMessage(request, signature);
+        if (!string.Equals(signature.Message, expectedMessage, StringComparison.Ordinal))
+        {
+            return Fail("Wallet signature message does not match the project request.");
+        }
+
+        return ProjectCreationSignatureValidationResult.Valid;
+    }
+
+    private static string? ValidateRequiredFields(ProjectCreationSignatureRequest signature)
+    {
+        if (string.IsNullOrWhiteSpace(signature.Address))
+        {
+            return "Wallet address is required.";
+        }
+
+        if (string.IsNullOrWhiteSpace(signature.ScriptHash))
+        {
+            return "Wallet script hash is required.";
+        }
+
+        if (string.IsNullOrWhiteSpace(signature.Network))
+        {
+            return "Wallet network is required.";
+        }
+
+        if (string.IsNullOrWhiteSpace(signature.Provider))
+        {
+            return "Wallet provider is required.";
+        }
+
+        if (string.IsNullOrWhiteSpace(signature.Origin))
+        {
+            return "Signature origin is required.";
+        }
+
+        if (string.IsNullOrWhiteSpace(signature.IssuedAtUtc))
+        {
+            return "Signature timestamp is required.";
+        }
+
+        if (string.IsNullOrWhiteSpace(signature.Nonce))
+        {
+            return "Signature nonce is required.";
+        }
+
+        if (string.IsNullOrWhiteSpace(signature.Message))
+        {
+            return "Signature message is required.";
         }
 
         if (string.IsNullOrWhiteSpace(signature.PublicKey) || string.IsNullOrWhiteSpace(signature.Data))
         {
-            error = "Wallet signature response is incomplete.";
-            return false;
+            return "Wallet signature response is incomplete.";
         }
 
-        var expectedMessage = BuildMessage(
-            request.Name,
-            request.Description,
-            signature.Address,
-            signature.ScriptHash,
-            signature.Network,
-            signature.Origin,
-            signature.IssuedAtUtc,
-            signature.Nonce);
+        return null;
+    }
 
-        if (!string.Equals(signature.Message, expectedMessage, StringComparison.Ordinal))
-        {
-            error = "Wallet signature message does not match the project request.";
-            return false;
-        }
+    private static bool HasValidOrigin(string origin)
+    {
+        return Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+    }
 
-        return true;
+    private static bool TryParseIssuedAt(string issuedAtUtc, out DateTimeOffset issuedAt)
+    {
+        return DateTimeOffset.TryParse(
+            issuedAtUtc,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out issuedAt);
+    }
+
+    private static bool IsFresh(DateTimeOffset issuedAt, DateTimeOffset now)
+    {
+        return issuedAt >= now.Subtract(MaxSignatureAge)
+            && issuedAt <= now.Add(MaxClockSkew);
     }
 
     private static string BuildMessage(
-        string name,
-        string? description,
-        string address,
-        string scriptHash,
-        string network,
-        string origin,
-        string issuedAtUtc,
-        string nonce)
+        CreateProjectRequest request,
+        ProjectCreationSignatureRequest signature)
     {
-        var normalizedName = name.Trim();
-        var normalizedDescription = string.IsNullOrWhiteSpace(description)
+        var normalizedName = request.Name.Trim();
+        var normalizedDescription = string.IsNullOrWhiteSpace(request.Description)
             ? string.Empty
-            : description.Trim();
+            : request.Description.Trim();
 
         return string.Join('\n', new[]
         {
             "Pusharoo project creation",
             $"Project: {normalizedName}",
             $"Description SHA-256: {Sha256Hex(normalizedDescription)}",
-            $"Wallet: {address.Trim()}",
-            $"Script hash: {scriptHash.Trim()}",
-            $"Network: {network.Trim()}",
-            $"Origin: {origin.Trim()}",
-            $"Issued at UTC: {issuedAtUtc.Trim()}",
-            $"Nonce: {nonce.Trim()}"
+            $"Wallet: {signature.Address.Trim()}",
+            $"Script hash: {signature.ScriptHash.Trim()}",
+            $"Network: {signature.Network.Trim()}",
+            $"Origin: {signature.Origin.Trim()}",
+            $"Issued at UTC: {signature.IssuedAtUtc.Trim()}",
+            $"Nonce: {signature.Nonce.Trim()}"
         });
+    }
+
+    private static ProjectCreationSignatureValidationResult Fail(string error)
+    {
+        return new ProjectCreationSignatureValidationResult(false, error);
     }
 
     private static string Sha256Hex(string value)
@@ -148,4 +182,9 @@ public static class ProjectCreationSignatureValidator
 
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
+}
+
+public sealed record ProjectCreationSignatureValidationResult(bool IsValid, string Error)
+{
+    public static ProjectCreationSignatureValidationResult Valid { get; } = new(true, string.Empty);
 }

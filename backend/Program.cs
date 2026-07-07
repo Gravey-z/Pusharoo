@@ -12,6 +12,7 @@ builder.Services.AddScoped<IDeploymentRepository, DeploymentRepository>();
 builder.Services.AddScoped<ProjectService>();
 builder.Services.AddScoped<ArtifactService>();
 builder.Services.AddScoped<DeploymentService>();
+builder.Services.AddSingleton<ProjectCreationSignatureValidator>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>

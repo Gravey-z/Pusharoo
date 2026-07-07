@@ -8,14 +8,17 @@ public sealed class ProjectService(IProjectRepository projects)
 {
     public async Task<ProjectDocument> CreateAsync(CreateProjectRequest request, CancellationToken cancellationToken)
     {
+        var signature = request.Signature
+            ?? throw new InvalidOperationException("Project creation requires a wallet signature.");
+
         var project = new ProjectDocument
         {
             Id = ObjectId.GenerateNewId().ToString(),
             Name = request.Name.Trim(),
             Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
-            CreatedByWalletAddress = request.Signature?.Address.Trim(),
-            CreatedByWalletScriptHash = request.Signature?.ScriptHash.Trim(),
-            CreatorNetwork = request.Signature?.Network.Trim(),
+            CreatedByWalletAddress = signature.Address.Trim(),
+            CreatedByWalletScriptHash = signature.ScriptHash.Trim(),
+            CreatorNetwork = signature.Network.Trim(),
             CreatedAt = DateTime.UtcNow
         };
 
