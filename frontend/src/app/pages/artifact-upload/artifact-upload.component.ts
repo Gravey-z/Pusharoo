@@ -1,8 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { ContractManifestAnalyzerService } from '../../services/contract-manifest-analyzer.service';
+import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
+import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 
 @Component({
@@ -12,6 +15,7 @@ import { PageShellComponent } from '../page-shell/page-shell.component';
   styleUrl: './artifact-upload.component.scss'
 })
 export class ArtifactUploadComponent implements OnInit {
+  overview: ProjectOverviewViewModel | null = null;
   version = '0.1.0';
   notes = 'Initial testnet build';
   nefFile: File | null = null;
@@ -28,13 +32,16 @@ export class ArtifactUploadComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly api: PusharooApiService,
-    private readonly manifestAnalyzer: ContractManifestAnalyzerService
+    private readonly manifestAnalyzer: ContractManifestAnalyzerService,
+    private readonly ownership: ProjectOwnershipService,
+    readonly wallet: WalletService
   ) {
     this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
   }
 
   ngOnInit(): void {
     this.api.getProjectOverview(this.projectId).subscribe((overview) => {
+      this.overview = overview;
       const artifacts = overview?.artifacts ?? [];
       this.existingVersions = artifacts.map((artifact) => artifact.version);
       this.latestVersion = artifacts[0]?.version ?? '';
@@ -89,12 +96,21 @@ export class ArtifactUploadComponent implements OnInit {
       return;
     }
 
+    const walletAddress = this.wallet.account()?.address ?? '';
+    const ownershipError = this.ownership.managementError(this.overview?.project, walletAddress);
+
+    if (ownershipError) {
+      this.errorMessage = ownershipError;
+      return;
+    }
+
     this.isUploading = true;
     this.api
       .uploadArtifact(
         this.projectId,
         this.version.trim(),
         this.notes,
+        walletAddress,
         this.nefFile,
         this.manifestFile
       )

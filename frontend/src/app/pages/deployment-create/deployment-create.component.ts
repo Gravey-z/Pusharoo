@@ -7,6 +7,7 @@ import { walletConfig } from '../../config/wallet.config';
 import { Artifact, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { NeoRpcService } from '../../services/neo-rpc.service';
+import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
@@ -67,6 +68,7 @@ export class DeploymentCreateComponent implements OnInit {
     private readonly api: PusharooApiService,
     private readonly deploymentHistory: DeploymentHistoryService,
     private readonly neoRpc: NeoRpcService,
+    private readonly ownership: ProjectOwnershipService,
     readonly wallet: WalletService
   ) {
     this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
@@ -98,6 +100,16 @@ export class DeploymentCreateComponent implements OnInit {
     const session = this.wallet.session();
     if (!session || !this.walletAddress()) {
       this.errorMessage = 'Connect a wallet before adding a deployment.';
+      return;
+    }
+
+    const ownershipError = this.ownership.managementError(
+      this.overview?.project,
+      this.walletAddress()
+    );
+
+    if (ownershipError) {
+      this.errorMessage = ownershipError;
       return;
     }
 

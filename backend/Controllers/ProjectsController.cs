@@ -11,7 +11,8 @@ public sealed class ProjectsController(
     ProjectService projectService,
     ArtifactService artifactService,
     DeploymentService deploymentService,
-    ProjectCreationSignatureValidator projectCreationSignatureValidator) : ControllerBase
+    ProjectCreationSignatureValidator projectCreationSignatureValidator,
+    ProjectOwnershipService projectOwnershipService) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<ProjectResponse>> CreateAsync(
@@ -75,6 +76,13 @@ public sealed class ProjectsController(
         var form = await Request.ReadFormAsync(cancellationToken);
         var version = form["version"].FirstOrDefault();
         var notes = form["notes"].FirstOrDefault();
+        var uploadedBy = form["uploadedBy"].FirstOrDefault();
+
+        var ownershipValidation = projectOwnershipService.ValidateCanManage(project, uploadedBy);
+        if (!ownershipValidation.IsValid)
+        {
+            return ForbidWithError(ownershipValidation.Error);
+        }
 
         if (string.IsNullOrWhiteSpace(version))
         {
@@ -194,6 +202,12 @@ public sealed class ProjectsController(
             return BadRequest(new { error = "Wallet address is required." });
         }
 
+        var ownershipValidation = projectOwnershipService.ValidateCanManage(project, request.DeployedBy);
+        if (!ownershipValidation.IsValid)
+        {
+            return ForbidWithError(ownershipValidation.Error);
+        }
+
         var artifact = await artifactService.GetByIdAsync(request.ArtifactId, cancellationToken);
         if (artifact is null || artifact.ProjectId != projectId)
         {
@@ -230,6 +244,11 @@ public sealed class ProjectsController(
     {
         return files.FirstOrDefault(file =>
             file.FileName.EndsWith(".nef", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private ActionResult ForbidWithError(string error)
+    {
+        return StatusCode(StatusCodes.Status403Forbidden, new { error });
     }
 
     private static IFormFile? FindManifestFile(IFormFileCollection files)

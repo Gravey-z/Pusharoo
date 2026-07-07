@@ -85,12 +85,14 @@ export class PusharooApiService {
     projectId: string,
     version: string,
     notes: string,
+    uploadedBy: string,
     nefFile: File,
     manifestFile: File
   ): Observable<Artifact> {
     const formData = new FormData();
     formData.append('version', version);
     formData.append('notes', notes);
+    formData.append('uploadedBy', uploadedBy);
     formData.append('files', nefFile, nefFile.name);
     formData.append('files', manifestFile, manifestFile.name);
 
