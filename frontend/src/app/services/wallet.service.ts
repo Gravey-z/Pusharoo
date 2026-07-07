@@ -12,6 +12,10 @@ import { walletConfig } from '../config/wallet.config';
 
 type WalletStatus = 'idle' | 'connecting' | 'connected' | 'error';
 type ConnectableWalletProvider = Extract<WalletProvider, 'neoline' | 'onegate' | 'walletconnect'>;
+interface ContractCallParameter {
+  type: string;
+  value: unknown;
+}
 
 @Injectable({ providedIn: 'root' })
 export class WalletService {
@@ -190,6 +194,33 @@ export class WalletService {
       'update',
       args,
       { context: `Update ${contractName} with Pusharoo` }
+    );
+  }
+
+  async invokeContract(
+    network: NetworkType,
+    contractHash: string,
+    methodName: string,
+    args: ContractCallParameter[],
+    contractName: string
+  ): Promise<string> {
+    const session = this.session();
+    const walletKit = this.walletKit;
+
+    if (!walletKit || !session) {
+      throw new Error('Connect a wallet before sending a contract transaction.');
+    }
+
+    if (session.network !== network) {
+      throw new Error(`Connected wallet is on ${session.network}. Reconnect on ${network}.`);
+    }
+
+    const contract = walletKit.contract(contractHash);
+
+    return await contract.invoke(
+      methodName,
+      args as ContractArgs,
+      { context: `Call ${contractName}.${methodName} with Pusharoo` }
     );
   }
 

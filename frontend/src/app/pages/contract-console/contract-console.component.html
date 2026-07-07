@@ -1,0 +1,110 @@
+<app-page-shell [title]="pageTitle">
+  <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
+
+  @if (overview) {
+    @if (targets.length && methods.length) {
+      <section class="console-layout">
+        <form class="call-panel" (ngSubmit)="run()">
+          <label>
+            <span>Contract</span>
+            <select name="target" [(ngModel)]="selectedTargetKey">
+              @for (target of targets; track targetKey(target)) {
+                <option [value]="targetKey(target)">
+                  {{ target.label }} - {{ shortHash(target.contractHash) }}
+                </option>
+              }
+            </select>
+          </label>
+
+          <label>
+            <span>Method</span>
+            <select name="method" [(ngModel)]="selectedMethodName" (change)="selectMethod()">
+              @for (method of methods; track method.name) {
+                <option [value]="method.name">
+                  {{ method.name }}{{ method.safe ? ' (safe)' : '' }}
+                </option>
+              }
+            </select>
+          </label>
+
+          @if (selectedMethod; as method) {
+            <div class="method-meta">
+              <span>Returns {{ methodReturnType(method) }}</span>
+              <span [class.safe]="method.safe" [class.unsafe]="!method.safe">
+                {{ method.safe ? 'Read-only method' : 'Requires wallet approval' }}
+              </span>
+            </div>
+
+            @if (method.parameters.length) {
+              <div class="parameters">
+                @for (parameter of method.parameters; track parameterKey(parameter, $index)) {
+                  <label>
+                    <span>{{ parameter.name || 'Parameter ' + ($index + 1) }} · {{ parameter.type }}</span>
+                    <input
+                      type="text"
+                      [name]="parameterKey(parameter, $index)"
+                      [(ngModel)]="parameterValues[parameterKey(parameter, $index)]"
+                      [placeholder]="parameterPlaceholder(parameter)"
+                    />
+                  </label>
+                }
+              </div>
+            } @else {
+              <p class="hint">This method has no parameters.</p>
+            }
+          }
+
+          <div class="mode-toggle" role="group" aria-label="Call mode">
+            <label>
+              <input type="radio" name="mode" value="test" [(ngModel)]="mode" />
+              <span>Preview Result</span>
+            </label>
+            <label>
+              <input type="radio" name="mode" value="transaction" [(ngModel)]="mode" />
+              <span>Send with Wallet</span>
+            </label>
+          </div>
+
+          @if (errorMessage) {
+            <p class="form-error">{{ errorMessage }}</p>
+          }
+
+          <button class="primary-button" type="submit" [disabled]="!canRun">
+            {{ isRunning ? 'Running...' : mode === 'test' ? 'Preview Result' : 'Send with Wallet' }}
+          </button>
+        </form>
+
+        <section class="result-panel" aria-label="Contract call results">
+          <h2>Console</h2>
+          @if (consoleEntries.length) {
+            @for (entry of consoleEntries; track entry.id) {
+              <article [class.error-entry]="entry.status === 'error'">
+                <header>
+                  <strong>{{ entry.methodName }}</strong>
+                  <span>{{ entry.mode === 'test' ? 'Preview' : 'Wallet transaction' }}</span>
+                  <time>{{ entry.at | date: 'mediumTime' }}</time>
+                </header>
+                <pre>{{ formatResult(entry.result) }}</pre>
+              </article>
+            }
+          } @else {
+            <div class="empty-console">
+              <strong>No calls yet</strong>
+              <p>Run a method to see the Neo VM result, stack, notifications, or transaction id.</p>
+            </div>
+          }
+        </section>
+      </section>
+    } @else {
+      <section class="empty-state">
+        <strong>Console needs a deployed contract</strong>
+        <p>Deploy this project and upload an artifact with ABI methods before calling the contract.</p>
+        <a class="primary-button" [routerLink]="['/projects', projectId, 'deployments', 'new']">
+          Deploy Contract
+        </a>
+      </section>
+    }
+  } @else {
+    <p class="missing">Project not found.</p>
+  }
+</app-page-shell>

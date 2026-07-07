@@ -35,15 +35,59 @@ interface RpcStackItem {
   value?: unknown;
 }
 
+export interface ContractParameter {
+  type: string;
+  value: unknown;
+}
+
 export interface ConfirmedDeployment {
   transactionId: string;
   vmState: string;
   contractHash: string;
 }
 
+export interface ContractInvokeResult {
+  script?: string;
+  state?: string;
+  gasconsumed?: string;
+  exception?: string | null;
+  stack?: RpcStackItem[];
+  notifications?: ApplicationLogNotification[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class NeoRpcService {
   constructor(private readonly http: HttpClient) {}
+
+  async invokeFunction(
+    network: NetworkType,
+    contractHash: string,
+    methodName: string,
+    parameters: ContractParameter[]
+  ): Promise<ContractInvokeResult> {
+    const endpoint = walletConfig.rpc[network];
+
+    if (!endpoint) {
+      throw new Error(`No Neo RPC endpoint is configured for ${network}.`);
+    }
+
+    const response = await firstValueFrom(this.http.post<RpcResponse<ContractInvokeResult>>(endpoint, {
+      jsonrpc: '2.0',
+      method: 'invokefunction',
+      params: [contractHash, methodName, parameters],
+      id: Date.now()
+    }));
+
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+
+    if (!response.result) {
+      throw new Error('Neo RPC returned no invocation result.');
+    }
+
+    return response.result;
+  }
 
   async waitForDeployment(
     network: NetworkType,
