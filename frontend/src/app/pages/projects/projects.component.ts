@@ -1,8 +1,9 @@
-import { Component, OnInit } from '@angular/core';
 import { AsyncPipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { Observable } from 'rxjs';
+import { firstValueFrom, Observable } from 'rxjs';
 import { ProjectCardViewModel } from '../../models/pusharoo.models';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { WalletService } from '../../services/wallet.service';
@@ -60,22 +61,13 @@ export class ProjectsComponent implements OnInit {
 
     try {
       const signature = await this.wallet.signProjectCreation(name, this.newProjectDescription);
-      this.api.createProject(name, this.newProjectDescription, signature).subscribe({
-        next: () => {
-          this.isSaving = false;
-          this.cancelCreateProject();
-          this.loadProjects();
-        },
-        error: () => {
-          this.isSaving = false;
-          this.errorMessage = 'Could not create project.';
-        }
-      });
+      await firstValueFrom(this.api.createProject(name, this.newProjectDescription, signature));
+      this.cancelCreateProject();
+      this.loadProjects();
     } catch (error) {
+      this.errorMessage = this.getCreateProjectErrorMessage(error);
+    } finally {
       this.isSaving = false;
-      this.errorMessage = error instanceof Error
-        ? error.message
-        : 'Wallet signature was not completed.';
     }
   }
 
@@ -85,7 +77,23 @@ export class ProjectsComponent implements OnInit {
     return networks.length > 0 ? networks.join(', ') : 'Not deployed';
   }
 
+  creatorSummary(item: ProjectCardViewModel): string {
+    const address = item.project.createdByWalletAddress;
+
+    return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Legacy';
+  }
+
   private loadProjects(): void {
     this.projects$ = this.api.getProjectCards();
+  }
+
+  private getCreateProjectErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      return 'Could not create project.';
+    }
+
+    return error instanceof Error
+      ? error.message
+      : 'Could not create project.';
   }
 }

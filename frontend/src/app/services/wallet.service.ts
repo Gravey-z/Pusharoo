@@ -11,6 +11,7 @@ import type {
 } from 'neo-n3-walletkit';
 import { walletConfig } from '../config/wallet.config';
 import { ProjectCreationSignature } from '../models/pusharoo.models';
+import { ProjectCreationSignatureMessageService } from './project-creation-signature-message.service';
 
 type WalletStatus = 'idle' | 'connecting' | 'connected' | 'error';
 type ConnectableWalletProvider = Extract<WalletProvider, 'neoline' | 'onegate' | 'walletconnect'>;
@@ -61,6 +62,10 @@ export class WalletService {
 
     return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
   });
+
+  constructor(
+    private readonly projectCreationMessage: ProjectCreationSignatureMessageService
+  ) {}
 
   async restoreSavedSession(): Promise<void> {
     if (this.session() || this.status() === 'connecting') {
@@ -222,29 +227,28 @@ export class WalletService {
       throw new Error('Connect a wallet before creating a project.');
     }
 
-    const issuedAtUtc = new Date().toISOString();
-    const nonce = this.createNonce();
-    const origin = window.location.origin;
-    const message = await this.buildProjectCreationMessage(
+    const challenge = await this.projectCreationMessage.create(
       projectName,
       projectDescription,
       account,
-      session,
-      origin,
-      issuedAtUtc,
-      nonce
+      session
     );
-    const signedMessage = await this.signMessage(session, account.address, message, projectName);
+    const signedMessage = await this.signMessage(
+      session,
+      account.address,
+      challenge.message,
+      projectName
+    );
 
     return {
       address: account.address,
       scriptHash: account.scriptHash,
       network: session.network,
       provider: session.provider,
-      origin,
-      issuedAtUtc,
-      nonce,
-      message,
+      origin: challenge.origin,
+      issuedAtUtc: challenge.issuedAtUtc,
+      nonce: challenge.nonce,
+      message: challenge.message,
       publicKey: this.requireSignedMessageField(signedMessage.publicKey, 'publicKey'),
       data: this.requireSignedMessageField(signedMessage.data, 'data'),
       salt: this.optionalSignedMessageField(signedMessage.salt),
@@ -288,30 +292,6 @@ export class WalletService {
     }
 
     return btoa(bytes.join(''));
-  }
-
-  private async buildProjectCreationMessage(
-    projectName: string,
-    projectDescription: string,
-    account: ConnectedAccount,
-    session: WalletSession,
-    origin: string,
-    issuedAtUtc: string,
-    nonce: string
-  ): Promise<string> {
-    const descriptionHash = await this.sha256Hex(projectDescription.trim());
-
-    return [
-      'Pusharoo project creation',
-      `Project: ${projectName.trim()}`,
-      `Description SHA-256: ${descriptionHash}`,
-      `Wallet: ${account.address}`,
-      `Script hash: ${account.scriptHash}`,
-      `Network: ${session.network}`,
-      `Origin: ${origin}`,
-      `Issued at UTC: ${issuedAtUtc}`,
-      `Nonce: ${nonce}`
-    ].join('\n');
   }
 
   private async signMessage(
@@ -373,26 +353,6 @@ export class WalletService {
       && typeof provider === 'object'
       && 'signMessage' in provider
       && typeof provider.signMessage === 'function';
-  }
-
-  private createNonce(): string {
-    const bytes = new Uint8Array(16);
-    crypto.getRandomValues(bytes);
-
-    return this.bytesToHex(bytes);
-  }
-
-  private async sha256Hex(value: string): Promise<string> {
-    const bytes = new TextEncoder().encode(value);
-    const hash = await crypto.subtle.digest('SHA-256', bytes);
-
-    return this.bytesToHex(new Uint8Array(hash));
-  }
-
-  private bytesToHex(bytes: Uint8Array): string {
-    return [...bytes]
-      .map((value) => value.toString(16).padStart(2, '0'))
-      .join('');
   }
 
   private setWalletKit(walletKit: WalletKit): void {

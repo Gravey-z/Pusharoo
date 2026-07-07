@@ -3,7 +3,6 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { NetworkType } from 'neo-n3-walletkit';
-import { firstValueFrom } from 'rxjs';
 import {
   Deployment,
   NeoMethod,
@@ -16,6 +15,7 @@ import {
   ContractParameter,
   NeoRpcService
 } from '../../services/neo-rpc.service';
+import { NeoVmResultFormatterService } from '../../services/neo-vm-result-formatter.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
@@ -79,6 +79,7 @@ export class ContractConsoleComponent implements OnInit {
     private readonly api: PusharooApiService,
     private readonly deploymentHistory: DeploymentHistoryService,
     private readonly neoRpc: NeoRpcService,
+    private readonly resultFormatter: NeoVmResultFormatterService,
     readonly wallet: WalletService
   ) {
     this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
@@ -168,7 +169,7 @@ export class ContractConsoleComponent implements OnInit {
   }
 
   formatResult(value: unknown): string {
-    return JSON.stringify(this.withDecodedStackValues(value), null, 2);
+    return this.resultFormatter.format(value);
   }
 
   shortHash(value: string): string {
@@ -261,67 +262,6 @@ export class ContractConsoleComponent implements OnInit {
     };
 
     return typeMap[normalizedType] ?? type;
-  }
-
-  private withDecodedStackValues(value: unknown): unknown {
-    if (Array.isArray(value)) {
-      return value.map((item) => this.withDecodedStackValues(item));
-    }
-
-    if (!value || typeof value !== 'object') {
-      return value;
-    }
-
-    const record = value as Record<string, unknown>;
-    const decodedValue = this.tryDecodeStackValue(record);
-    const mapped = Object.fromEntries(
-      Object.entries(record).map(([key, entryValue]) => [
-        key,
-        this.withDecodedStackValues(entryValue)
-      ])
-    );
-
-    return decodedValue === null
-      ? mapped
-      : {
-          ...mapped,
-          decodedValue
-        };
-  }
-
-  private tryDecodeStackValue(item: Record<string, unknown>): string | null {
-    const type = typeof item['type'] === 'string' ? item['type'] : '';
-    const value = item['value'];
-
-    if ((type !== 'ByteString' && type !== 'Buffer') || typeof value !== 'string') {
-      return null;
-    }
-
-    return this.tryDecodeBase64Text(value);
-  }
-
-  private tryDecodeBase64Text(value: string): string | null {
-    try {
-      const binary = atob(value);
-      const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-      const normalized = decoded.trim();
-
-      return normalized && this.isReadableText(normalized) ? normalized : null;
-    } catch {
-      return null;
-    }
-  }
-
-  private isReadableText(value: string): boolean {
-    return [...value].every((character) => {
-      const codePoint = character.codePointAt(0) ?? 0;
-
-      return character === '\n' ||
-        character === '\r' ||
-        character === '\t' ||
-        (codePoint >= 32 && codePoint !== 127);
-    });
   }
 
   private addConsoleEntry(entry: ConsoleEntry): void {

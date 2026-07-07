@@ -49,7 +49,7 @@
           </div>
           <div>
             <dt>Creator</dt>
-            <dd>{{ item.project.createdByWalletAddress ? item.project.createdByWalletAddress.slice(0, 6) + '...' + item.project.createdByWalletAddress.slice(-4) : 'Legacy' }}</dd>
+            <dd>{{ creatorSummary(item) }}</dd>
           </div>
           <div>
             <dt>Networks</dt>
