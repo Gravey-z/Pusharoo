@@ -5,6 +5,7 @@ using backend.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<MongoDbOptions>(builder.Configuration.GetSection(MongoDbOptions.SectionName));
+builder.Services.Configure<NeoRpcOptions>(builder.Configuration.GetSection(NeoRpcOptions.SectionName));
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<IArtifactRepository, ArtifactRepository>();
@@ -12,6 +13,8 @@ builder.Services.AddScoped<IDeploymentRepository, DeploymentRepository>();
 builder.Services.AddScoped<ProjectService>();
 builder.Services.AddScoped<ArtifactService>();
 builder.Services.AddScoped<DeploymentService>();
+builder.Services.AddHttpClient<NeoRpcClient>();
+builder.Services.AddScoped<NeoDeploymentVerificationService>();
 builder.Services.AddSingleton<NeoWalletSignatureVerifier>();
 builder.Services.AddSingleton<ProjectCreationSignatureValidator>();
 builder.Services.AddSingleton<ProjectManagementSignatureValidator>();

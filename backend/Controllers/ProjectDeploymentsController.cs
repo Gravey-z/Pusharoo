@@ -10,7 +10,8 @@ public sealed class ProjectDeploymentsController(
     ProjectService projectService,
     ArtifactService artifactService,
     DeploymentService deploymentService,
-    ProjectOwnershipService projectOwnershipService) : ControllerBase
+    ProjectOwnershipService projectOwnershipService,
+    NeoDeploymentVerificationService deploymentVerification) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<DeploymentResponse>> CreateAsync(
@@ -49,6 +50,17 @@ public sealed class ProjectDeploymentsController(
         if (artifact is null || artifact.ProjectId != projectId)
         {
             return BadRequest(new { error = "Artifact does not belong to this project." });
+        }
+
+        var existingDeployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
+        var verification = await deploymentVerification.VerifyAsync(
+            project,
+            existingDeployments,
+            request,
+            cancellationToken);
+        if (!verification.IsValid)
+        {
+            return BadRequest(new { error = verification.Error });
         }
 
         var deployment = await deploymentService.CreateAsync(
