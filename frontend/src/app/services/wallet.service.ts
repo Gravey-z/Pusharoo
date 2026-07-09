@@ -9,7 +9,7 @@ import type {
   WalletProvider,
   WalletSession
 } from 'neo-n3-walletkit';
-import { walletConfig } from '../config/wallet.config';
+import { isPusharooNetwork, walletConfig } from '../config/wallet.config';
 import { ProjectCreationSignature, WalletActionSignature } from '../models/pusharoo.models';
 import {
   ProjectCreationSignatureMessageService,
@@ -167,6 +167,10 @@ export class WalletService {
       throw new Error(`Connected wallet is on ${session.network}. Select ${session.network} or reconnect on ${network}.`);
     }
 
+    if (!isPusharooNetwork(network)) {
+      throw new Error(`Pusharoo does not support ${network}. Use Neo N3 testnet or mainnet.`);
+    }
+
     const contractManagementHash = walletConfig.contractManagement[network];
     const contractManagement = walletKit.contract(contractManagementHash);
     const nefValue = session.provider === 'onegate'
@@ -201,6 +205,10 @@ export class WalletService {
 
     if (session.network !== network) {
       throw new Error(`Connected wallet is on ${session.network}. Reconnect on ${network}.`);
+    }
+
+    if (!isPusharooNetwork(network)) {
+      throw new Error(`Pusharoo does not support ${network}. Use Neo N3 testnet or mainnet.`);
     }
 
     const contract = walletKit.contract(contractHash);

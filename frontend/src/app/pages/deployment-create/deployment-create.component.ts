@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { NetworkType } from 'neo-n3-walletkit';
 import { firstValueFrom } from 'rxjs';
-import { walletConfig } from '../../config/wallet.config';
+import { isPusharooNetwork, walletConfig } from '../../config/wallet.config';
 import { Artifact, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { NeoRpcService } from '../../services/neo-rpc.service';
@@ -180,6 +180,10 @@ export class DeploymentCreateComponent implements OnInit {
     nefHex: string,
     manifestJson: string
   ): Promise<ConfirmedContractChange> {
+    if (!isPusharooNetwork(network)) {
+      throw new Error(`Pusharoo does not support ${network}. Use Neo N3 testnet or mainnet.`);
+    }
+
     const deployments = this.overview?.deployments ?? [];
     const existingDeployment = this.deploymentHistory.latestForNetwork(deployments, network);
     const networkDeployments = this.deploymentHistory.forNetwork(deployments, network);

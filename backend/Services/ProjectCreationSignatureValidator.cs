@@ -11,7 +11,6 @@ public sealed class ProjectCreationSignatureValidator(NeoWalletSignatureVerifier
     private static readonly TimeSpan MaxClockSkew = TimeSpan.FromMinutes(2);
     private static readonly HashSet<string> SupportedNetworks = new(StringComparer.Ordinal)
     {
-        "neo3:private",
         "neo3:testnet",
         "neo3:mainnet"
     };
