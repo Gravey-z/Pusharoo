@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { firstValueFrom, forkJoin, of } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import {
   Deployment,
   ProjectOverviewViewModel,
@@ -11,6 +11,7 @@ import {
 } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
+import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 
 interface DeploymentOption {
@@ -28,7 +29,6 @@ interface DeploymentOption {
 export class EventWebhooksComponent implements OnInit {
   overview: ProjectOverviewViewModel | null = null;
   subscriptions: WebhookSubscription[] = [];
-  deliveriesBySubscription: Record<string, WebhookDelivery[]> = {};
   deploymentOptions: DeploymentOption[] = [];
   eventOptions: string[] = [];
   projectId = '';
@@ -48,7 +48,8 @@ export class EventWebhooksComponent implements OnInit {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly api: PusharooApiService,
-    private readonly deploymentHistory: DeploymentHistoryService
+    private readonly deploymentHistory: DeploymentHistoryService,
+    private readonly wallet: WalletService
   ) {
     this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
   }
@@ -79,7 +80,7 @@ export class EventWebhooksComponent implements OnInit {
     this.isSaving = true;
 
     try {
-      await firstValueFrom(this.api.createWebhookSubscription({
+      const subscriptionRequest = {
         name: this.name.trim(),
         contractHash: this.contractHash,
         eventName: this.eventName || null,
@@ -88,7 +89,22 @@ export class EventWebhooksComponent implements OnInit {
         secret: this.secret.trim() || null,
         headers: {},
         isEnabled: true
-      }));
+      };
+      const requestHash = await this.api.getWebhookManagementRequestHash(
+        this.projectId,
+        'subscriptions.create',
+        { subscription: subscriptionRequest }
+      );
+      const signature = await this.wallet.signWebhookAdministration(
+        this.projectId,
+        'subscriptions.create',
+        requestHash
+      );
+      await firstValueFrom(this.api.createWebhookSubscription(
+        this.projectId,
+        subscriptionRequest,
+        signature
+      ));
 
       this.formStatus = 'Webhook created.';
       this.name = '';
@@ -103,7 +119,7 @@ export class EventWebhooksComponent implements OnInit {
   }
 
   latestDelivery(subscriptionId: string): WebhookDelivery | null {
-    return this.deliveriesBySubscription[subscriptionId]?.[0] ?? null;
+    return this.subscriptions.find((subscription) => subscription.id === subscriptionId)?.latestDelivery ?? null;
   }
 
   eventLabel(subscription: WebhookSubscription): string {
@@ -119,32 +135,35 @@ export class EventWebhooksComponent implements OnInit {
   }
 
   private async load(): Promise<void> {
-    this.overview = await firstValueFrom(this.api.getProjectOverview(this.projectId));
-    this.deploymentOptions = this.toDeploymentOptions(this.overview?.deployments ?? []);
-    this.eventOptions = this.overview?.latestArtifact?.manifest.abi.events.map((event) => event.name) ?? [];
-    this.contractHash = this.deploymentOptions[0]?.contractHash ?? '';
-    this.eventName = this.eventOptions[0] ?? '';
-    await this.loadSubscriptions();
+    try {
+      this.overview = await firstValueFrom(this.api.getProjectOverview(this.projectId));
+      this.deploymentOptions = this.toDeploymentOptions(this.overview?.deployments ?? []);
+      this.eventOptions = this.overview?.latestArtifact?.manifest.abi.events.map((event) => event.name) ?? [];
+      this.contractHash = this.deploymentOptions[0]?.contractHash ?? '';
+      this.eventName = this.eventOptions[0] ?? '';
+      await this.loadSubscriptions();
+    } catch (error) {
+      this.errorMessage = this.getErrorMessage(error, 'Could not load webhook subscriptions.');
+    }
   }
 
   private async loadSubscriptions(): Promise<void> {
-    this.subscriptions = await firstValueFrom(this.api.getWebhookSubscriptions(this.projectId));
-
-    if (!this.subscriptions.length) {
-      this.deliveriesBySubscription = {};
-      return;
-    }
-
-    this.deliveriesBySubscription = await firstValueFrom(
-      forkJoin(
-        Object.fromEntries(
-          this.subscriptions.map((subscription) => [
-            subscription.id,
-            this.api.getWebhookDeliveries(subscription.id)
-          ])
-        )
-      )
+    const requestHash = await this.api.getWebhookManagementRequestHash(
+      this.projectId,
+      'subscriptions.read'
     );
+    const signature = await this.wallet.signWebhookAdministration(
+      this.projectId,
+      'subscriptions.read',
+      requestHash
+    );
+    this.subscriptions = await firstValueFrom(
+      this.api.getWebhookSubscriptions(this.projectId, signature)
+    );
+  }
+
+  private getErrorMessage(error: unknown, fallback: string): string {
+    return error instanceof Error && error.message ? error.message : fallback;
   }
 
   private toDeploymentOptions(deployments: Deployment[]): DeploymentOption[] {

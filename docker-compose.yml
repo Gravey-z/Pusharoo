@@ -35,10 +35,14 @@ services:
       NeoRpc__Network: mainnet
       NeoRpc__PollIntervalSeconds: 15
       NeoRpc__MaxBlocksPerPoll: 10
+      PusharooApi__Endpoint: http://api:8080
+      DataProtection__KeyRingPath: /var/lib/pusharoo/data-protection
     ports:
       - "5001:8080"
     depends_on:
       - mongo
+    volumes:
+      - event-relay-data:/var/lib/pusharoo/data-protection
 
   mongo:
     image: mongo:8
@@ -49,3 +53,4 @@ services:
 
 volumes:
   mongo-data:
+  event-relay-data:

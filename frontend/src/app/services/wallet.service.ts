@@ -287,6 +287,35 @@ export class WalletService {
     return this.toWalletActionSignature(account, session, challenge, signedMessage);
   }
 
+  async signWebhookAdministration(
+    projectId: string,
+    operation: string,
+    requestHash: string
+  ): Promise<WalletActionSignature> {
+    const session = this.session();
+    const account = this.account();
+
+    if (!this.walletKit || !session || !account) {
+      throw new Error('Connect the project owner wallet before managing webhooks.');
+    }
+
+    const challenge = this.projectCreationMessage.createWebhookAdministration(
+      projectId,
+      operation,
+      requestHash,
+      account,
+      session
+    );
+    const signedMessage = await this.signMessage(
+      session,
+      account.address,
+      challenge.message,
+      `Manage Pusharoo webhooks: ${operation}`
+    );
+
+    return this.toWalletActionSignature(account, session, challenge, signedMessage);
+  }
+
   async invokeContract(
     network: NetworkType,
     contractHash: string,

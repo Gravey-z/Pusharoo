@@ -11,6 +11,7 @@ namespace Pusharoo.EventRelay.Services;
 public sealed class WebhookDeliveryService(
     HttpClient httpClient,
     IWebhookDeliveryRepository deliveries,
+    WebhookSecretProtector secretProtector,
     IOptions<EventRelayOptions> options,
     ILogger<WebhookDeliveryService> logger)
 {
@@ -48,11 +49,12 @@ public sealed class WebhookDeliveryService(
             request.Headers.TryAddWithoutValidation("X-Pusharoo-Delivery", deliveryId);
             request.Headers.TryAddWithoutValidation("X-Pusharoo-Event", observedEvent.EventName);
 
-            if (!string.IsNullOrWhiteSpace(subscription.Secret))
+            var secret = secretProtector.Unprotect(subscription.Secret);
+            if (!string.IsNullOrWhiteSpace(secret))
             {
                 request.Headers.TryAddWithoutValidation(
                     "X-Pusharoo-Signature",
-                    WebhookSignature.Create(subscription.Secret, json));
+                    WebhookSignature.Create(secret, json));
             }
 
             foreach (var (key, value) in subscription.Headers)

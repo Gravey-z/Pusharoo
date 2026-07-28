@@ -19,6 +19,7 @@ builder.Services.AddSingleton<NeoWalletSignatureVerifier>();
 builder.Services.AddSingleton<ProjectCreationSignatureValidator>();
 builder.Services.AddSingleton<ProjectManagementSignatureValidator>();
 builder.Services.AddSingleton<ProjectOwnershipService>();
+builder.Services.AddSingleton<WebhookAuthorizationNonceService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>

@@ -21,4 +21,14 @@ public sealed class WebhookDeliveryRepository(MongoDbContext db) : IWebhookDeliv
             .Limit(50)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<WebhookDeliveryDocument?> GetLatestBySubscriptionAsync(
+        string subscriptionId,
+        CancellationToken cancellationToken)
+    {
+        return await db.Deliveries
+            .Find(delivery => delivery.SubscriptionId == subscriptionId)
+            .SortByDescending(delivery => delivery.DeliveredAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

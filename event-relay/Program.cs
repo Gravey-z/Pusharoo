@@ -1,20 +1,52 @@
 using Pusharoo.EventRelay.Options;
 using Pusharoo.EventRelay.Repositories;
 using Pusharoo.EventRelay.Services;
+using Microsoft.AspNetCore.DataProtection;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<MongoDbOptions>(builder.Configuration.GetSection(MongoDbOptions.SectionName));
 builder.Services.Configure<NeoRpcOptions>(builder.Configuration.GetSection(NeoRpcOptions.SectionName));
 builder.Services.Configure<EventRelayOptions>(builder.Configuration.GetSection(EventRelayOptions.SectionName));
+builder.Services.Configure<PusharooApiOptions>(builder.Configuration.GetSection(PusharooApiOptions.SectionName));
 
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddScoped<IWebhookSubscriptionRepository, WebhookSubscriptionRepository>();
 builder.Services.AddScoped<IWebhookDeliveryRepository, WebhookDeliveryRepository>();
 builder.Services.AddScoped<IEventCheckpointRepository, EventCheckpointRepository>();
+builder.Services.AddSingleton<WebhookDestinationValidator>();
+builder.Services.AddSingleton<WebhookSecretProtector>();
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("Pusharoo.EventRelay");
+var keyRingPath = builder.Configuration["DataProtection:KeyRingPath"];
+if (!string.IsNullOrWhiteSpace(keyRingPath))
+{
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+}
 builder.Services.AddHttpClient<NeoRpcClient>();
-builder.Services.AddHttpClient<WebhookDeliveryService>();
+builder.Services.AddHttpClient<ProjectAccessClient>();
+builder.Services.AddHttpClient<WebhookDeliveryService>()
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        AllowAutoRedirect = false,
+        ConnectCallback = WebhookDestinationValidator.ConnectPublicAsync
+    });
 builder.Services.AddHostedService<NeoEventMonitorService>();
+builder.Services.AddHostedService<WebhookSecretMigrationService>();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("WebhookManagement", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+});
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
@@ -37,6 +69,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.UseCors("Frontend");
+app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();

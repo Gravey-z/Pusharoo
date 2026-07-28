@@ -19,6 +19,16 @@ public sealed class WebhookSubscriptionRepository(MongoDbContext db) : IWebhookS
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<WebhookSubscriptionDocument>> GetByProjectIdAsync(
+        string projectId,
+        CancellationToken cancellationToken)
+    {
+        return await db.Subscriptions
+            .Find(subscription => subscription.ProjectId == projectId)
+            .SortByDescending(subscription => subscription.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<WebhookSubscriptionDocument?> GetByIdAsync(
         string subscriptionId,
         CancellationToken cancellationToken)
@@ -35,6 +45,7 @@ public sealed class WebhookSubscriptionRepository(MongoDbContext db) : IWebhookS
     {
         var filter = Builders<WebhookSubscriptionDocument>.Filter.And(
             Builders<WebhookSubscriptionDocument>.Filter.Eq(subscription => subscription.IsEnabled, true),
+            Builders<WebhookSubscriptionDocument>.Filter.Ne(subscription => subscription.ProjectId, null),
             Builders<WebhookSubscriptionDocument>.Filter.Eq(subscription => subscription.ContractHash, contractHash),
             Builders<WebhookSubscriptionDocument>.Filter.Or(
                 Builders<WebhookSubscriptionDocument>.Filter.Eq(subscription => subscription.EventName, null),

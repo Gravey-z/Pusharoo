@@ -47,6 +47,46 @@ public sealed class ProjectManagementSignatureValidator(NeoWalletSignatureVerifi
         return ValidateSignedMessage(project, signature, expectedMessage);
     }
 
+    public ProjectManagementSignatureValidationResult ValidateWebhookAdministration(
+        ProjectDocument project,
+        string operation,
+        string requestHash,
+        WalletSignatureRequest? signature)
+    {
+        var commonValidation = ValidateCommon(project, signature);
+        if (!commonValidation.IsValid || signature is null)
+        {
+            return commonValidation;
+        }
+
+        if (!WebhookOperations.Contains(operation))
+        {
+            return Fail("Webhook management operation is invalid.");
+        }
+
+        if (requestHash.Length != 64 || !requestHash.All(Uri.IsHexDigit))
+        {
+            return Fail("Webhook management request hash is invalid.");
+        }
+
+        var expectedMessage = BuildWebhookAdministrationMessage(
+            project.Id,
+            operation,
+            requestHash,
+            signature);
+
+        return ValidateSignedMessage(project, signature, expectedMessage);
+    }
+
+    private static readonly HashSet<string> WebhookOperations = new(StringComparer.Ordinal)
+    {
+        "subscriptions.read",
+        "subscriptions.create",
+        "subscriptions.update",
+        "subscriptions.delete",
+        "deliveries.read"
+    };
+
     private ProjectManagementSignatureValidationResult ValidateSignedMessage(
         ProjectDocument project,
         WalletSignatureRequest signature,
@@ -200,6 +240,27 @@ public sealed class ProjectManagementSignatureValidator(NeoWalletSignatureVerifi
             $"Notes SHA-256: {Sha256Hex(NormalizeOptional(notes))}",
             $"NEF SHA-256: {nefHash}",
             $"Manifest SHA-256: {manifestHash}",
+            $"Wallet: {signature.Address.Trim()}",
+            $"Script hash: {signature.ScriptHash.Trim()}",
+            $"Network: {signature.Network.Trim()}",
+            $"Origin: {signature.Origin.Trim()}",
+            $"Issued at UTC: {signature.IssuedAtUtc.Trim()}",
+            $"Nonce: {signature.Nonce.Trim()}"
+        });
+    }
+
+    private static string BuildWebhookAdministrationMessage(
+        string projectId,
+        string operation,
+        string requestHash,
+        WalletSignatureRequest signature)
+    {
+        return string.Join('\n', new[]
+        {
+            "Pusharoo webhook administration",
+            $"Project ID: {projectId.Trim()}",
+            $"Operation: {operation}",
+            $"Request SHA-256: {requestHash.Trim().ToLowerInvariant()}",
             $"Wallet: {signature.Address.Trim()}",
             $"Script hash: {signature.ScriptHash.Trim()}",
             $"Network: {signature.Network.Trim()}",

@@ -1,0 +1,50 @@
+namespace Pusharoo.EventRelay.Models;
+
+public sealed record WalletSignatureRequest(
+    string Address,
+    string ScriptHash,
+    string Network,
+    string Provider,
+    string Origin,
+    string IssuedAtUtc,
+    string Nonce,
+    string Message,
+    string PublicKey,
+    string Data,
+    string? Salt,
+    string? MessageHex);
+
+public sealed record WebhookAccessRequest(WalletSignatureRequest? Signature);
+
+public sealed record CreateSubscriptionRequest(
+    string Name,
+    string ContractHash,
+    string? EventName,
+    string WebhookUrl,
+    string? Secret,
+    Dictionary<string, string>? Headers,
+    bool IsEnabled,
+    WalletSignatureRequest? Signature);
+
+public sealed record UpdateSubscriptionRequest(
+    string Name,
+    string ContractHash,
+    string? EventName,
+    string WebhookUrl,
+    string? Secret,
+    Dictionary<string, string>? Headers,
+    bool IsEnabled,
+    WalletSignatureRequest? Signature);
+
+public sealed record SubscriptionResponse(
+    string Id,
+    string ProjectId,
+    string Name,
+    string ContractHash,
+    string? EventName,
+    string WebhookUrl,
+    Dictionary<string, string> Headers,
+    bool IsEnabled,
+    DateTime CreatedAt,
+    DateTime UpdatedAt,
+    WebhookDeliveryDocument? LatestDelivery);

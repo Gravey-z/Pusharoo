@@ -79,6 +79,37 @@ export class ProjectCreationSignatureMessageService {
     };
   }
 
+  createWebhookAdministration(
+    projectId: string,
+    operation: string,
+    requestHash: string,
+    account: ConnectedAccount,
+    session: WalletSession
+  ): WalletActionSignatureChallenge {
+    const origin = window.location.origin;
+    const issuedAtUtc = new Date().toISOString();
+    const nonce = this.createNonce();
+    const message = [
+      'Pusharoo webhook administration',
+      `Project ID: ${projectId.trim()}`,
+      `Operation: ${operation.trim()}`,
+      `Request SHA-256: ${requestHash.trim().toLowerCase()}`,
+      `Wallet: ${account.address}`,
+      `Script hash: ${account.scriptHash}`,
+      `Network: ${session.network}`,
+      `Origin: ${origin}`,
+      `Issued at UTC: ${issuedAtUtc}`,
+      `Nonce: ${nonce}`
+    ].join('\n');
+
+    return {
+      origin,
+      issuedAtUtc,
+      nonce,
+      message
+    };
+  }
+
   private createNonce(): string {
     const bytes = new Uint8Array(16);
     crypto.getRandomValues(bytes);

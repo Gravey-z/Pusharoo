@@ -19,6 +19,11 @@ public sealed record WalletSignatureRequest(
     string? Salt,
     string? MessageHex);
 
+public sealed record WebhookAccessValidationRequest(
+    string Operation,
+    string RequestHash,
+    WalletSignatureRequest? Signature);
+
 public sealed record ArtifactUploadInput(
     string ProjectId,
     string Version,

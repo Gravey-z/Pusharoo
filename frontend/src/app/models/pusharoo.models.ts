@@ -131,6 +131,7 @@ export interface WebhookSubscription {
   isEnabled: boolean;
   createdAt: string;
   updatedAt: string;
+  latestDelivery?: WebhookDelivery | null;
 }
 
 export interface CreateWebhookSubscriptionRequest {
@@ -143,6 +144,13 @@ export interface CreateWebhookSubscriptionRequest {
   headers?: Record<string, string>;
   isEnabled: boolean;
 }
+
+export type WebhookManagementOperation =
+  | 'subscriptions.read'
+  | 'subscriptions.create'
+  | 'subscriptions.update'
+  | 'subscriptions.delete'
+  | 'deliveries.read';
 
 export interface WebhookDelivery {
   id: string;

@@ -17,6 +17,7 @@ import {
   ProjectOverviewViewModel,
   WalletActionSignature,
   WebhookDelivery,
+  WebhookManagementOperation,
   WebhookSubscription
 } from '../models/pusharoo.models';
 import { demoArtifacts, demoProjectCards } from './demo-data';
@@ -147,30 +148,69 @@ export class PusharooApiService {
       .pipe(catchError(() => of([])));
   }
 
-  getWebhookSubscriptions(projectId?: string): Observable<WebhookSubscription[]> {
-    return this.http.get<WebhookSubscription[]>(`${this.eventRelayBaseUrl}/subscriptions`).pipe(
-      map((subscriptions) =>
-        projectId
-          ? subscriptions.filter((subscription) => subscription.projectId === projectId)
-          : subscriptions
-      ),
-      catchError(() => of([]))
+  getWebhookSubscriptions(
+    projectId: string,
+    signature: WalletActionSignature
+  ): Observable<WebhookSubscription[]> {
+    return this.http.post<WebhookSubscription[]>(
+      `${this.eventRelayBaseUrl}/projects/${projectId}/subscriptions/query`,
+      { signature }
     );
   }
 
   createWebhookSubscription(
-    request: CreateWebhookSubscriptionRequest
+    projectId: string,
+    request: CreateWebhookSubscriptionRequest,
+    signature: WalletActionSignature
   ): Observable<WebhookSubscription> {
+    const { projectId: ignoredProjectId, ...subscription } = request;
+
     return this.http.post<WebhookSubscription>(
-      `${this.eventRelayBaseUrl}/subscriptions`,
-      request
+      `${this.eventRelayBaseUrl}/projects/${projectId}/subscriptions`,
+      { ...subscription, signature }
     );
   }
 
-  getWebhookDeliveries(subscriptionId: string): Observable<WebhookDelivery[]> {
-    return this.http
-      .get<WebhookDelivery[]>(`${this.eventRelayBaseUrl}/subscriptions/${subscriptionId}/deliveries`)
-      .pipe(catchError(() => of([])));
+  getWebhookDeliveries(
+    projectId: string,
+    subscriptionId: string,
+    signature: WalletActionSignature
+  ): Observable<WebhookDelivery[]> {
+    return this.http.post<WebhookDelivery[]>(
+      `${this.eventRelayBaseUrl}/projects/${projectId}/subscriptions/${subscriptionId}/deliveries/query`,
+      { signature }
+    );
+  }
+
+  async getWebhookManagementRequestHash(
+    projectId: string,
+    operation: WebhookManagementOperation,
+    content: {
+      subscriptionId?: string;
+      subscription?: CreateWebhookSubscriptionRequest;
+    } = {}
+  ): Promise<string> {
+    const subscription = content.subscription;
+    const headers = Object.entries(subscription?.headers ?? {})
+      .map(([key, value]) => `${key.trim().toLowerCase()}:${value.trim()}`)
+      .sort()
+      .join('\n');
+    const secretHash = await this.sha256Hex(subscription?.secret?.trim() ?? '');
+    const headersHash = await this.sha256Hex(headers);
+    const payload = [
+      `Project ID: ${projectId.trim()}`,
+      `Operation: ${operation}`,
+      `Subscription ID: ${content.subscriptionId?.trim() ?? ''}`,
+      `Name: ${subscription?.name.trim() ?? ''}`,
+      `Contract hash: ${subscription?.contractHash.trim().toLowerCase() ?? ''}`,
+      `Event name: ${subscription?.eventName?.trim() ?? ''}`,
+      `Webhook URL: ${subscription?.webhookUrl.trim() ?? ''}`,
+      `Enabled: ${subscription ? String(subscription.isEnabled).toLowerCase() : ''}`,
+      `Secret SHA-256: ${secretHash}`,
+      `Headers SHA-256: ${headersHash}`
+    ].join('\n');
+
+    return this.sha256Hex(payload);
   }
 
   private getArtifacts(projectId: string): Observable<Artifact[]> {
@@ -383,6 +423,17 @@ export class PusharooApiService {
   private arrayBufferToHex(buffer: ArrayBuffer): string {
     return [...new Uint8Array(buffer)]
       .map((value) => value.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  private async sha256Hex(value: string): Promise<string> {
+    const bytes = new TextEncoder().encode(value);
+    const input = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(input).set(bytes);
+    const hash = await crypto.subtle.digest('SHA-256', input);
+
+    return [...new Uint8Array(hash)]
+      .map((item) => item.toString(16).padStart(2, '0'))
       .join('');
   }
 }
