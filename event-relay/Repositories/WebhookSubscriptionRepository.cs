@@ -39,6 +39,7 @@ public sealed class WebhookSubscriptionRepository(MongoDbContext db) : IWebhookS
     }
 
     public async Task<IReadOnlyList<WebhookSubscriptionDocument>> GetMatchingAsync(
+        string network,
         string contractHash,
         string eventName,
         CancellationToken cancellationToken)
@@ -46,6 +47,7 @@ public sealed class WebhookSubscriptionRepository(MongoDbContext db) : IWebhookS
         var filter = Builders<WebhookSubscriptionDocument>.Filter.And(
             Builders<WebhookSubscriptionDocument>.Filter.Eq(subscription => subscription.IsEnabled, true),
             Builders<WebhookSubscriptionDocument>.Filter.Ne(subscription => subscription.ProjectId, null),
+            Builders<WebhookSubscriptionDocument>.Filter.Eq(subscription => subscription.Network, network),
             Builders<WebhookSubscriptionDocument>.Filter.Eq(subscription => subscription.ContractHash, contractHash),
             Builders<WebhookSubscriptionDocument>.Filter.Or(
                 Builders<WebhookSubscriptionDocument>.Filter.Eq(subscription => subscription.EventName, null),

@@ -2,6 +2,7 @@ using Pusharoo.EventRelay.Options;
 using Pusharoo.EventRelay.Repositories;
 using Pusharoo.EventRelay.Services;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Options;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -67,7 +68,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/health", (IOptions<NeoRpcOptions> neoRpcOptions) =>
+    Results.Ok(new { status = "ok", network = neoRpcOptions.Value.Network }));
 app.UseCors("Frontend");
 app.UseRateLimiter();
 app.MapControllers();

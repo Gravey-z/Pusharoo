@@ -15,6 +15,7 @@ public interface IWebhookSubscriptionRepository
     Task<WebhookSubscriptionDocument?> GetByIdAsync(string subscriptionId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<WebhookSubscriptionDocument>> GetMatchingAsync(
+        string network,
         string contractHash,
         string eventName,
         CancellationToken cancellationToken);

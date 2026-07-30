@@ -125,6 +125,7 @@ export interface WebhookSubscription {
   projectId?: string | null;
   name: string;
   contractHash: string;
+  network: string;
   eventName?: string | null;
   webhookUrl: string;
   headers: Record<string, string>;
@@ -137,6 +138,7 @@ export interface WebhookSubscription {
 export interface CreateWebhookSubscriptionRequest {
   name: string;
   contractHash: string;
+  network: string;
   eventName?: string | null;
   webhookUrl: string;
   projectId?: string | null;
@@ -161,6 +163,11 @@ export interface WebhookDelivery {
   succeeded: boolean;
   error?: string | null;
   deliveredAt: string;
+}
+
+export interface EventRelayStatus {
+  status: string;
+  network: string;
 }
 
 export interface ProjectCardViewModel {

@@ -7,7 +7,7 @@
         <form class="call-panel" (ngSubmit)="run()">
           <label>
             <span>Contract</span>
-            <select name="target" [(ngModel)]="selectedTargetKey">
+            <select name="target" [(ngModel)]="selectedTargetKey" (change)="selectTarget()">
               @for (target of targets; track targetKey(target)) {
                 <option [value]="targetKey(target)">
                   {{ target.label }} - {{ shortHash(target.contractHash) }}

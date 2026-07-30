@@ -28,6 +28,7 @@ public sealed class WebhookSecretMigrationService(
                 ProjectId = subscription.ProjectId,
                 Name = subscription.Name,
                 ContractHash = subscription.ContractHash,
+                Network = subscription.Network,
                 EventName = subscription.EventName,
                 WebhookUrl = subscription.WebhookUrl,
                 Secret = secretProtector.Protect(subscription.Secret),

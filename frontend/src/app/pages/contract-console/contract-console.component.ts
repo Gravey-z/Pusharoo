@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { NetworkType } from 'neo-n3-walletkit';
 import {
+  Artifact,
   Deployment,
   NeoMethod,
   NeoParameter,
@@ -28,6 +29,7 @@ interface ContractTarget {
   contractHash: string;
   artifactId: string;
   version: string;
+  artifact: Artifact;
 }
 
 interface ConsoleEntry {
@@ -48,7 +50,6 @@ interface ConsoleEntry {
 export class ContractConsoleComponent implements OnInit {
   overview: ProjectOverviewViewModel | null = null;
   targets: ContractTarget[] = [];
-  methods: NeoMethod[] = [];
   selectedTargetKey = '';
   selectedMethodName = '';
   parameterValues: Record<string, string> = {};
@@ -70,6 +71,10 @@ export class ContractConsoleComponent implements OnInit {
     return this.methods.find((method) => method.name === this.selectedMethodName) ?? null;
   }
 
+  get methods(): NeoMethod[] {
+    return this.selectedTarget?.artifact.manifest.abi.methods ?? [];
+  }
+
   get canRun(): boolean {
     return Boolean(this.selectedTarget && this.selectedMethod && !this.isRunning);
   }
@@ -88,15 +93,18 @@ export class ContractConsoleComponent implements OnInit {
   ngOnInit(): void {
     this.api.getProjectOverview(this.projectId).subscribe((overview) => {
       this.overview = overview;
-      this.methods = overview?.latestArtifact?.manifest.abi.methods ?? [];
       this.targets = this.toTargets(overview);
       this.selectedTargetKey = this.targets[0] ? this.targetKey(this.targets[0]) : '';
-      this.selectedMethodName = this.methods[0]?.name ?? '';
-      this.resetParameterValues();
+      this.selectTarget();
     });
   }
 
   selectMethod(): void {
+    this.resetParameterValues();
+  }
+
+  selectTarget(): void {
+    this.selectedMethodName = this.methods[0]?.name ?? '';
     this.resetParameterValues();
   }
 
@@ -203,7 +211,7 @@ export class ContractConsoleComponent implements OnInit {
       target.contractHash,
       method.name,
       parameters,
-      this.overview?.latestArtifact?.contractName ?? 'contract'
+      target.artifact.contractName
     );
 
     return { transactionId };
@@ -229,15 +237,43 @@ export class ContractConsoleComponent implements OnInit {
 
     switch (parameter.type.toLowerCase()) {
       case 'boolean':
-        return value.toLowerCase() === 'true' || value === '1';
+        if (value.toLowerCase() === 'true' || value === '1') {
+          return true;
+        }
+
+        if (value.toLowerCase() === 'false' || value === '0') {
+          return false;
+        }
+
+        throw new Error(`${this.parameterLabel(parameter)} must be true or false.`);
       case 'integer':
-        return value ? Number(value) : 0;
+        if (!/^[+-]?\d+$/.test(value || '0')) {
+          throw new Error(`${this.parameterLabel(parameter)} must be an integer.`);
+        }
+
+        return value || '0';
+      case 'hash160':
+        return this.requireHex(parameter, value, 40);
+      case 'hash256':
+        return this.requireHex(parameter, value, 64);
+      case 'bytearray':
+        return this.requireHex(parameter, value);
+      case 'publickey':
+        return this.requireHex(parameter, value, 66);
+      case 'signature':
+        return this.requireHex(parameter, value, 128);
       case 'array':
       case 'map':
       case 'any':
-        return value ? JSON.parse(value) : null;
+        try {
+          return value ? JSON.parse(value) : null;
+        } catch {
+          throw new Error(`${this.parameterLabel(parameter)} must be valid JSON.`);
+        }
       case 'void':
         return null;
+      case 'interopinterface':
+        throw new Error(`${this.parameterLabel(parameter)} cannot be entered manually.`);
       default:
         return value;
     }
@@ -276,16 +312,37 @@ export class ContractConsoleComponent implements OnInit {
     return this.deploymentHistory
       .latestByNetwork(overview.deployments)
       .filter((deployment) => deployment.contractHash)
-      .map((deployment) => this.toTarget(deployment));
+      .map((deployment) => {
+        const artifact = overview.artifacts.find((item) => item.id === deployment.artifactId);
+        return artifact ? this.toTarget(deployment, artifact) : null;
+      })
+      .filter((target): target is ContractTarget => target !== null);
   }
 
-  private toTarget(deployment: Deployment): ContractTarget {
+  private toTarget(deployment: Deployment, artifact: Artifact): ContractTarget {
     return {
       label: `${deployment.network} - ${deployment.version}`,
       network: deployment.network,
       contractHash: deployment.contractHash ?? '',
       artifactId: deployment.artifactId,
-      version: deployment.version
+      version: deployment.version,
+      artifact
     };
+  }
+
+  private parameterLabel(parameter: NeoParameter): string {
+    return parameter.name || `Parameter (${parameter.type})`;
+  }
+
+  private requireHex(parameter: NeoParameter, value: string, expectedLength?: number): string {
+    const normalized = value.replace(/^0x/i, '');
+    const hasExpectedLength = expectedLength === undefined || normalized.length === expectedLength;
+
+    if (!normalized || !hasExpectedLength || !/^[0-9a-f]+$/i.test(normalized)) {
+      const lengthDescription = expectedLength ? ` with ${expectedLength} hexadecimal characters` : '';
+      throw new Error(`${this.parameterLabel(parameter)} must be hexadecimal${lengthDescription}.`);
+    }
+
+    return `0x${normalized.toLowerCase()}`;
   }
 }

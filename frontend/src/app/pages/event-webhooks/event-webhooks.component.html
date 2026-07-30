@@ -17,7 +17,7 @@
 
           <label>
             <span>Contract</span>
-            <select name="contractHash" [(ngModel)]="contractHash">
+            <select name="contractHash" [(ngModel)]="contractHash" (change)="selectDeployment()">
               @for (deployment of deploymentOptions; track deployment.contractHash) {
                 <option [value]="deployment.contractHash">
                   {{ deployment.label }} - {{ shortHash(deployment.contractHash) }}
@@ -58,8 +58,8 @@
           </label>
 
           <p class="hint">
-            Pusharoo Relay will POST matching Neo events to this endpoint. A signing secret adds
-            an HMAC signature header.
+            Pusharoo Relay is monitoring {{ relayNetwork }}. It will POST matching Neo events to
+            this endpoint. A signing secret adds an HMAC signature header.
           </p>
 
           @if (formStatus) {
@@ -113,8 +113,8 @@
       </section>
     } @else {
       <section class="empty-state">
-        <strong>No deployed contract yet</strong>
-        <p>Deploy this project and save a contract hash before creating event webhooks.</p>
+        <strong>No deployment on {{ relayNetwork || 'the relay network' }}</strong>
+        <p>Deploy this project to the network monitored by Pusharoo Relay before creating event webhooks.</p>
         <a class="primary-button" [routerLink]="['/projects', projectId, 'deployments', 'new']">
           Deploy Contract
         </a>

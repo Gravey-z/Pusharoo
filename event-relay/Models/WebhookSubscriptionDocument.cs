@@ -17,6 +17,9 @@ public sealed class WebhookSubscriptionDocument
     [BsonElement("contractHash")]
     public string ContractHash { get; init; } = string.Empty;
 
+    [BsonElement("network")]
+    public string Network { get; init; } = string.Empty;
+
     [BsonElement("eventName")]
     public string? EventName { get; init; }
 

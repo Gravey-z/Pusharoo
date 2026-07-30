@@ -6,7 +6,7 @@ public sealed class NeoRpcOptions
 
     public string Endpoint { get; init; } = "https://mainnet1.neo.coz.io:443";
 
-    public string Network { get; init; } = "mainnet";
+    public string Network { get; init; } = "neo3:mainnet";
 
     public uint? StartBlock { get; init; }
 

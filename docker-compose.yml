@@ -32,7 +32,7 @@ services:
       MongoDb__ConnectionString: mongodb://mongo:27017
       MongoDb__DatabaseName: Pusharoo
       NeoRpc__Endpoint: https://mainnet1.neo.coz.io:443
-      NeoRpc__Network: mainnet
+      NeoRpc__Network: neo3:mainnet
       NeoRpc__PollIntervalSeconds: 15
       NeoRpc__MaxBlocksPerPoll: 10
       PusharooApi__Endpoint: http://api:8080

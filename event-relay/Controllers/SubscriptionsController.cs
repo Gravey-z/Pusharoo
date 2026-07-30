@@ -1,7 +1,9 @@
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using Pusharoo.EventRelay.Models;
+using Pusharoo.EventRelay.Options;
 using Pusharoo.EventRelay.Repositories;
 using Pusharoo.EventRelay.Services;
 
@@ -15,7 +17,8 @@ public sealed class SubscriptionsController(
     IWebhookDeliveryRepository deliveries,
     ProjectAccessClient projectAccess,
     WebhookDestinationValidator destinationValidator,
-    WebhookSecretProtector secretProtector) : ControllerBase
+    WebhookSecretProtector secretProtector,
+    IOptions<NeoRpcOptions> neoRpcOptions) : ControllerBase
 {
     private static readonly Regex HeaderNamePattern = new("^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,64}$", RegexOptions.Compiled);
     private static readonly HashSet<string> ForbiddenHeaders = new(StringComparer.OrdinalIgnoreCase)
@@ -92,6 +95,7 @@ public sealed class SubscriptionsController(
             ProjectId = projectId.Trim(),
             Name = request.Name.Trim(),
             ContractHash = NormalizeHash(request.ContractHash),
+            Network = request.Network.Trim(),
             EventName = NormalizeOptional(request.EventName),
             WebhookUrl = request.WebhookUrl.Trim(),
             Secret = secretProtector.Protect(request.Secret),
@@ -142,6 +146,7 @@ public sealed class SubscriptionsController(
             ProjectId = existing.ProjectId,
             Name = request.Name.Trim(),
             ContractHash = NormalizeHash(request.ContractHash),
+            Network = request.Network.Trim(),
             EventName = NormalizeOptional(request.EventName),
             WebhookUrl = request.WebhookUrl.Trim(),
             Secret = string.IsNullOrWhiteSpace(request.Secret)
@@ -249,6 +254,7 @@ public sealed class SubscriptionsController(
         return await ValidateSubscriptionAsync(
             request.Name,
             request.ContractHash,
+            request.Network,
             request.WebhookUrl,
             request.Headers,
             cancellationToken);
@@ -261,6 +267,7 @@ public sealed class SubscriptionsController(
         return await ValidateSubscriptionAsync(
             request.Name,
             request.ContractHash,
+            request.Network,
             request.WebhookUrl,
             request.Headers,
             cancellationToken);
@@ -269,6 +276,7 @@ public sealed class SubscriptionsController(
     private async Task<string?> ValidateSubscriptionAsync(
         string name,
         string contractHash,
+        string network,
         string webhookUrl,
         Dictionary<string, string>? headers,
         CancellationToken cancellationToken)
@@ -281,6 +289,11 @@ public sealed class SubscriptionsController(
         if (!IsContractHash(contractHash))
         {
             return "Contract hash must be a 20-byte hexadecimal script hash.";
+        }
+
+        if (!string.Equals(network.Trim(), neoRpcOptions.Value.Network, StringComparison.Ordinal))
+        {
+            return $"Pusharoo Relay currently monitors {neoRpcOptions.Value.Network}.";
         }
 
         var destination = await destinationValidator.ValidateAsync(webhookUrl, cancellationToken);
@@ -359,6 +372,7 @@ public sealed class SubscriptionsController(
             subscription.ProjectId ?? string.Empty,
             subscription.Name,
             subscription.ContractHash,
+            subscription.Network,
             subscription.EventName,
             subscription.WebhookUrl,
             subscription.Headers,

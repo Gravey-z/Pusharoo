@@ -89,6 +89,7 @@ public sealed class NeoEventMonitorService(
                 foreach (var observedEvent in ExtractEvents(applicationLog, transactionHash, blockIndex))
                 {
                     var matches = await subscriptions.GetMatchingAsync(
+                        observedEvent.Network,
                         observedEvent.ContractHash,
                         observedEvent.EventName,
                         cancellationToken);

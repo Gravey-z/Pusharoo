@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import {
+  Artifact,
   Deployment,
   ProjectOverviewViewModel,
   WebhookDelivery,
@@ -18,6 +19,7 @@ interface DeploymentOption {
   label: string;
   contractHash: string;
   network: string;
+  artifact: Artifact;
 }
 
 @Component({
@@ -31,6 +33,7 @@ export class EventWebhooksComponent implements OnInit {
   subscriptions: WebhookSubscription[] = [];
   deploymentOptions: DeploymentOption[] = [];
   eventOptions: string[] = [];
+  relayNetwork = '';
   projectId = '';
   name = '';
   contractHash = '';
@@ -43,6 +46,10 @@ export class EventWebhooksComponent implements OnInit {
 
   get pageTitle(): string {
     return this.overview ? `${this.overview.project.name}: Event Webhooks` : 'Event Webhooks';
+  }
+
+  get selectedDeployment(): DeploymentOption | null {
+    return this.deploymentOptions.find((deployment) => deployment.contractHash === this.contractHash) ?? null;
   }
 
   constructor(
@@ -72,6 +79,11 @@ export class EventWebhooksComponent implements OnInit {
       return;
     }
 
+    if (!this.selectedDeployment) {
+      this.errorMessage = 'Choose a deployment monitored by Pusharoo Relay.';
+      return;
+    }
+
     if (!this.webhookUrl.trim()) {
       this.errorMessage = 'Enter the endpoint URL.';
       return;
@@ -83,6 +95,7 @@ export class EventWebhooksComponent implements OnInit {
       const subscriptionRequest = {
         name: this.name.trim(),
         contractHash: this.contractHash,
+        network: this.selectedDeployment.network,
         eventName: this.eventName || null,
         webhookUrl: this.webhookUrl.trim(),
         projectId: this.projectId,
@@ -137,10 +150,12 @@ export class EventWebhooksComponent implements OnInit {
   private async load(): Promise<void> {
     try {
       this.overview = await firstValueFrom(this.api.getProjectOverview(this.projectId));
-      this.deploymentOptions = this.toDeploymentOptions(this.overview?.deployments ?? []);
-      this.eventOptions = this.overview?.latestArtifact?.manifest.abi.events.map((event) => event.name) ?? [];
+      const relayStatus = await firstValueFrom(this.api.getEventRelayStatus());
+      this.relayNetwork = relayStatus.network;
+      this.deploymentOptions = this.toDeploymentOptions(this.overview?.deployments ?? [])
+        .filter((deployment) => deployment.network === this.relayNetwork);
       this.contractHash = this.deploymentOptions[0]?.contractHash ?? '';
-      this.eventName = this.eventOptions[0] ?? '';
+      this.selectDeployment();
       await this.loadSubscriptions();
     } catch (error) {
       this.errorMessage = this.getErrorMessage(error, 'Could not load webhook subscriptions.');
@@ -166,14 +181,27 @@ export class EventWebhooksComponent implements OnInit {
     return error instanceof Error && error.message ? error.message : fallback;
   }
 
+  selectDeployment(): void {
+    this.eventOptions = this.selectedDeployment?.artifact.manifest.abi.events
+      .map((event) => event.name) ?? [];
+    this.eventName = this.eventOptions[0] ?? '';
+  }
+
   private toDeploymentOptions(deployments: Deployment[]): DeploymentOption[] {
     return this.deploymentHistory
       .latestByNetwork(deployments)
       .filter((deployment) => deployment.contractHash)
-      .map((deployment) => ({
-        label: `${deployment.network} - ${deployment.version}`,
-        contractHash: deployment.contractHash ?? '',
-        network: deployment.network
-      }));
+      .map((deployment) => {
+        const artifact = this.overview?.artifacts.find((item) => item.id === deployment.artifactId);
+        return artifact
+          ? {
+              label: `${deployment.network} - ${deployment.version}`,
+              contractHash: deployment.contractHash ?? '',
+              network: deployment.network,
+              artifact
+            }
+          : null;
+      })
+      .filter((deployment): deployment is DeploymentOption => deployment !== null);
   }
 }

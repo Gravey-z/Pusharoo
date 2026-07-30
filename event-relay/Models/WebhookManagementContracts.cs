@@ -19,6 +19,7 @@ public sealed record WebhookAccessRequest(WalletSignatureRequest? Signature);
 public sealed record CreateSubscriptionRequest(
     string Name,
     string ContractHash,
+    string Network,
     string? EventName,
     string WebhookUrl,
     string? Secret,
@@ -29,6 +30,7 @@ public sealed record CreateSubscriptionRequest(
 public sealed record UpdateSubscriptionRequest(
     string Name,
     string ContractHash,
+    string Network,
     string? EventName,
     string WebhookUrl,
     string? Secret,
@@ -41,6 +43,7 @@ public sealed record SubscriptionResponse(
     string ProjectId,
     string Name,
     string ContractHash,
+    string Network,
     string? EventName,
     string WebhookUrl,
     Dictionary<string, string> Headers,

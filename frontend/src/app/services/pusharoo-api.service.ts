@@ -8,6 +8,7 @@ import {
   CreateDeploymentRequest,
   CreateWebhookSubscriptionRequest,
   Deployment,
+  EventRelayStatus,
   NeoMethod,
   NeoParameter,
   NeoPermission,
@@ -158,6 +159,10 @@ export class PusharooApiService {
     );
   }
 
+  getEventRelayStatus(): Observable<EventRelayStatus> {
+    return this.http.get<EventRelayStatus>(`${this.eventRelayBaseUrl.replace('/api', '')}/health`);
+  }
+
   createWebhookSubscription(
     projectId: string,
     request: CreateWebhookSubscriptionRequest,
@@ -203,6 +208,7 @@ export class PusharooApiService {
       `Subscription ID: ${content.subscriptionId?.trim() ?? ''}`,
       `Name: ${subscription?.name.trim() ?? ''}`,
       `Contract hash: ${subscription?.contractHash.trim().toLowerCase() ?? ''}`,
+      `Network: ${subscription?.network.trim() ?? ''}`,
       `Event name: ${subscription?.eventName?.trim() ?? ''}`,
       `Webhook URL: ${subscription?.webhookUrl.trim() ?? ''}`,
       `Enabled: ${subscription ? String(subscription.isEnabled).toLowerCase() : ''}`,
