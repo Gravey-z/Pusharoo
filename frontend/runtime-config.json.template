@@ -1,0 +1,17 @@
+{
+  "apiBaseUrl": "${PUSHAROO_API_BASE_URL}",
+  "eventRelayBaseUrl": "${PUSHAROO_EVENT_RELAY_BASE_URL}",
+  "eventRelayHealthUrl": "${PUSHAROO_EVENT_RELAY_HEALTH_URL}",
+  "wallet": {
+    "network": "${PUSHAROO_DEFAULT_NETWORK}",
+    "walletConnectProjectId": "${PUSHAROO_WALLETCONNECT_PROJECT_ID}",
+    "contractManagement": {
+      "neo3:testnet": "${PUSHAROO_TESTNET_CONTRACT_MANAGEMENT_HASH}",
+      "neo3:mainnet": "${PUSHAROO_MAINNET_CONTRACT_MANAGEMENT_HASH}"
+    },
+    "rpc": {
+      "neo3:testnet": "${PUSHAROO_TESTNET_RPC_URL}",
+      "neo3:mainnet": "${PUSHAROO_MAINNET_RPC_URL}"
+    }
+  }
+}

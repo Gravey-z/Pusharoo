@@ -20,16 +20,20 @@ builder.Services.AddSingleton<ProjectCreationSignatureValidator>();
 builder.Services.AddSingleton<ProjectManagementSignatureValidator>();
 builder.Services.AddSingleton<ProjectOwnershipService>();
 builder.Services.AddSingleton<WebhookAuthorizationNonceService>();
-builder.Services.AddCors(options =>
+var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?.Where(origin => Uri.TryCreate(origin, UriKind.Absolute, out _))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray() ?? [];
+if (allowedCorsOrigins.Length > 0)
 {
-    options.AddPolicy("Frontend", policy =>
+    builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
     {
         policy
-            .WithOrigins("http://localhost:4200")
+            .WithOrigins(allowedCorsOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
-    });
-});
+    }));
+}
 builder.Services
     .AddControllers()
     .AddJsonOptions(options =>
@@ -46,8 +50,14 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
-app.UseCors("Frontend");
+if (builder.Configuration.GetValue<bool>("Https:RedirectEnabled"))
+{
+    app.UseHttpsRedirection();
+}
+if (allowedCorsOrigins.Length > 0)
+{
+    app.UseCors("Frontend");
+}
 app.MapControllers();
 
 app.Run();

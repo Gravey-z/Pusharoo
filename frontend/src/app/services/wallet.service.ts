@@ -9,12 +9,13 @@ import type {
   WalletProvider,
   WalletSession
 } from 'neo-n3-walletkit';
-import { isPusharooNetwork, walletConfig } from '../config/wallet.config';
+import { isPusharooNetwork } from '../config/wallet.config';
 import { ProjectCreationSignature, WalletActionSignature } from '../models/pusharoo.models';
 import {
   ProjectCreationSignatureMessageService,
   WalletActionSignatureChallenge
 } from './project-creation-signature-message.service';
+import { RuntimeConfigService } from './runtime-config.service';
 
 type WalletStatus = 'idle' | 'connecting' | 'connected' | 'error';
 type ConnectableWalletProvider = Extract<WalletProvider, 'neoline' | 'onegate' | 'walletconnect'>;
@@ -67,7 +68,8 @@ export class WalletService {
   });
 
   constructor(
-    private readonly projectCreationMessage: ProjectCreationSignatureMessageService
+    private readonly projectCreationMessage: ProjectCreationSignatureMessageService,
+    private readonly runtimeConfig: RuntimeConfigService
   ) {}
 
   async restoreSavedSession(): Promise<void> {
@@ -171,7 +173,7 @@ export class WalletService {
       throw new Error(`Pusharoo does not support ${network}. Use Neo N3 testnet or mainnet.`);
     }
 
-    const contractManagementHash = walletConfig.contractManagement[network];
+    const contractManagementHash = this.runtimeConfig.value.wallet.contractManagement[network];
     const contractManagement = walletKit.contract(contractManagementHash);
     const nefValue = session.provider === 'onegate'
       ? nefHex
@@ -478,11 +480,11 @@ export class WalletService {
 
   private async initWalletKit(provider: ConnectableWalletProvider): Promise<WalletKit> {
     if (provider === 'neoline') {
-      return await WalletKit.initNeoLine({ network: walletConfig.network });
+      return await WalletKit.initNeoLine({ network: this.runtimeConfig.value.wallet.network as NetworkType });
     }
 
     if (provider === 'onegate') {
-      return await WalletKit.initOneGate({ network: walletConfig.network });
+      return await WalletKit.initOneGate({ network: this.runtimeConfig.value.wallet.network as NetworkType });
     }
 
     const walletConnectMethods: Method[] = ['invokeFunction', 'testInvoke', 'signMessage'];
@@ -496,7 +498,7 @@ export class WalletService {
         url: window.location.origin,
         icons: [`${window.location.origin}/pusharoo-logo.png`]
       },
-      network: walletConfig.network,
+      network: this.runtimeConfig.value.wallet.network as NetworkType,
       methods: walletConnectMethods
     });
   }
@@ -548,7 +550,7 @@ export class WalletService {
   }
 
   private getWalletConnectProjectId(): string {
-    const projectId = walletConfig.walletConnectProjectId.trim();
+    const projectId = this.runtimeConfig.value.wallet.walletConnectProjectId.trim();
 
     if (!projectId) {
       throw new Error('Add a WalletConnect project ID in frontend/src/app/config/wallet.config.ts to enable Neon Wallet.');

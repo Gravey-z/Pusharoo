@@ -22,13 +22,14 @@ import {
   WebhookSubscription
 } from '../models/pusharoo.models';
 import { demoArtifacts, demoProjectCards } from './demo-data';
+import { RuntimeConfigService } from './runtime-config.service';
 
 @Injectable({ providedIn: 'root' })
 export class PusharooApiService {
-  private readonly apiBaseUrl = 'http://localhost:5000/api';
-  private readonly eventRelayBaseUrl = 'http://localhost:5001/api';
+  private get apiBaseUrl(): string { return this.runtimeConfig.value.apiBaseUrl.replace(/\/$/, ''); }
+  private get eventRelayBaseUrl(): string { return this.runtimeConfig.value.eventRelayBaseUrl.replace(/\/$/, ''); }
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: HttpClient, private readonly runtimeConfig: RuntimeConfigService) {}
 
   getProjectCards(): Observable<ProjectCardViewModel[]> {
     return this.http.get<Project[]>(`${this.apiBaseUrl}/projects`).pipe(
@@ -160,7 +161,7 @@ export class PusharooApiService {
   }
 
   getEventRelayStatus(): Observable<EventRelayStatus> {
-    return this.http.get<EventRelayStatus>(`${this.eventRelayBaseUrl.replace('/api', '')}/health`);
+    return this.http.get<EventRelayStatus>(this.runtimeConfig.value.eventRelayHealthUrl);
   }
 
   createWebhookSubscription(

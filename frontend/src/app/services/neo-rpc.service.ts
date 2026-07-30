@@ -2,7 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import type { NetworkType } from 'neo-n3-walletkit';
 import { firstValueFrom } from 'rxjs';
-import { isPusharooNetwork, walletConfig } from '../config/wallet.config';
+import { isPusharooNetwork } from '../config/wallet.config';
+import { RuntimeConfigService } from './runtime-config.service';
 
 interface RpcResponse<T> {
   result?: T;
@@ -57,7 +58,7 @@ export interface ContractInvokeResult {
 
 @Injectable({ providedIn: 'root' })
 export class NeoRpcService {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: HttpClient, private readonly runtimeConfig: RuntimeConfigService) {}
 
   async invokeFunction(
     network: NetworkType,
@@ -69,7 +70,7 @@ export class NeoRpcService {
       throw new Error(`No Neo RPC endpoint is configured for ${network}.`);
     }
 
-    const endpoint = walletConfig.rpc[network];
+    const endpoint = this.runtimeConfig.value.wallet.rpc[network];
 
     const response = await firstValueFrom(this.http.post<RpcResponse<ContractInvokeResult>>(endpoint, {
       jsonrpc: '2.0',
@@ -98,7 +99,7 @@ export class NeoRpcService {
       throw new Error(`No Neo RPC endpoint is configured for ${network}.`);
     }
 
-    const endpoint = walletConfig.rpc[network];
+    const endpoint = this.runtimeConfig.value.wallet.rpc[network];
 
     const log = await this.waitForApplicationLog(endpoint, transactionId);
     const execution = log.executions?.[0];
@@ -129,7 +130,7 @@ export class NeoRpcService {
       throw new Error(`No Neo RPC endpoint is configured for ${network}.`);
     }
 
-    const endpoint = walletConfig.rpc[network];
+    const endpoint = this.runtimeConfig.value.wallet.rpc[network];
 
     const log = await this.waitForApplicationLog(endpoint, transactionId);
     const execution = log.executions?.[0];

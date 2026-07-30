@@ -3,12 +3,13 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { NetworkType } from 'neo-n3-walletkit';
 import { firstValueFrom } from 'rxjs';
-import { isPusharooNetwork, walletConfig } from '../../config/wallet.config';
+import { isPusharooNetwork } from '../../config/wallet.config';
 import { Artifact, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { NeoRpcService } from '../../services/neo-rpc.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
+import { RuntimeConfigService } from '../../services/runtime-config.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 
@@ -69,6 +70,7 @@ export class DeploymentCreateComponent implements OnInit {
     private readonly deploymentHistory: DeploymentHistoryService,
     private readonly neoRpc: NeoRpcService,
     private readonly ownership: ProjectOwnershipService,
+    private readonly runtimeConfig: RuntimeConfigService,
     readonly wallet: WalletService
   ) {
     this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
@@ -223,7 +225,7 @@ export class DeploymentCreateComponent implements OnInit {
     const confirmedDeployment = await this.neoRpc.waitForDeployment(
       network,
       transactionId,
-      walletConfig.contractManagement[network]
+      this.runtimeConfig.value.wallet.contractManagement[network]
     );
 
     return {

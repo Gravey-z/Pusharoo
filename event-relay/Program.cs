@@ -48,16 +48,20 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true
             }));
 });
-builder.Services.AddCors(options =>
+var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?.Where(origin => Uri.TryCreate(origin, UriKind.Absolute, out _))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray() ?? [];
+if (allowedCorsOrigins.Length > 0)
 {
-    options.AddPolicy("Frontend", policy =>
+    builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
     {
         policy
-            .WithOrigins("http://localhost:4200")
+            .WithOrigins(allowedCorsOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
-    });
-});
+    }));
+}
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
@@ -70,7 +74,10 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/health", (IOptions<NeoRpcOptions> neoRpcOptions) =>
     Results.Ok(new { status = "ok", network = neoRpcOptions.Value.Network }));
-app.UseCors("Frontend");
+if (allowedCorsOrigins.Length > 0)
+{
+    app.UseCors("Frontend");
+}
 app.UseRateLimiter();
 app.MapControllers();
 

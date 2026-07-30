@@ -40,17 +40,20 @@ pusharoo/
 
 ## Run With Docker
 
+Docker Compose uses production settings: the frontend is the only published
+service and proxies requests to the API and event relay on the internal network.
+Create a local configuration file first:
+
 ```powershell
+Copy-Item .env.example .env
+# Edit .env and set a strong MONGO_PASSWORD and your WalletConnect project ID.
 docker compose up --build
 ```
 
-The frontend runs at `http://localhost:4200`.
-
-The API runs at `http://localhost:5000`.
-
-The event relay runs at `http://localhost:5001`.
-
-MongoDB runs at `mongodb://localhost:27017`.
+The app runs at `http://localhost:8080` by default (change
+`PUSHAROO_HTTP_PORT` in `.env`). MongoDB, the API, and the relay are not exposed
+to the host. See [the production deployment guide](docs/production-deployment.md)
+before making the service public.
 
 ## Run Locally
 
@@ -78,7 +81,7 @@ Angular 21 requires Node.js `20.19+`, `22.12+`, or `24+`.
 
 ```powershell
 cd frontend
-npm install
+npm ci
 npm start
 ```
 

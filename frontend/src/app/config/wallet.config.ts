@@ -1,6 +1,6 @@
 import type { NetworkType } from 'neo-n3-walletkit';
 
-export const walletConfig = {
+export const defaultWalletConfig = {
   network: 'neo3:testnet',
   walletConnectProjectId: 'd77209728a8564a2571c5c87bf71b8f1',
   contractManagement: {
@@ -13,7 +13,7 @@ export const walletConfig = {
   }
 } as const;
 
-export type PusharooNetwork = keyof typeof walletConfig.rpc;
+export type PusharooNetwork = keyof typeof defaultWalletConfig.rpc;
 
 export function isPusharooNetwork(network: NetworkType | string): network is PusharooNetwork {
   return network === 'neo3:testnet' || network === 'neo3:mainnet';
