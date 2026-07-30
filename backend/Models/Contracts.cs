@@ -30,7 +30,8 @@ public sealed record ArtifactUploadInput(
     string? Notes,
     string NefFileName,
     byte[] Nef,
-    string ManifestJson);
+    string ManifestJson,
+    string? IdempotencyKey);
 
 public sealed record ProjectResponse(
     string Id,

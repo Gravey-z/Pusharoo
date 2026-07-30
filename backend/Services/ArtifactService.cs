@@ -5,7 +5,7 @@ using System.Text.Json;
 
 namespace backend.Services;
 
-public sealed class ArtifactService(IArtifactRepository artifacts)
+public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValidator validator)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -18,6 +18,7 @@ public sealed class ArtifactService(IArtifactRepository artifacts)
         CancellationToken cancellationToken)
     {
         var manifest = ParseManifest(upload.ManifestJson);
+        validator.Validate(upload.Nef, upload.ManifestJson, manifest);
         var summary = ArtifactSummary.FromManifest(manifest);
         var nefFileName = Path.GetFileName(upload.NefFileName);
 
@@ -25,7 +26,7 @@ public sealed class ArtifactService(IArtifactRepository artifacts)
         {
             Id = ObjectId.GenerateNewId().ToString(),
             ProjectId = upload.ProjectId,
-            Version = upload.Version.Trim(),
+            Version = NormalizeVersion(upload.Version),
             Notes = string.IsNullOrWhiteSpace(upload.Notes) ? null : upload.Notes.Trim(),
             ContractName = string.IsNullOrWhiteSpace(manifest.Name) ? Path.GetFileNameWithoutExtension(nefFileName) : manifest.Name,
             NefFileName = nefFileName,
@@ -34,6 +35,7 @@ public sealed class ArtifactService(IArtifactRepository artifacts)
             Manifest = manifest,
             Summary = summary,
             Warnings = [],
+            IdempotencyKey = upload.IdempotencyKey,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -41,6 +43,9 @@ public sealed class ArtifactService(IArtifactRepository artifacts)
 
         return artifact;
     }
+
+    public Task<ArtifactDocument?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken)
+        => artifacts.GetByIdempotencyKeyAsync(idempotencyKey, cancellationToken);
 
     public async Task<IReadOnlyList<ArtifactDocument>> GetByProjectIdAsync(string projectId, CancellationToken cancellationToken)
     {
@@ -80,18 +85,18 @@ public sealed class ArtifactService(IArtifactRepository artifacts)
         string version,
         CancellationToken cancellationToken)
     {
-        var trimmedVersion = version.Trim();
-        var artifact = await artifacts.GetByProjectIdAndVersionAsync(projectId, trimmedVersion, cancellationToken);
-        if (artifact is not null)
-        {
-            return artifact;
-        }
+        return await artifacts.GetByProjectIdAndVersionAsync(
+            projectId,
+            NormalizeVersion(version),
+            cancellationToken);
+    }
 
-        var alternateVersion = trimmedVersion.StartsWith("v", StringComparison.OrdinalIgnoreCase)
-            ? trimmedVersion[1..]
-            : $"v{trimmedVersion}";
-
-        return await artifacts.GetByProjectIdAndVersionAsync(projectId, alternateVersion, cancellationToken);
+    private static string NormalizeVersion(string version)
+    {
+        var normalized = version.Trim();
+        return normalized.StartsWith("v", StringComparison.OrdinalIgnoreCase)
+            ? normalized[1..]
+            : normalized;
     }
 
     private static ArtifactComparisonResponse CompareManifests(

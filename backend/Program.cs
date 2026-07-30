@@ -1,8 +1,18 @@
 using backend.Options;
 using backend.Repositories;
 using backend.Services;
+using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
+
+const long maxUploadRequestBytes = 10 * 1024 * 1024;
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = maxUploadRequestBytes);
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = maxUploadRequestBytes;
+    options.ValueLengthLimit = 8 * 1024;
+    options.MultipartHeadersLengthLimit = 16 * 1024;
+});
 
 builder.Services.Configure<MongoDbOptions>(builder.Configuration.GetSection(MongoDbOptions.SectionName));
 builder.Services.Configure<NeoRpcOptions>(builder.Configuration.GetSection(NeoRpcOptions.SectionName));
@@ -12,6 +22,7 @@ builder.Services.AddScoped<IArtifactRepository, ArtifactRepository>();
 builder.Services.AddScoped<IDeploymentRepository, DeploymentRepository>();
 builder.Services.AddScoped<ProjectService>();
 builder.Services.AddScoped<ArtifactService>();
+builder.Services.AddSingleton<ArtifactValidator>();
 builder.Services.AddScoped<DeploymentService>();
 builder.Services.AddHttpClient<NeoRpcClient>();
 builder.Services.AddScoped<NeoDeploymentVerificationService>();
@@ -20,6 +31,7 @@ builder.Services.AddSingleton<ProjectCreationSignatureValidator>();
 builder.Services.AddSingleton<ProjectManagementSignatureValidator>();
 builder.Services.AddSingleton<ProjectOwnershipService>();
 builder.Services.AddSingleton<WebhookAuthorizationNonceService>();
+builder.Services.AddSingleton<SignatureNonceService>();
 var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?.Where(origin => Uri.TryCreate(origin, UriKind.Absolute, out _))
     .Distinct(StringComparer.OrdinalIgnoreCase)

@@ -9,4 +9,6 @@ public interface IDeploymentRepository
     Task<IReadOnlyList<DeploymentDocument>> GetByProjectIdAsync(
         string projectId,
         CancellationToken cancellationToken);
+
+    Task<DeploymentDocument?> GetByTransactionIdAsync(string transactionId, CancellationToken cancellationToken);
 }

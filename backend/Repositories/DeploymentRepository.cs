@@ -20,4 +20,10 @@ public sealed class DeploymentRepository(MongoDbContext db) : IDeploymentReposit
             .SortByDescending(deployment => deployment.CreatedAt)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<DeploymentDocument?> GetByTransactionIdAsync(string transactionId, CancellationToken cancellationToken)
+    {
+        return await db.Deployments.Find(deployment => deployment.TransactionId == transactionId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

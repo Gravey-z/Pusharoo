@@ -39,6 +39,10 @@ public sealed class ArtifactDocument
     [BsonElement("warnings")]
     public IReadOnlyList<string> Warnings { get; init; } = [];
 
+    [BsonElement("idempotencyKey")]
+    [BsonIgnoreIfNull]
+    public string? IdempotencyKey { get; init; }
+
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; init; }
 }

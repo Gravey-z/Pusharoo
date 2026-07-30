@@ -6,7 +6,7 @@ namespace backend.Services;
 
 public sealed class ProjectService(IProjectRepository projects)
 {
-    public async Task<ProjectDocument> CreateAsync(CreateProjectRequest request, CancellationToken cancellationToken)
+    public async Task<ProjectDocument> CreateAsync(CreateProjectRequest request, string? idempotencyKey, CancellationToken cancellationToken)
     {
         var signature = request.Signature
             ?? throw new InvalidOperationException("Project creation requires a wallet signature.");
@@ -20,6 +20,7 @@ public sealed class ProjectService(IProjectRepository projects)
             CreatedByWalletScriptHash = signature.ScriptHash.Trim(),
             CreatedByWalletPublicKey = signature.PublicKey.Trim(),
             CreatorNetwork = signature.Network.Trim(),
+            IdempotencyKey = idempotencyKey,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -27,6 +28,9 @@ public sealed class ProjectService(IProjectRepository projects)
 
         return project;
     }
+
+    public Task<ProjectDocument?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken)
+        => projects.GetByIdempotencyKeyAsync(idempotencyKey, cancellationToken);
 
     public async Task<IReadOnlyList<ProjectDocument>> GetAllAsync(CancellationToken cancellationToken)
     {

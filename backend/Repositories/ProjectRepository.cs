@@ -25,4 +25,10 @@ public sealed class ProjectRepository(MongoDbContext db) : IProjectRepository
             .Find(project => project.Id == projectId)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<ProjectDocument?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken)
+    {
+        return await db.Projects.Find(project => project.IdempotencyKey == idempotencyKey)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

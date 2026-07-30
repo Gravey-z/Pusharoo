@@ -89,7 +89,11 @@ export class WalletService {
 
     try {
       const walletKit = await this.initWalletKit(provider);
-      const session = walletKit.isConnected ? walletKit.wallet.session : null;
+      const session = walletKit.isConnected
+        ? walletKit.wallet.session
+        : provider === 'walletconnect'
+          ? null
+          : await walletKit.connect();
 
       if (!session) {
         this.clearSavedProvider();

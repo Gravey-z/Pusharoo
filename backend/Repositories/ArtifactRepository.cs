@@ -38,4 +38,10 @@ public sealed class ArtifactRepository(MongoDbContext db) : IArtifactRepository
             .Find(artifact => artifact.Id == artifactId)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<ArtifactDocument?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken)
+    {
+        return await db.ContractArtifacts.Find(artifact => artifact.IdempotencyKey == idempotencyKey)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

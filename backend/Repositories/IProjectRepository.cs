@@ -9,4 +9,6 @@ public interface IProjectRepository
     Task<IReadOnlyList<ProjectDocument>> GetAllAsync(CancellationToken cancellationToken);
 
     Task<ProjectDocument?> GetByIdAsync(string projectId, CancellationToken cancellationToken);
+
+    Task<ProjectDocument?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken);
 }

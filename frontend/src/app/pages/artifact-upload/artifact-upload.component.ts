@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -135,6 +136,15 @@ export class ArtifactUploadComponent implements OnInit {
   }
 
   private getErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const apiError = error.error;
+      if (apiError && typeof apiError === 'object' && typeof apiError.error === 'string') {
+        return apiError.error;
+      }
+
+      return `Could not upload artifact${error.status ? ` (HTTP ${error.status})` : ''}.`;
+    }
+
     if (error instanceof Error && error.message) {
       return error.message;
     }

@@ -89,7 +89,12 @@ export class ProjectsComponent implements OnInit {
 
   private getCreateProjectErrorMessage(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
-      return 'Could not create project.';
+      const apiError = error.error;
+      if (apiError && typeof apiError === 'object' && typeof apiError.error === 'string') {
+        return apiError.error;
+      }
+
+      return `Could not create project${error.status ? ` (HTTP ${error.status})` : ''}.`;
     }
 
     return error instanceof Error

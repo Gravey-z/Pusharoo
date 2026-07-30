@@ -10,6 +10,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
         string projectId,
         ArtifactDocument artifact,
         CreateDeploymentRequest request,
+        string? idempotencyKey,
         CancellationToken cancellationToken)
     {
         var deployment = new DeploymentDocument
@@ -23,6 +24,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             TransactionId = TrimToNull(request.TransactionId),
             DeployedBy = request.DeployedBy.Trim(),
             Notes = TrimToNull(request.Notes),
+            IdempotencyKey = idempotencyKey,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -30,6 +32,9 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
 
         return deployment;
     }
+
+    public Task<DeploymentDocument?> GetByTransactionIdAsync(string transactionId, CancellationToken cancellationToken)
+        => deployments.GetByTransactionIdAsync(transactionId, cancellationToken);
 
     public async Task<IReadOnlyList<DeploymentDocument>> GetByProjectIdAsync(
         string projectId,

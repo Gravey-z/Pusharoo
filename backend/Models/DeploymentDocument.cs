@@ -32,6 +32,9 @@ public sealed class DeploymentDocument
     [BsonElement("notes")]
     public string? Notes { get; init; }
 
+    [BsonElement("idempotencyKey")]
+    public string? IdempotencyKey { get; init; }
+
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; init; }
 }

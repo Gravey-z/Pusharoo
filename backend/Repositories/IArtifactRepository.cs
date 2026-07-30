@@ -14,4 +14,6 @@ public interface IArtifactRepository
         CancellationToken cancellationToken);
 
     Task<ArtifactDocument?> GetByIdAsync(string artifactId, CancellationToken cancellationToken);
+
+    Task<ArtifactDocument?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken);
 }

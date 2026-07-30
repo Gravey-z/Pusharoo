@@ -26,6 +26,10 @@ public sealed class ProjectDocument
     [BsonElement("creatorNetwork")]
     public string? CreatorNetwork { get; init; }
 
+    [BsonElement("idempotencyKey")]
+    [BsonIgnoreIfNull]
+    public string? IdempotencyKey { get; init; }
+
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; init; }
 }

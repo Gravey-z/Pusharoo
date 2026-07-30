@@ -9,7 +9,7 @@ namespace backend.Controllers;
 public sealed class WebhookAccessController(
     ProjectService projectService,
     ProjectManagementSignatureValidator signatureValidator,
-    WebhookAuthorizationNonceService nonceService) : ControllerBase
+    SignatureNonceService nonceService) : ControllerBase
 {
     [HttpPost("validate")]
     public async Task<IActionResult> ValidateAsync(

@@ -22,6 +22,22 @@ public sealed class MongoDbContext
             new CreateIndexModel<WebhookAuthorizationNonceDocument>(
                 Builders<WebhookAuthorizationNonceDocument>.IndexKeys.Ascending(nonce => nonce.ExpiresAt),
                 new CreateIndexOptions { ExpireAfter = TimeSpan.Zero }));
+        Projects.Indexes.CreateOne(new CreateIndexModel<ProjectDocument>(
+            Builders<ProjectDocument>.IndexKeys.Ascending(project => project.IdempotencyKey),
+            new CreateIndexOptions { Unique = true, Sparse = true }));
+        ContractArtifacts.Indexes.CreateMany([
+            new CreateIndexModel<ArtifactDocument>(
+                Builders<ArtifactDocument>.IndexKeys
+                    .Ascending(artifact => artifact.ProjectId)
+                    .Ascending(artifact => artifact.Version),
+                new CreateIndexOptions { Unique = true }),
+            new CreateIndexModel<ArtifactDocument>(
+                Builders<ArtifactDocument>.IndexKeys.Ascending(artifact => artifact.IdempotencyKey),
+                new CreateIndexOptions { Unique = true, Sparse = true })
+        ]);
+        Deployments.Indexes.CreateOne(new CreateIndexModel<DeploymentDocument>(
+            Builders<DeploymentDocument>.IndexKeys.Ascending(deployment => deployment.TransactionId),
+            new CreateIndexOptions { Unique = true, Sparse = true }));
     }
 
     public IMongoCollection<ProjectDocument> Projects { get; }
