@@ -48,6 +48,55 @@
   gap: 16px;
 }
 
+.network-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.network-card {
+  display: grid;
+  gap: 8px;
+  min-height: 166px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.network-card.deployed {
+  border-color: rgba(21, 244, 200, 0.35);
+  background: linear-gradient(130deg, rgba(21, 244, 200, 0.1), var(--card));
+}
+
+.network-card strong {
+  font-size: 23px;
+}
+
+.network-card a {
+  width: fit-content;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 760;
+  text-decoration: none;
+}
+
+.release-state {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: rgba(21, 244, 200, 0.13);
+  color: var(--sage);
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.release-state.pending {
+  background: rgba(255, 202, 92, 0.12);
+  color: #ffca5c;
+}
+
 .latest-panel,
 .metric-grid {
   border: 1px solid var(--line);
@@ -245,6 +294,7 @@ dd {
 @media (max-width: 860px) {
   .overview-layout,
   .metric-grid,
+  .network-grid,
   .artifact-list a,
   .deployment-list div {
     grid-template-columns: 1fr;

@@ -14,6 +14,8 @@ export const routes: Routes = [
   { path: 'home', component: LandingComponent },
   { path: 'projects', component: ProjectsComponent },
   { path: 'projects/:projectId', component: ProjectOverviewComponent },
+  { path: 'projects/:projectId/artifacts', component: ProjectOverviewComponent, data: { releaseTab: 'artifacts' } },
+  { path: 'projects/:projectId/deployments', component: ProjectOverviewComponent, data: { releaseTab: 'deployments' } },
   { path: 'projects/:projectId/upload', component: ArtifactUploadComponent },
   { path: 'projects/:projectId/compare', component: ArtifactCompareComponent },
   { path: 'projects/:projectId/deployments/new', component: DeploymentCreateComponent },

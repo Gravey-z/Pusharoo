@@ -1,0 +1,27 @@
+.release-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: -8px 0 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+a {
+  padding: 8px 10px;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 740;
+  text-decoration: none;
+}
+
+a:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+a.active {
+  background: rgba(21, 244, 200, 0.11);
+  color: var(--sage);
+}

@@ -20,6 +20,7 @@ import { NeoVmResultFormatterService } from '../../services/neo-vm-result-format
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
+import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 
 type ConsoleMode = 'test' | 'transaction';
 
@@ -43,7 +44,7 @@ interface ConsoleEntry {
 
 @Component({
   selector: 'app-contract-console',
-  imports: [DatePipe, FormsModule, PageShellComponent, RouterLink],
+  imports: [DatePipe, FormsModule, PageShellComponent, ProjectReleaseNavComponent, RouterLink],
   templateUrl: './contract-console.component.html',
   styleUrl: './contract-console.component.scss'
 })

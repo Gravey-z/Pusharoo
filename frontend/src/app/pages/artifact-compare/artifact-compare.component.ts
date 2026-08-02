@@ -10,6 +10,7 @@ import {
 } from '../../models/pusharoo.models';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
+import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 
 interface ParameterEntry {
   name: string;
@@ -40,7 +41,7 @@ interface MethodDetails {
 
 @Component({
   selector: 'app-artifact-compare',
-  imports: [FormsModule, PageShellComponent, RouterLink],
+  imports: [FormsModule, PageShellComponent, ProjectReleaseNavComponent, RouterLink],
   templateUrl: './artifact-compare.component.html',
   styleUrl: './artifact-compare.component.scss'
 })

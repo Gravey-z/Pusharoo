@@ -9,10 +9,11 @@ import { ProjectOwnershipService } from '../../services/project-ownership.servic
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
+import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 
 @Component({
   selector: 'app-artifact-upload',
-  imports: [FormsModule, PageShellComponent, RouterLink],
+  imports: [FormsModule, PageShellComponent, ProjectReleaseNavComponent, RouterLink],
   templateUrl: './artifact-upload.component.html',
   styleUrl: './artifact-upload.component.scss'
 })

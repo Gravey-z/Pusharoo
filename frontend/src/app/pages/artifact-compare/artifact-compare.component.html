@@ -2,6 +2,8 @@
   <app-page-shell [title]="'Compare: ' + overview.project.name">
     <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
 
+    <app-project-release-nav [projectId]="projectId" />
+
     @if (artifacts.length >= 2) {
       <form class="compare-controls" (ngSubmit)="compare()">
         <label>

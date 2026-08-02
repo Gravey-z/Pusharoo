@@ -12,6 +12,7 @@ import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { RuntimeConfigService } from '../../services/runtime-config.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
+import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 
 interface ConfirmedContractChange {
   transactionId: string;
@@ -20,7 +21,7 @@ interface ConfirmedContractChange {
 
 @Component({
   selector: 'app-deployment-create',
-  imports: [FormsModule, PageShellComponent, RouterLink],
+  imports: [FormsModule, PageShellComponent, ProjectReleaseNavComponent, RouterLink],
   templateUrl: './deployment-create.component.html',
   styleUrl: './deployment-create.component.scss'
 })

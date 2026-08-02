@@ -4,43 +4,11 @@
       <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
         Upload Artifact
       </a>
-      <a
-        class="secondary-button"
-        [class.disabled]="!overview.latestArtifact"
-        [routerLink]="overview.latestArtifact ? ['/artifacts', overview.latestArtifact.id, 'manifest'] : null"
-      >
-        View Manifest
-      </a>
-      <a
-        class="secondary-button"
-        [class.disabled]="overview.artifacts.length < 2"
-        [routerLink]="overview.artifacts.length >= 2 ? ['/projects', overview.project.id, 'compare'] : null"
-      >
-        Compare Versions
-      </a>
-      <a
-        class="secondary-button"
-        [class.disabled]="!overview.latestArtifact"
-        [routerLink]="overview.latestArtifact ? ['/projects', overview.project.id, 'deployments', 'new'] : null"
-      >
-        Deploy Contract
-      </a>
-      <a
-        class="secondary-button"
-        [class.disabled]="!hasWebhookTarget(overview)"
-        [routerLink]="hasWebhookTarget(overview) ? ['/projects', overview.project.id, 'console'] : null"
-      >
-        Contract Console
-      </a>
-      <a
-        class="secondary-button"
-        [class.disabled]="!hasWebhookTarget(overview)"
-        [routerLink]="hasWebhookTarget(overview) ? ['/projects', overview.project.id, 'webhooks'] : null"
-      >
-        Event Webhooks
-      </a>
     </div>
 
+    <app-project-release-nav [projectId]="overview.project.id" />
+
+    @if (releaseTab === 'overview') {
     <section class="overview-layout">
       <div class="latest-panel">
         <span class="eyebrow">Latest artifact</span>
@@ -73,6 +41,28 @@
       </dl>
     </section>
 
+    <section class="network-grid" aria-label="Network releases">
+      @for (network of ['testnet', 'mainnet']; track network) {
+        @let deployment = latestDeploymentForNetwork(overview, network);
+        <article class="network-card" [class.deployed]="deployment">
+          <span class="eyebrow">{{ network === 'testnet' ? 'TestNet' : 'MainNet' }}</span>
+          @if (deployment) {
+            <strong>{{ deployment.version }}</strong>
+            <span class="release-state">Deployed</span>
+            <p>{{ shortText(deployment.contractHash, 10, 4) }}</p>
+            <a [routerLink]="['/projects', overview.project.id, 'deployments']">View deployment</a>
+          } @else {
+            <strong>Not deployed</strong>
+            <span class="release-state pending">Awaiting release</span>
+            <p>Deploy an artifact to establish this network release.</p>
+            <a [routerLink]="['/projects', overview.project.id, 'deployments', 'new']">Deploy contract</a>
+          }
+        </article>
+      }
+    </section>
+    }
+
+    @if (releaseTab !== 'deployments') {
     <section class="artifact-list" aria-label="Artifacts">
       @for (artifact of overview.artifacts; track artifact.id) {
         <a
@@ -92,7 +82,9 @@
         </a>
       }
     </section>
+    }
 
+    @if (releaseTab !== 'artifacts') {
     <section class="deployment-list" aria-label="Deployments">
       <h2>Deployments</h2>
       @if (overview.deployments.length) {
@@ -138,6 +130,7 @@
         <p>No deployments recorded yet.</p>
       }
     </section>
+    }
   </app-page-shell>
 } @else {
   <app-page-shell title="Project">

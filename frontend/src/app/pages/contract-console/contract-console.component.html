@@ -1,6 +1,8 @@
 <app-page-shell [title]="pageTitle">
   <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
 
+  <app-project-release-nav [projectId]="projectId" />
+
   @if (overview) {
     @if (targets.length && methods.length) {
       <section class="console-layout">

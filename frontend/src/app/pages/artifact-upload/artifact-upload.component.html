@@ -1,6 +1,8 @@
 <app-page-shell title="Upload Artifact">
   <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
 
+  <app-project-release-nav [projectId]="projectId" />
+
   <form class="upload-form" (ngSubmit)="upload()">
     <label>
       <span>Version</span>

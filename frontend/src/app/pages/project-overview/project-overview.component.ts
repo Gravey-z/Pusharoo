@@ -7,16 +7,18 @@ import { ClipboardService } from '../../services/clipboard.service';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
+import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 
 @Component({
   selector: 'app-project-overview',
-  imports: [AsyncPipe, PageShellComponent, RouterLink],
+  imports: [AsyncPipe, PageShellComponent, ProjectReleaseNavComponent, RouterLink],
   templateUrl: './project-overview.component.html',
   styleUrl: './project-overview.component.scss'
 })
 export class ProjectOverviewComponent implements OnInit {
   overview$!: Observable<ProjectOverviewViewModel | null>;
   copiedValue = '';
+  releaseTab: 'overview' | 'artifacts' | 'deployments' = 'overview';
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -26,10 +28,20 @@ export class ProjectOverviewComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.releaseTab = this.route.snapshot.data['releaseTab'] ?? 'overview';
     this.overview$ = this.route.paramMap.pipe(
       map((params) => params.get('projectId') ?? ''),
       switchMap((projectId) => this.api.getProjectOverview(projectId))
     );
+  }
+
+  latestDeploymentForNetwork(
+    overview: ProjectOverviewViewModel,
+    network: string
+  ): Deployment | null {
+    return overview.deployments.find((deployment) =>
+      deployment.network.toLowerCase().includes(network)
+    ) ?? null;
   }
 
   artifactDeployments(overview: ProjectOverviewViewModel, artifact: Artifact): Deployment[] {
