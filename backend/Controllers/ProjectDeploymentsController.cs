@@ -109,6 +109,83 @@ public sealed class ProjectDeploymentsController(
         return Ok(response);
     }
 
+    [HttpPost("recover")]
+    public async Task<ActionResult<DeploymentResponse>> RecoverAsync(
+        string projectId,
+        RecoverDeploymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var project = await projectService.GetByIdAsync(projectId, cancellationToken);
+        if (project is null)
+        {
+            return NotFound(new { error = "Project was not found." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ArtifactId)
+            || string.IsNullOrWhiteSpace(request.Network)
+            || string.IsNullOrWhiteSpace(request.TransactionId)
+            || string.IsNullOrWhiteSpace(request.DeployedBy))
+        {
+            return BadRequest(new { error = "Artifact, network, transaction ID, and wallet address are required to recover a deployment." });
+        }
+
+        if (request.ArtifactId.Trim().Length > 64 || request.Network.Trim().Length > 64
+            || request.TransactionId.Trim().Length > 128 || request.DeployedBy.Trim().Length > 128
+            || request.Notes?.Length > 2_000)
+        {
+            return BadRequest(new { error = "One or more recovery fields exceed their maximum length." });
+        }
+
+        var existing = await deploymentService.GetByTransactionIdAsync(request.TransactionId.Trim(), cancellationToken);
+        if (existing is not null)
+        {
+            return existing.ProjectId == projectId
+                ? Ok(existing.ToResponse())
+                : Conflict(new { error = "The transaction ID is already recorded for another project." });
+        }
+
+        var ownershipValidation = projectOwnershipService.ValidateCanManage(project, request.DeployedBy);
+        if (!ownershipValidation.IsValid)
+        {
+            return ForbidWithError(ownershipValidation.Error);
+        }
+
+        var artifact = await artifactService.GetByIdAsync(request.ArtifactId, cancellationToken);
+        if (artifact is null || artifact.ProjectId != projectId)
+        {
+            return BadRequest(new { error = "Artifact does not belong to this project." });
+        }
+
+        var existingDeployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
+        var verification = await deploymentVerification.RecoverAsync(
+            project,
+            existingDeployments,
+            request,
+            cancellationToken);
+        if (!verification.IsValid || string.IsNullOrWhiteSpace(verification.ContractHash))
+        {
+            return BadRequest(new { error = verification.Error });
+        }
+
+        var createRequest = new CreateDeploymentRequest(
+            request.ArtifactId,
+            request.Network,
+            verification.ContractHash,
+            request.TransactionId,
+            request.DeployedBy,
+            request.Notes);
+
+        try
+        {
+            var deployment = await deploymentService.CreateAsync(projectId, artifact, createRequest, null, cancellationToken);
+            return Created($"/api/projects/{projectId}/deployments/{deployment.Id}", deployment.ToResponse());
+        }
+        catch (MongoWriteException exception) when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            return Conflict(new { error = "The deployment transaction is already recorded." });
+        }
+    }
+
     private ActionResult ForbidWithError(string error)
     {
         return StatusCode(StatusCodes.Status403Forbidden, new { error });

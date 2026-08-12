@@ -122,9 +122,14 @@
       <header class="deployment-list-header">
         <h2>Deployments</h2>
         @if (overview.artifacts.length) {
-          <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'new']">
-            Deploy Contract
-          </a>
+          <div class="deployment-list-actions">
+            <a class="secondary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'recovery']">
+              Recover Existing Deployment
+            </a>
+            <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'new']">
+              Deploy Contract
+            </a>
+          </div>
         }
       </header>
       @if (overview.deployments.length) {

@@ -225,6 +225,17 @@ dd {
   font-size: 13px;
 }
 
+.deployment-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.deployment-list-actions .secondary-button {
+  min-height: 36px;
+  font-size: 13px;
+}
+
 .artifact-empty-state,
 .artifact-deployment-empty {
   padding: 16px;

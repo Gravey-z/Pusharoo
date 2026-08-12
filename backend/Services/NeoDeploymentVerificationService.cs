@@ -27,20 +27,57 @@ public sealed class NeoDeploymentVerificationService(
             return Fail("Contract hash is required for deployment verification.");
         }
 
-        if (string.IsNullOrWhiteSpace(project.CreatedByWalletScriptHash))
+        var inspection = await InspectAsync(
+            project,
+            existingDeployments,
+            request.Network,
+            request.TransactionId,
+            cancellationToken);
+        if (!inspection.IsValid)
         {
-            return Fail("Project creator script hash is missing; deployment verification cannot continue.");
+            return Fail(inspection.Error);
         }
 
-        var networkKey = ToConfigurationNetworkKey(request.Network);
+        return HashesMatch(inspection.ContractHash, request.ContractHash)
+            ? NeoDeploymentVerificationResult.Valid
+            : Fail("Deployment transaction contract hash does not match the requested deployment record.");
+    }
+
+    public Task<NeoDeploymentInspectionResult> RecoverAsync(
+        ProjectDocument project,
+        IReadOnlyList<DeploymentDocument> existingDeployments,
+        RecoverDeploymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        return InspectAsync(project, existingDeployments, request.Network, request.TransactionId, cancellationToken);
+    }
+
+    private async Task<NeoDeploymentInspectionResult> InspectAsync(
+        ProjectDocument project,
+        IReadOnlyList<DeploymentDocument> existingDeployments,
+        string network,
+        string? transactionId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(transactionId))
+        {
+            return InspectFail("Transaction ID is required for deployment verification.");
+        }
+
+        if (string.IsNullOrWhiteSpace(project.CreatedByWalletScriptHash))
+        {
+            return InspectFail("Project creator script hash is missing; deployment verification cannot continue.");
+        }
+
+        var networkKey = ToConfigurationNetworkKey(network);
         if (networkKey is null
             || !options.Networks.TryGetValue(networkKey, out var networkOptions)
             || string.IsNullOrWhiteSpace(networkOptions.Endpoint))
         {
-            return Fail($"No Neo RPC endpoint is configured for {request.Network}.");
+            return InspectFail($"No Neo RPC endpoint is configured for {network}.");
         }
 
-        var expectedAction = HasExistingNetworkDeployment(existingDeployments, request.Network)
+        var expectedAction = HasExistingNetworkDeployment(existingDeployments, network)
             ? "Update"
             : "Deploy";
 
@@ -49,17 +86,17 @@ public sealed class NeoDeploymentVerificationService(
             var transaction = await neoRpc.SendAsync(
                 networkOptions.Endpoint,
                 "getrawtransaction",
-                [request.TransactionId.Trim(), 1],
+                [transactionId.Trim(), 1],
                 cancellationToken);
             if (!HasSigner(transaction, project.CreatedByWalletScriptHash))
             {
-                return Fail("Deployment transaction was not signed by the project creator.");
+                return InspectFail("Deployment transaction was not signed by the project creator.");
             }
 
             var applicationLog = await neoRpc.SendAsync(
                 networkOptions.Endpoint,
                 "getapplicationlog",
-                [request.TransactionId.Trim()],
+                [transactionId.Trim()],
                 cancellationToken);
 
             var execution = FirstExecution(applicationLog);
@@ -67,7 +104,7 @@ public sealed class NeoDeploymentVerificationService(
             if (!string.Equals(vmState, "HALT", StringComparison.Ordinal))
             {
                 var exception = GetString(execution, "exception");
-                return Fail($"Deployment transaction finished with {Fallback(vmState, "UNKNOWN")}{(string.IsNullOrWhiteSpace(exception) ? "." : $": {exception}")}");
+                return InspectFail($"Deployment transaction finished with {Fallback(vmState, "UNKNOWN")}{(string.IsNullOrWhiteSpace(exception) ? "." : $": {exception}")}");
             }
 
             var notification = FindContractManagementNotification(
@@ -76,34 +113,26 @@ public sealed class NeoDeploymentVerificationService(
                 expectedAction);
             if (notification is null)
             {
-                return Fail($"Deployment transaction does not contain the expected ContractManagement {expectedAction} notification.");
+                return InspectFail($"Deployment transaction does not contain the expected ContractManagement {expectedAction} notification.");
             }
 
-            var notificationContractHash = FindHashInStackItem(GetProperty(notification.Value, "state"))
+            var contractHash = FindHashInStackItem(GetProperty(notification.Value, "state"))
                 ?? FindHashInStackItems(GetArray(execution, "stack"));
-            if (string.IsNullOrWhiteSpace(notificationContractHash))
-            {
-                return Fail($"Deployment transaction halted, but the {expectedAction} notification did not include a contract hash.");
-            }
-
-            if (!HashesMatch(notificationContractHash, request.ContractHash))
-            {
-                return Fail("Deployment transaction contract hash does not match the requested deployment record.");
-            }
-
-            return NeoDeploymentVerificationResult.Valid;
+            return string.IsNullOrWhiteSpace(contractHash)
+                ? InspectFail($"Deployment transaction halted, but the {expectedAction} notification did not include a contract hash.")
+                : new NeoDeploymentInspectionResult(true, string.Empty, contractHash);
         }
         catch (HttpRequestException ex)
         {
-            return Fail($"Could not verify deployment against Neo RPC: {ex.Message}");
+            return InspectFail($"Could not verify deployment against Neo RPC: {ex.Message}");
         }
         catch (InvalidOperationException ex)
         {
-            return Fail($"Could not verify deployment against Neo RPC: {ex.Message}");
+            return InspectFail($"Could not verify deployment against Neo RPC: {ex.Message}");
         }
         catch (JsonException ex)
         {
-            return Fail($"Neo RPC returned an unexpected deployment verification response: {ex.Message}");
+            return InspectFail($"Neo RPC returned an unexpected deployment verification response: {ex.Message}");
         }
     }
 
@@ -316,9 +345,16 @@ public sealed class NeoDeploymentVerificationService(
     {
         return new NeoDeploymentVerificationResult(false, error);
     }
+
+    private static NeoDeploymentInspectionResult InspectFail(string error)
+    {
+        return new NeoDeploymentInspectionResult(false, error, null);
+    }
 }
 
 public sealed record NeoDeploymentVerificationResult(bool IsValid, string Error)
 {
     public static NeoDeploymentVerificationResult Valid { get; } = new(true, string.Empty);
 }
+
+public sealed record NeoDeploymentInspectionResult(bool IsValid, string Error, string? ContractHash);

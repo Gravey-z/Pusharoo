@@ -1,0 +1,78 @@
+<app-page-shell [title]="pageTitle">
+  <a actions class="secondary-button" [routerLink]="['/projects', projectId, 'deployments']">Back to Deployments</a>
+
+  <app-project-release-nav [projectId]="projectId" />
+
+  @if (overview) {
+    @if (artifacts.length) {
+      <section class="recovery-intro">
+        <h2>Record a contract that is already on-chain</h2>
+        <p>
+          Use this if your wallet successfully deployed or updated a contract but Pusharoo did not save it.
+          Pusharoo verifies the transaction with Neo before adding the deployment record, it will not deploy again.
+        </p>
+      </section>
+
+      <form class="recovery-form" (ngSubmit)="recover()">
+        <label>
+          <span>Artifact version used</span>
+          <select name="artifactId" [(ngModel)]="artifactId" [disabled]="isRecovering">
+            @for (artifact of artifacts; track artifact.id) {
+              <option [value]="artifact.id">{{ artifact.version }} - {{ artifact.contractName }}</option>
+            }
+          </select>
+        </label>
+
+        <label [class.mainnet-network]="walletNetwork() === 'neo3:mainnet'">
+          <span class="field-label">
+            Network
+            <small>{{ walletNetwork() === 'neo3:mainnet' ? 'MainNet: the transaction must be on MainNet' : 'Selected by the connected wallet' }}</small>
+          </span>
+          <input type="text" name="network" [value]="walletNetwork() || 'Connect wallet first'" readonly />
+        </label>
+
+        <label>
+          <span>Transaction ID</span>
+          <input
+            type="text"
+            name="transactionId"
+            [(ngModel)]="transactionId"
+            placeholder="0x..."
+            autocomplete="off"
+            [disabled]="isRecovering"
+          />
+        </label>
+
+        <label>
+          <span>Project owner wallet</span>
+          <input type="text" name="deployedBy" [value]="walletAddress() || 'Connect wallet first'" readonly />
+        </label>
+
+        <label>
+          <span>Notes</span>
+          <textarea name="notes" rows="4" [(ngModel)]="notes" [disabled]="isRecovering"></textarea>
+        </label>
+
+        @if (statusMessage) {
+          <p class="form-status">{{ statusMessage }}</p>
+        }
+
+        @if (errorMessage) {
+          <p class="form-error">{{ errorMessage }}</p>
+        }
+
+        <button class="primary-button" type="submit" [disabled]="isRecovering">
+          {{ isRecovering ? 'Verifying and Recovering...' : 'Recover Existing Deployment' }}
+        </button>
+      </form>
+    } @else {
+      <section class="empty-state">
+        <strong>No artifacts uploaded</strong>
+        <p>Upload the artifact used by the transaction before recovering the deployment.</p>
+        <a class="primary-button" [routerLink]="['/projects', projectId, 'upload']">Upload Artifact</a>
+      </section>
+    }
+  } @else {
+    <p class="missing">Project not found.</p>
+  }
+</app-page-shell>

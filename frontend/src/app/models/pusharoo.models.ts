@@ -107,6 +107,14 @@ export interface CreateDeploymentRequest {
   notes?: string | null;
 }
 
+export interface RecoverDeploymentRequest {
+  artifactId: string;
+  network: string;
+  transactionId: string;
+  deployedBy: string;
+  notes?: string | null;
+}
+
 export interface ArtifactComparison {
   addedMethods: string[];
   removedMethods: string[];

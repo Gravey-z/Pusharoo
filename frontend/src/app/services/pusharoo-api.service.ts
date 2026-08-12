@@ -6,6 +6,7 @@ import {
   ArtifactComparison,
   ChangedMethod,
   CreateDeploymentRequest,
+  RecoverDeploymentRequest,
   CreateWebhookSubscriptionRequest,
   Deployment,
   EventRelayStatus,
@@ -140,6 +141,16 @@ export class PusharooApiService {
   ): Observable<Deployment> {
     return this.http.post<Deployment>(
       `${this.apiBaseUrl}/projects/${projectId}/deployments`,
+      request
+    );
+  }
+
+  recoverDeployment(
+    projectId: string,
+    request: RecoverDeploymentRequest
+  ): Observable<Deployment> {
+    return this.http.post<Deployment>(
+      `${this.apiBaseUrl}/projects/${projectId}/deployments/recover`,
       request
     );
   }

@@ -3,6 +3,7 @@ import { ArtifactCompareComponent } from './pages/artifact-compare/artifact-comp
 import { ArtifactUploadComponent } from './pages/artifact-upload/artifact-upload.component';
 import { ContractConsoleComponent } from './pages/contract-console/contract-console.component';
 import { DeploymentCreateComponent } from './pages/deployment-create/deployment-create.component';
+import { DeploymentRecoveryComponent } from './pages/deployment-recovery/deployment-recovery.component';
 import { EventWebhooksComponent } from './pages/event-webhooks/event-webhooks.component';
 import { ManifestViewerComponent } from './pages/manifest-viewer/manifest-viewer.component';
 import { LandingComponent } from './pages/landing/landing.component';
@@ -19,6 +20,7 @@ export const routes: Routes = [
   { path: 'projects/:projectId/upload', component: ArtifactUploadComponent },
   { path: 'projects/:projectId/compare', component: ArtifactCompareComponent },
   { path: 'projects/:projectId/deployments/new', component: DeploymentCreateComponent },
+  { path: 'projects/:projectId/deployments/recovery', component: DeploymentRecoveryComponent },
   { path: 'projects/:projectId/console', component: ContractConsoleComponent },
   { path: 'projects/:projectId/webhooks', component: EventWebhooksComponent },
   { path: 'artifacts/:artifactId/manifest', component: ManifestViewerComponent },

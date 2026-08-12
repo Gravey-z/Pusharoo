@@ -160,6 +160,13 @@ export class DeploymentCreateComponent implements OnInit {
         : `Neo rejected the deployment: ${rpcException}`;
     }
 
+    if (error && typeof error === 'object') {
+      const apiError = error as { error?: { error?: unknown } };
+      if (typeof apiError.error?.error === 'string' && apiError.error.error.trim()) {
+        return apiError.error.error;
+      }
+    }
+
     if (error instanceof Error && error.message) {
       return error.message;
     }

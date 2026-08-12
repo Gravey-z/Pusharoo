@@ -73,6 +73,13 @@ public sealed record CreateDeploymentRequest(
     string DeployedBy,
     string? Notes);
 
+public sealed record RecoverDeploymentRequest(
+    string ArtifactId,
+    string Network,
+    string TransactionId,
+    string DeployedBy,
+    string? Notes);
+
 public sealed record DeploymentResponse(
     string Id,
     string ProjectId,
