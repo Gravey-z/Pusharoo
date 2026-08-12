@@ -9,6 +9,10 @@ services:
       ASPNETCORE_URLS: http://+:8080
       MongoDb__ConnectionString: mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongo:27017/?authSource=admin
       MongoDb__DatabaseName: ${MONGO_DATABASE:-Pusharoo}
+      NeoRpc__Networks__testnet__Endpoint: ${PUSHAROO_TESTNET_RPC_URL:-https://testnet1.neo.coz.io:443}
+      NeoRpc__Networks__testnet__ContractManagementHash: ${PUSHAROO_TESTNET_CONTRACT_MANAGEMENT_HASH:-0xfffdc93764dbaddd97c48f252a53ea4643faa3fd}
+      NeoRpc__Networks__mainnet__Endpoint: ${PUSHAROO_MAINNET_RPC_URL:-https://mainnet1.neo.coz.io:443}
+      NeoRpc__Networks__mainnet__ContractManagementHash: ${PUSHAROO_MAINNET_CONTRACT_MANAGEMENT_HASH:-0xfffdc93764dbaddd97c48f252a53ea4643faa3fd}
     expose:
       - "8080"
     depends_on:

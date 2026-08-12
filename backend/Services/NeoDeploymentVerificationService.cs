@@ -32,7 +32,9 @@ public sealed class NeoDeploymentVerificationService(
             return Fail("Project creator script hash is missing; deployment verification cannot continue.");
         }
 
-        if (!options.Networks.TryGetValue(request.Network.Trim(), out var networkOptions)
+        var networkKey = ToConfigurationNetworkKey(request.Network);
+        if (networkKey is null
+            || !options.Networks.TryGetValue(networkKey, out var networkOptions)
             || string.IsNullOrWhiteSpace(networkOptions.Endpoint))
         {
             return Fail($"No Neo RPC endpoint is configured for {request.Network}.");
@@ -112,6 +114,16 @@ public sealed class NeoDeploymentVerificationService(
         return deployments.Any(deployment =>
             string.Equals(deployment.Network, network.Trim(), StringComparison.Ordinal)
             && !string.IsNullOrWhiteSpace(deployment.ContractHash));
+    }
+
+    private static string? ToConfigurationNetworkKey(string network)
+    {
+        return network.Trim() switch
+        {
+            "neo3:testnet" => "testnet",
+            "neo3:mainnet" => "mainnet",
+            _ => null
+        };
     }
 
     private static bool HasSigner(JsonElement transaction, string expectedScriptHash)
