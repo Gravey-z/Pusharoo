@@ -24,6 +24,12 @@ interface ContractCallParameter {
   value: unknown;
 }
 
+export interface DeploymentFeeEstimate {
+  systemFee: string;
+  networkFee: string;
+  total: string;
+}
+
 interface SignedMessageResponse {
   publicKey?: unknown;
   data?: unknown;
@@ -245,6 +251,78 @@ export class WalletService {
     );
   }
 
+  async estimateDeploymentFees(
+    network: NetworkType,
+    operation: 'deploy' | 'update',
+    nefHex: string,
+    manifestJson: string,
+    contractHash?: string
+  ): Promise<DeploymentFeeEstimate> {
+    const session = this.session();
+    const walletKit = this.walletKit;
+
+    if (!walletKit || !session) {
+      throw new Error('Connect a wallet before estimating fees.');
+    }
+
+    if (session.network !== network || !isPusharooNetwork(network)) {
+      throw new Error(`No Neo RPC endpoint is configured for ${network}.`);
+    }
+
+    if (session.provider === 'walletconnect' && !session.methods.includes('calculateFee')) {
+      throw new Error('Reconnect the wallet to let Pusharoo request a fee estimate.');
+    }
+
+    const nefValue = session.provider === 'onegate' ? nefHex : this.hexToBase64(nefHex);
+    const invocation = operation === 'update'
+      ? {
+          scriptHash: contractHash,
+          operation: 'update',
+          args: [
+            { type: 'ByteArray', value: nefValue },
+            { type: 'String', value: manifestJson }
+          ]
+        }
+      : {
+          scriptHash: this.runtimeConfig.value.wallet.contractManagement[network],
+          operation: 'deploy',
+          args: [
+            { type: 'ByteArray', value: nefValue },
+            { type: 'String', value: manifestJson },
+            { type: 'Any', value: null }
+          ]
+        };
+
+    if (!invocation.scriptHash) {
+      throw new Error('A target contract is required to estimate an update.');
+    }
+
+    const result = await walletKit.wallet.request<{
+      systemFee?: unknown;
+      networkFee?: unknown;
+      total?: unknown;
+    }>('calculateFee', {
+      invocations: [invocation],
+      signers: [walletKit.connectedSigner()]
+    }, `Estimate ${operation} fees with Pusharoo`);
+
+    const systemFee = this.formatFee(result.systemFee);
+    const networkFee = this.formatFee(result.networkFee);
+    const total = result.total === undefined || result.total === null
+      ? null
+      : this.formatFee(result.total);
+
+    if (!systemFee || !networkFee) {
+      throw new Error('The wallet returned an incomplete fee estimate.');
+    }
+
+    return {
+      systemFee,
+      networkFee,
+      total: total ?? this.sumFees(systemFee, networkFee)
+    };
+  }
+
   async signProjectCreation(
     projectName: string,
     projectDescription: string
@@ -396,6 +474,22 @@ export class WalletService {
     return btoa(bytes.join(''));
   }
 
+  private formatFee(value: unknown): string | null {
+    if (typeof value !== 'string' && typeof value !== 'number') {
+      return null;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? `${parsed} GAS` : null;
+  }
+
+  private sumFees(systemFee: string, networkFee: string): string {
+    const system = Number(systemFee.replace(' GAS', ''));
+    const network = Number(networkFee.replace(' GAS', ''));
+
+    return `${system + network} GAS`;
+  }
+
   private async signMessage(
     session: WalletSession,
     accountAddress: string,
@@ -538,7 +632,7 @@ export class WalletService {
       return await WalletKit.initOneGate({ network });
     }
 
-    const walletConnectMethods: Method[] = ['invokeFunction', 'testInvoke', 'signMessage'];
+    const walletConnectMethods: Method[] = ['invokeFunction', 'testInvoke', 'calculateFee', 'signMessage'];
 
     return await WalletKit.init({
       projectId: this.getWalletConnectProjectId(),

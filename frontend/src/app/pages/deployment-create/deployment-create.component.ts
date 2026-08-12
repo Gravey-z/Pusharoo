@@ -10,7 +10,7 @@ import { NeoRpcService } from '../../services/neo-rpc.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { RuntimeConfigService } from '../../services/runtime-config.service';
-import { WalletService } from '../../services/wallet.service';
+import { DeploymentFeeEstimate, WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 
@@ -28,6 +28,13 @@ export class DeploymentCreateComponent implements OnInit {
   errorMessage = '';
   deployStatus = '';
   isSaving = false;
+  isPreparingReview = false;
+  isReviewing = false;
+  mainnetConfirmed = false;
+  feeEstimate: DeploymentFeeEstimate | null = null;
+  feeEstimateError = '';
+  private preparedNefHex = '';
+  private preparedArtifactId = '';
   readonly projectId: string;
   readonly walletAddress = computed(() => this.wallet.account()?.address ?? '');
   readonly walletNetwork = computed(() => this.wallet.session()?.network ?? '');
@@ -42,6 +49,18 @@ export class DeploymentCreateComponent implements OnInit {
     }
 
     return this.updateMode ? 'Update Contract' : 'Deploy Contract';
+  }
+
+  get selectedArtifact(): Artifact | null {
+    return this.artifacts.find((artifact) => artifact.id === this.artifactId) ?? null;
+  }
+
+  get operation(): 'deploy' | 'update' {
+    return this.getExistingDeployment(this.walletNetwork())?.contractHash ? 'update' : 'deploy';
+  }
+
+  get targetContract(): string | null {
+    return this.getExistingDeployment(this.walletNetwork())?.contractHash ?? null;
   }
 
   get networkDeploymentStatus(): string {
@@ -84,8 +103,8 @@ export class DeploymentCreateComponent implements OnInit {
     this.errorMessage = '';
     this.deployStatus = '';
 
-    if (!this.artifactId) {
-      this.errorMessage = 'Choose an artifact version.';
+    if (!this.isReviewing || !this.preparedNefHex || this.preparedArtifactId !== this.artifactId) {
+      this.errorMessage = 'Review this release before opening the wallet.';
       return;
     }
 
@@ -111,6 +130,11 @@ export class DeploymentCreateComponent implements OnInit {
       return;
     }
 
+    if (session.network === 'neo3:mainnet' && !this.mainnetConfirmed) {
+      this.errorMessage = 'Confirm the MainNet warning before opening the wallet.';
+      return;
+    }
+
     this.isSaving = true;
     let attempt: Deployment | null = null;
     let transactionId = '';
@@ -125,14 +149,11 @@ export class DeploymentCreateComponent implements OnInit {
         notes: deploymentNotes
       }));
 
-      this.deployStatus = 'Preparing NEF file...';
-      const nefHex = await firstValueFrom(this.api.getArtifactNefHex(this.artifactId));
-      this.ensureValidNef(nefHex);
       const manifestJson = JSON.stringify(artifact.manifest);
       transactionId = await this.deployOrUpdateContract(
         session.network,
         artifact,
-        nefHex,
+        this.preparedNefHex,
         manifestJson
       );
 
@@ -165,6 +186,68 @@ export class DeploymentCreateComponent implements OnInit {
       this.isSaving = false;
       this.deployStatus = '';
     }
+  }
+
+  async reviewRelease(): Promise<void> {
+    this.errorMessage = '';
+    this.feeEstimateError = '';
+    this.feeEstimate = null;
+    this.mainnetConfirmed = false;
+
+    const artifact = this.selectedArtifact;
+    const session = this.wallet.session();
+
+    if (!artifact) {
+      this.errorMessage = 'Choose an artifact version.';
+      return;
+    }
+
+    if (!session || !this.walletAddress()) {
+      this.errorMessage = 'Connect a wallet before reviewing a release.';
+      return;
+    }
+
+    const ownershipError = this.ownership.managementError(this.overview?.project, this.walletAddress());
+    if (ownershipError) {
+      this.errorMessage = ownershipError;
+      return;
+    }
+
+    const target = this.getExistingDeployment(session.network)?.contractHash;
+    this.isPreparingReview = true;
+
+    try {
+      const nefHex = await firstValueFrom(this.api.getArtifactNefHex(artifact.id));
+      this.ensureValidNef(nefHex);
+      this.preparedNefHex = nefHex;
+      this.preparedArtifactId = artifact.id;
+      this.isReviewing = true;
+
+      try {
+        this.feeEstimate = await this.wallet.estimateDeploymentFees(
+          session.network,
+          target ? 'update' : 'deploy',
+          nefHex,
+          JSON.stringify(artifact.manifest),
+          target ?? undefined
+        );
+      } catch (error) {
+        this.feeEstimateError = this.getErrorMessage(error);
+      }
+    } catch (error) {
+      this.errorMessage = this.getErrorMessage(error);
+    } finally {
+      this.isPreparingReview = false;
+    }
+  }
+
+  editRelease(): void {
+    this.isReviewing = false;
+    this.mainnetConfirmed = false;
+    this.feeEstimate = null;
+    this.feeEstimateError = '';
+    this.preparedNefHex = '';
+    this.preparedArtifactId = '';
   }
 
   private getErrorMessage(error: unknown): string {

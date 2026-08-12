@@ -5,7 +5,8 @@
 
   @if (overview) {
     @if (artifacts.length) {
-      <form class="deployment-form" (ngSubmit)="save()">
+      @if (!isReviewing) {
+      <form class="deployment-form" (ngSubmit)="reviewRelease()">
         <label>
           <span>Artifact version</span>
           <select name="artifactId" [(ngModel)]="artifactId">
@@ -45,10 +46,71 @@
           <p class="form-error">{{ errorMessage }}</p>
         }
 
-        <button class="primary-button" type="submit" [disabled]="isSaving">
-          {{ submitLabel }}
+        <button class="primary-button" type="submit" [disabled]="isPreparingReview">
+          {{ isPreparingReview ? 'Preparing Review...' : 'Review Release' }}
         </button>
       </form>
+      } @else {
+        <section class="release-confirmation" [class.mainnet-release]="walletNetwork() === 'neo3:mainnet'">
+          <div class="confirmation-heading">
+            <p class="eyebrow">Release confirmation</p>
+            <h2>{{ operation === 'update' ? 'Review contract update' : 'Review new contract deployment' }}</h2>
+            <p>Review these details before Pusharoo asks your wallet to sign.</p>
+          </div>
+
+          <dl class="release-details">
+            <div><dt>Network</dt><dd>{{ walletNetwork() }}</dd></div>
+            <div><dt>Action</dt><dd>{{ operation === 'update' ? 'Update existing contract' : 'Deploy new contract' }}</dd></div>
+            <div><dt>Artifact</dt><dd>{{ selectedArtifact?.version }} — {{ selectedArtifact?.contractName }}</dd></div>
+            <div><dt>Signer</dt><dd>{{ walletAddress() }}</dd></div>
+            @if (targetContract) {
+              <div><dt>Target contract</dt><dd>{{ targetContract }}</dd></div>
+            } @else {
+              <div><dt>Target contract</dt><dd>A new contract address will be created by Neo.</dd></div>
+            }
+          </dl>
+
+          <section class="fee-estimate" aria-label="Estimated transaction fees">
+            <h3>Estimated maximum fee</h3>
+            @if (feeEstimate) {
+              <div class="fee-grid">
+                <span>System fee <strong>{{ feeEstimate.systemFee }}</strong></span>
+                <span>Network fee <strong>{{ feeEstimate.networkFee }}</strong></span>
+                <span>Total maximum <strong>{{ feeEstimate.total }}</strong></span>
+              </div>
+              <p>Your wallet calculates the final transaction fee before signing.</p>
+            } @else {
+              <p class="fee-unavailable">Fee estimate unavailable. Review the final fee shown on your wallet’s confirmation screen before signing.</p>
+            }
+          </section>
+
+          @if (walletNetwork() === 'neo3:mainnet') {
+            <section class="mainnet-warning">
+              <strong>MainNet action</strong>
+              <p>This creates a permanent on-chain {{ operation }} and may spend real GAS.</p>
+              <label class="mainnet-confirmation">
+                <input type="checkbox" name="mainnetConfirmed" [(ngModel)]="mainnetConfirmed" />
+                <span>I reviewed the MainNet network, signer, contract action, and maximum fee.</span>
+              </label>
+            </section>
+          }
+
+          @if (deployStatus) {
+            <p class="form-status">{{ deployStatus }}</p>
+          }
+
+          @if (errorMessage) {
+            <p class="form-error">{{ errorMessage }}</p>
+          }
+
+          <div class="confirmation-actions">
+            <button class="secondary-button" type="button" (click)="editRelease()" [disabled]="isSaving">Edit Release</button>
+            <button class="primary-button" type="button" (click)="save()" [disabled]="isSaving || (walletNetwork() === 'neo3:mainnet' && !mainnetConfirmed)">
+              {{ submitLabel }}
+            </button>
+          </div>
+        </section>
+      }
     } @else {
       <section class="empty-state">
         <strong>No artifacts yet</strong>
