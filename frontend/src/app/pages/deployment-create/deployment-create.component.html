@@ -17,8 +17,11 @@
           </select>
         </label>
 
-        <label>
-          <span>Network</span>
+        <label [class.mainnet-network]="walletNetwork() === 'neo3:mainnet'">
+          <span class="field-label">
+            Network
+            <small>{{ walletNetwork() === 'neo3:mainnet' ? 'MainNet: real GAS and permanent changes' : 'Selected by the connected wallet' }}</small>
+          </span>
           <input type="text" name="network" [value]="walletNetwork() || 'Connect wallet first'" readonly />
         </label>
 

@@ -157,6 +157,13 @@ export class EventWebhooksComponent implements OnInit {
         .filter((deployment) => deployment.network === this.relayNetwork);
       this.contractHash = this.deploymentOptions[0]?.contractHash ?? '';
       this.selectDeployment();
+
+      // Listing subscriptions is wallet-authorized. Do not prompt for a signature
+      // when this project has nothing deployed on the network the relay monitors.
+      if (!this.deploymentOptions.length) {
+        return;
+      }
+
       await this.loadSubscriptions();
     } catch (error) {
       this.errorMessage = this.getErrorMessage(error, 'Could not load webhook subscriptions.');

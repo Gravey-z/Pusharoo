@@ -6,6 +6,7 @@ import { Artifact, Deployment, ProjectOverviewViewModel } from '../../models/pus
 import { ClipboardService } from '../../services/clipboard.service';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
+import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 
@@ -24,7 +25,8 @@ export class ProjectOverviewComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly api: PusharooApiService,
     private readonly clipboard: ClipboardService,
-    private readonly deploymentHistory: DeploymentHistoryService
+    private readonly deploymentHistory: DeploymentHistoryService,
+    readonly wallet: WalletService
   ) {}
 
   ngOnInit(): void {
@@ -42,6 +44,12 @@ export class ProjectOverviewComponent implements OnInit {
     return overview.deployments.find((deployment) =>
       deployment.network.toLowerCase().includes(network)
     ) ?? null;
+  }
+
+  isNetworkUnavailable(network: string): boolean {
+    const walletNetwork = this.wallet.session()?.network;
+
+    return Boolean(walletNetwork && walletNetwork !== `neo3:${network}`);
   }
 
   artifactDeployments(overview: ProjectOverviewViewModel, artifact: Artifact): Deployment[] {

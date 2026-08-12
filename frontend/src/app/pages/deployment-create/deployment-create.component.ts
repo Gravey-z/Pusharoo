@@ -151,11 +151,36 @@ export class DeploymentCreateComponent implements OnInit {
   }
 
   private getErrorMessage(error: unknown): string {
+    const rpcException = this.findRpcException(error);
+    if (rpcException) {
+      const contractAlreadyExists = /^Contract Already Exists:\s*(.+)$/i.exec(rpcException);
+
+      return contractAlreadyExists
+        ? `This contract is already deployed on the selected network (${contractAlreadyExists[1]}). Add or recover that deployment before trying to deploy this artifact again.`
+        : `Neo rejected the deployment: ${rpcException}`;
+    }
+
     if (error instanceof Error && error.message) {
       return error.message;
     }
 
     return 'Could not deploy or update contract.';
+  }
+
+  private findRpcException(error: unknown): string | null {
+    if (!error || typeof error !== 'object') {
+      return null;
+    }
+
+    const response = error as {
+      data?: { exception?: unknown };
+      exception?: unknown;
+    };
+    const exception = response.data?.exception ?? response.exception;
+
+    return typeof exception === 'string' && exception.trim()
+      ? exception.trim()
+      : null;
   }
 
   get updateMode(): boolean {

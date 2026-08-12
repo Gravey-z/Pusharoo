@@ -28,6 +28,17 @@
   color: var(--accent);
 }
 
+.wallet-trigger.mainnet {
+  border-color: rgba(255, 107, 138, 0.46);
+  background: rgba(255, 107, 138, 0.13);
+  color: var(--danger);
+}
+
+.wallet-trigger.mainnet:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 .dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -77,6 +88,49 @@ h2 {
   gap: 10px;
 }
 
+.network-choice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+}
+
+.network-choice span {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.network-choice button {
+  min-height: 28px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 740;
+  cursor: pointer;
+}
+
+.network-choice button.active {
+  border-color: rgba(21, 244, 200, 0.3);
+  background: rgba(21, 244, 200, 0.12);
+  color: var(--sage);
+}
+
+.network-guidance {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .wallet-option {
   display: grid;
   gap: 3px;
@@ -113,6 +167,26 @@ h2 {
   border: 1px solid rgba(21, 244, 200, 0.28);
   border-radius: 8px;
   background: rgba(21, 244, 200, 0.1);
+}
+
+.network-badge {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: rgba(141, 255, 176, 0.14);
+  color: var(--sage) !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+}
+
+.wallet-account.mainnet {
+  border-color: rgba(255, 107, 138, 0.4);
+  background: rgba(255, 107, 138, 0.1);
+}
+
+.wallet-account.mainnet .network-badge {
+  background: rgba(255, 107, 138, 0.16);
+  color: var(--danger) !important;
 }
 
 .wallet-account strong {

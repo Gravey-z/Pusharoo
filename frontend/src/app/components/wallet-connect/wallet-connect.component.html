@@ -1,5 +1,10 @@
 <div class="wallet-widget">
-  <button type="button" class="wallet-trigger" (click)="openDialog()">
+  <button
+    type="button"
+    class="wallet-trigger"
+    [class.mainnet]="wallet.session()?.network === 'neo3:mainnet'"
+    (click)="openDialog()"
+  >
     @if (wallet.account()) {
       {{ wallet.shortAddress() }}
     } @else {
@@ -21,12 +26,38 @@
       </div>
 
       @if (wallet.account(); as account) {
-        <div class="wallet-account" [title]="account.address">
-          <span>Connected</span>
+        <div
+          class="wallet-account"
+          [class.mainnet]="wallet.session()?.network === 'neo3:mainnet'"
+          [title]="account.address"
+        >
+          <span class="network-badge">
+            {{ wallet.session()?.network === 'neo3:mainnet' ? 'MainNet connected' : 'TestNet connected' }}
+          </span>
           <strong>{{ wallet.shortAddress() }}</strong>
         </div>
         <button type="button" class="wallet-option danger" (click)="disconnect()">Disconnect</button>
       } @else if (dialogView === 'options') {
+        <div class="network-choice" role="group" aria-label="Wallet network">
+          <span>Network</span>
+          <button
+            type="button"
+            [class.active]="wallet.selectedNetwork() === 'neo3:testnet'"
+            (click)="wallet.selectNetwork('neo3:testnet')"
+          >
+            TestNet
+          </button>
+          <button
+            type="button"
+            [class.active]="wallet.selectedNetwork() === 'neo3:mainnet'"
+            (click)="wallet.selectNetwork('neo3:mainnet')"
+          >
+            MainNet
+          </button>
+        </div>
+        <p class="network-guidance">
+          Select the same network in your wallet before connecting.
+        </p>
         <div class="wallet-options">
           <button type="button" class="wallet-option" (click)="connectNeoLine()">
             <strong>NeoLine</strong>

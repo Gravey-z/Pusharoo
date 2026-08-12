@@ -44,7 +44,11 @@
     <section class="network-grid" aria-label="Network releases">
       @for (network of ['testnet', 'mainnet']; track network) {
         @let deployment = latestDeploymentForNetwork(overview, network);
-        <article class="network-card" [class.deployed]="deployment">
+        <article
+          class="network-card"
+          [class.deployed]="deployment"
+          [class.network-unavailable]="isNetworkUnavailable(network)"
+        >
           <span class="eyebrow">{{ network === 'testnet' ? 'TestNet' : 'MainNet' }}</span>
           @if (deployment) {
             <strong>{{ deployment.version }}</strong>
@@ -55,7 +59,18 @@
             <strong>Not deployed</strong>
             <span class="release-state pending">Awaiting release</span>
             <p>Deploy an artifact to establish this network release.</p>
-            <a [routerLink]="['/projects', overview.project.id, 'deployments', 'new']">Deploy contract</a>
+            @if (isNetworkUnavailable(network)) {
+              <span class="deploy-network-button disabled" title="Switch your connected wallet to this network to deploy.">
+                Switch wallet to deploy
+              </span>
+            } @else {
+              <a
+                class="deploy-network-button"
+                [routerLink]="['/projects', overview.project.id, 'deployments', 'new']"
+              >
+                Deploy contract
+              </a>
+            }
           }
         </article>
       }
@@ -64,29 +79,54 @@
 
     @if (releaseTab !== 'deployments') {
     <section class="artifact-list" aria-label="Artifacts">
-      @for (artifact of overview.artifacts; track artifact.id) {
-        <a
-          [class.deployed-artifact]="isArtifactDeployed(overview, artifact)"
-          [routerLink]="['/artifacts', artifact.id, 'manifest']"
-        >
-          <span>{{ artifact.version }}</span>
-          <span>{{ artifact.contractName }}</span>
-          <span>{{ artifact.nefFileName }}</span>
-          <span class="artifact-deployment-state">
-            @if (artifactNetworks(overview, artifact).length) {
-              @for (network of artifactNetworks(overview, artifact); track network) {
-                <span class="network-pill">{{ network }}</span>
-              }
-            }
-          </span>
+      <header class="artifact-list-header">
+        <h2>Artifacts</h2>
+        <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
+          Upload Artifact
         </a>
+      </header>
+
+      @if (overview.artifacts.length) {
+        @for (artifact of overview.artifacts; track artifact.id) {
+          <a
+            [class.deployed-artifact]="isArtifactDeployed(overview, artifact)"
+            [routerLink]="['/artifacts', artifact.id, 'manifest']"
+          >
+            <span>{{ artifact.version }}</span>
+            <span>{{ artifact.contractName }}</span>
+            <span>{{ artifact.nefFileName }}</span>
+            <span class="artifact-deployment-state">
+              @if (artifactNetworks(overview, artifact).length) {
+                @for (network of artifactNetworks(overview, artifact); track network) {
+                  <span class="network-pill">{{ network }}</span>
+                }
+              }
+            </span>
+          </a>
+        }
+      } @else {
+        <div class="artifact-empty-state">
+          <strong>No artifacts uploaded</strong>
+          <p>Upload a NEF and manifest before creating a deployment.</p>
+        </div>
+      }
+
+      @if (overview.artifacts.length && !overview.deployments.length) {
+        <p class="artifact-deployment-empty">No artifacts deployed yet. Choose an artifact and network to begin a release.</p>
       }
     </section>
     }
 
     @if (releaseTab !== 'artifacts') {
     <section class="deployment-list" aria-label="Deployments">
-      <h2>Deployments</h2>
+      <header class="deployment-list-header">
+        <h2>Deployments</h2>
+        @if (overview.artifacts.length) {
+          <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'new']">
+            Deploy Contract
+          </a>
+        }
+      </header>
       @if (overview.deployments.length) {
         @for (deployment of overview.deployments; track deployment.id) {
           <div>
@@ -127,7 +167,9 @@
           </div>
         }
       } @else {
-        <p>No deployments recorded yet.</p>
+        <div class="deployment-empty-state">
+          <p>No deployments recorded yet.</p>
+        </div>
       }
     </section>
     }
