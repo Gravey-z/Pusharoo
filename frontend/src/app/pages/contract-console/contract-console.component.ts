@@ -40,6 +40,7 @@ interface ConsoleEntry {
   methodName: string;
   status: 'success' | 'error';
   result: unknown;
+  returnType?: string;
 }
 
 @Component({
@@ -134,7 +135,8 @@ export class ContractConsoleComponent implements OnInit {
         mode: this.mode,
         methodName: method.name,
         status: 'success',
-        result
+        result,
+        returnType: method.returntype ?? method.returnType
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Contract call failed.';
@@ -179,6 +181,12 @@ export class ContractConsoleComponent implements OnInit {
 
   formatResult(value: unknown): string {
     return this.resultFormatter.format(value);
+  }
+
+  readableResult(entry: ConsoleEntry): string | null {
+    return entry.mode === 'test' && entry.status === 'success' && entry.returnType
+      ? this.resultFormatter.readableResult(entry.result, entry.returnType)
+      : null;
   }
 
   shortHash(value: string): string {
@@ -311,8 +319,7 @@ export class ContractConsoleComponent implements OnInit {
     }
 
     return this.deploymentHistory
-      .latestByNetwork(overview.deployments)
-      .filter((deployment) => deployment.contractHash)
+      .latestConfirmedByNetwork(overview.deployments)
       .map((deployment) => {
         const artifact = overview.artifacts.find((item) => item.id === deployment.artifactId);
         return artifact ? this.toTarget(deployment, artifact) : null;

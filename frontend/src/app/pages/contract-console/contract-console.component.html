@@ -86,6 +86,12 @@
                   <span>{{ entry.mode === 'test' ? 'Preview' : 'Wallet transaction' }}</span>
                   <time>{{ entry.at | date: 'mediumTime' }}</time>
                 </header>
+                @if (readableResult(entry); as readable) {
+                  <div class="decoded-result">
+                    <span>Decoded {{ entry.returnType }}</span>
+                    <strong>{{ readable }}</strong>
+                  </div>
+                }
                 <pre>{{ formatResult(entry.result) }}</pre>
               </article>
             }

@@ -369,21 +369,105 @@ dd {
   font-weight: 780;
 }
 
-.copy-chip {
+.explorer-chip {
   width: fit-content;
-  border: 0;
+  border: 1px solid rgba(0, 214, 255, 0.22);
   border-radius: 6px;
   padding: 5px 8px;
   background: rgba(0, 214, 255, 0.08);
   color: var(--accent);
-  font: inherit;
   font-size: 12px;
   font-weight: 780;
-  cursor: pointer;
+  text-decoration: none;
 }
 
-.copy-chip:hover {
+.explorer-chip:hover {
+  border-color: var(--accent);
   background: rgba(0, 214, 255, 0.16);
+}
+
+.release-timeline {
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.release-timeline header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 50px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.release-timeline h2 {
+  margin: 0;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 15px;
+}
+
+.release-timeline ol {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.release-timeline li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 9px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.release-timeline li:last-child {
+  border-bottom: 0;
+}
+
+.timeline-marker {
+  align-self: center;
+  width: 7px;
+  height: 7px;
+  background: var(--accent);
+}
+
+.failed-event .timeline-marker {
+  background: var(--danger);
+}
+
+.timeline-content strong {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.3;
+  text-shadow: none;
+}
+
+.timeline-content span {
+  display: block;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.timeline-content a {
+  margin-top: 4px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 720;
+  text-decoration: none;
+}
+
+.release-timeline time {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .deployment-list p {
@@ -458,9 +542,18 @@ dd {
   }
 
   .artifact-list-header,
-  .deployment-list-header {
+  .deployment-list-header,
+  .release-timeline header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .release-timeline li {
+    grid-template-columns: 18px 1fr;
+  }
+
+  .release-timeline time {
+    grid-column: 2;
   }
 
   .metric-grid div {

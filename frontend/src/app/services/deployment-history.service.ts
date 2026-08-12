@@ -24,12 +24,16 @@ export class DeploymentHistoryService {
     }, new Map<string, Deployment>()).values()];
   }
 
+  latestConfirmedByNetwork(deployments: Deployment[]): Deployment[] {
+    return this.latestByNetwork(this.confirmed(deployments));
+  }
+
   latestForNetwork(deployments: Deployment[], network: string): Deployment | null {
     if (!network) {
       return null;
     }
 
-    return this.latestByNetwork(this.confirmed(deployments))
+    return this.latestConfirmedByNetwork(deployments)
       .find((deployment) => deployment.network === network) ?? null;
   }
 
@@ -38,7 +42,7 @@ export class DeploymentHistoryService {
   }
 
   latestForArtifact(overview: ProjectOverviewViewModel, artifact: Artifact): Deployment[] {
-    return this.latestByNetwork(this.confirmed(overview.deployments))
+    return this.latestConfirmedByNetwork(overview.deployments)
       .filter((deployment) => deployment.artifactId === artifact.id);
   }
 

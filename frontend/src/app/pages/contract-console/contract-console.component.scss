@@ -192,6 +192,28 @@ select {
   font-size: 14px;
 }
 
+.decoded-result {
+  display: grid;
+  gap: 4px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+  background: rgba(21, 244, 200, 0.06);
+}
+
+.decoded-result span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 720;
+  text-transform: uppercase;
+}
+
+.decoded-result strong {
+  overflow-wrap: anywhere;
+  color: var(--sage);
+  font-size: 14px;
+  text-shadow: none;
+}
+
 .result-panel pre {
   max-height: 320px;
   margin: 0;

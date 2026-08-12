@@ -197,8 +197,7 @@ export class EventWebhooksComponent implements OnInit {
 
   private toDeploymentOptions(deployments: Deployment[]): DeploymentOption[] {
     return this.deploymentHistory
-      .latestByNetwork(deployments)
-      .filter((deployment) => deployment.contractHash)
+      .latestConfirmedByNetwork(deployments)
       .map((deployment) => {
         const artifact = this.overview?.artifacts.find((item) => item.id === deployment.artifactId);
         return artifact

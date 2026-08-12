@@ -144,37 +144,22 @@
               {{ deploymentStatusLabel(deployment) }}
             </span>
             @if (deployment.contractHash) {
-              <button
-                class="copy-chip"
-                type="button"
-                [title]="deployment.contractHash"
-                (click)="copyValue(deployment.contractHash, $event)"
-              >
-                {{ copiedValue === deployment.contractHash ? 'Copied' : shortText(deployment.contractHash, 10, 4) }}
-              </button>
+              <a class="explorer-chip" [href]="explorerUrl(deployment.network, 'contract', deployment.contractHash)" target="_blank" rel="noopener noreferrer" [title]="'View contract on Dora: ' + deployment.contractHash">
+                {{ shortText(deployment.contractHash, 10, 4) }} ↗
+              </a>
             } @else {
               <span>No contract hash</span>
             }
             @if (deployment.transactionId) {
-              <button
-                class="copy-chip"
-                type="button"
-                [title]="deployment.transactionId"
-                (click)="copyValue(deployment.transactionId, $event)"
-              >
-                {{ copiedValue === deployment.transactionId ? 'Copied' : shortTransactionId(deployment.transactionId) }}
-              </button>
+              <a class="explorer-chip" [href]="explorerUrl(deployment.network, 'transaction', deployment.transactionId)" target="_blank" rel="noopener noreferrer" [title]="'View transaction on Dora: ' + deployment.transactionId">
+                {{ shortTransactionId(deployment.transactionId) }} ↗
+              </a>
             } @else {
               <span>No txid</span>
             }
-            <button
-              class="copy-chip"
-              type="button"
-              [title]="deployment.deployedBy"
-              (click)="copyValue(deployment.deployedBy, $event)"
-            >
-              {{ copiedValue === deployment.deployedBy ? 'Copied' : shortText(deployment.deployedBy) }}
-            </button>
+            <a class="explorer-chip" [href]="explorerUrl(deployment.network, 'address', deployment.deployedBy)" target="_blank" rel="noopener noreferrer" [title]="'View wallet on Dora: ' + deployment.deployedBy">
+              {{ shortText(deployment.deployedBy) }} ↗
+            </a>
             @if (canResumeConfirmation(deployment)) {
               <button
                 class="resume-button"
@@ -196,6 +181,37 @@
         </div>
       }
     </section>
+    }
+
+    @if (releaseTab === 'overview') {
+      <section class="release-timeline" aria-label="Release audit timeline">
+        <header>
+          <div>
+            <h2>Release Timeline</h2>
+            <p>Newest first.</p>
+          </div>
+          <span>Audit history</span>
+        </header>
+        @if (releaseTimeline(overview).length) {
+          <ol>
+            @for (event of releaseTimeline(overview); track event.id) {
+              <li [class.failed-event]="event.type === 'failure'">
+                <span class="timeline-marker"></span>
+                <div class="timeline-content">
+                  <strong>{{ event.title }}</strong>
+                  <span>{{ event.detail }}</span>
+                  @if (event.deployment?.transactionId && event.network) {
+                    <a [href]="explorerUrl(event.network, 'transaction', event.deployment?.transactionId ?? '')" target="_blank" rel="noopener noreferrer">View transaction on Dora ↗</a>
+                  }
+                </div>
+                <time [attr.datetime]="event.occurredAt">{{ formatTimelineDate(event.occurredAt) }}</time>
+              </li>
+            }
+          </ol>
+        } @else {
+          <p class="timeline-empty">Release activity will appear here after you upload an artifact or begin a deployment.</p>
+        }
+      </section>
     }
   </app-page-shell>
 } @else {

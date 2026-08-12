@@ -10,6 +10,16 @@ import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 
+interface ReleaseTimelineEvent {
+  id: string;
+  occurredAt: string;
+  type: 'artifact' | 'deployment' | 'update' | 'failure';
+  title: string;
+  detail: string;
+  network?: string;
+  deployment?: Deployment;
+}
+
 @Component({
   selector: 'app-project-overview',
   imports: [AsyncPipe, PageShellComponent, ProjectReleaseNavComponent, RouterLink],
@@ -42,9 +52,7 @@ export class ProjectOverviewComponent implements OnInit {
     overview: ProjectOverviewViewModel,
     network: string
   ): Deployment | null {
-    return overview.deployments.find((deployment) =>
-      deployment.network.toLowerCase().includes(network)
-    ) ?? null;
+    return this.deploymentHistory.latestForNetwork(overview.deployments, `neo3:${network}`);
   }
 
   isNetworkUnavailable(network: string): boolean {
@@ -104,6 +112,76 @@ export class ProjectOverviewComponent implements OnInit {
 
   deploymentStatusLabel(deployment: Deployment): string {
     return deployment.status.replaceAll('_', ' ');
+  }
+
+  explorerUrl(network: string, kind: 'transaction' | 'contract' | 'address', value: string): string {
+    const normalizedNetwork = network.toLowerCase().includes('mainnet') ? 'mainnet' : 'testnet';
+    const path = kind === 'transaction' ? 'transaction' : kind;
+
+    return `https://dora.coz.io/${path}/neo3/${normalizedNetwork}/${encodeURIComponent(value)}`;
+  }
+
+  releaseTimeline(overview: ProjectOverviewViewModel): ReleaseTimelineEvent[] {
+    const artifacts = overview.artifacts.map((artifact) => ({
+      id: `artifact-${artifact.id}`,
+      occurredAt: artifact.createdAt,
+      type: 'artifact' as const,
+      title: `Artifact ${artifact.version} uploaded`,
+      detail: `${artifact.contractName} • ${artifact.nefFileName}`
+    }));
+
+    const deployments = overview.deployments.flatMap((deployment) => {
+      const failed = deployment.status === 'failed' || deployment.status === 'record_failed';
+      const confirmed = deployment.status === 'confirmed' || !deployment.status;
+      const action = deployment.operation === 'update' ? 'Contract update' : 'Contract deployment';
+      const events: ReleaseTimelineEvent[] = [{
+        id: `deployment-started-${deployment.id}`,
+        occurredAt: deployment.createdAt,
+        type: deployment.operation === 'update' ? 'update' : 'deployment',
+        title: `${action} started`,
+        detail: `${deployment.version} • ${deployment.network}`,
+        network: deployment.network,
+        deployment
+      }];
+
+      if (deployment.transactionId) {
+        events.push({
+          id: `deployment-submitted-${deployment.id}`,
+          occurredAt: deployment.updatedAt || deployment.createdAt,
+          type: deployment.operation === 'update' ? 'update' : 'deployment',
+          title: `${action} submitted`,
+          detail: `${deployment.network} • ${this.shortTransactionId(deployment.transactionId)}`,
+          network: deployment.network,
+          deployment
+        });
+      }
+
+      if (deployment.updatedAt && deployment.updatedAt !== deployment.createdAt) {
+        events.push({
+          id: `deployment-result-${deployment.id}`,
+          occurredAt: deployment.updatedAt,
+          type: failed ? 'failure' : deployment.operation === 'update' ? 'update' : 'deployment',
+          title: failed ? `${action} failed` : confirmed ? `${action} confirmed` : `${action} ${this.deploymentStatusLabel(deployment)}`,
+          detail: failed
+            ? (deployment.failureReason || 'The release did not complete.')
+            : `${deployment.version} • ${deployment.network}${deployment.contractHash ? ` • ${this.shortText(deployment.contractHash, 10, 4)}` : ''}`,
+          network: deployment.network,
+          deployment
+        });
+      }
+
+      return events;
+    });
+
+    return [...artifacts, ...deployments]
+      .sort((left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime());
+  }
+
+  formatTimelineDate(value: string): string {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }).format(new Date(value));
   }
 
   canResumeConfirmation(deployment: Deployment): boolean {
