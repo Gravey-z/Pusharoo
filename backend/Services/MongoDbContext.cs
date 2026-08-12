@@ -16,6 +16,8 @@ public sealed class MongoDbContext
         Projects = database.GetCollection<ProjectDocument>("projects");
         ContractArtifacts = database.GetCollection<ArtifactDocument>("contractArtifacts");
         Deployments = database.GetCollection<DeploymentDocument>("deployments");
+        WebhookSubscriptions = database.GetCollection<MongoDB.Bson.BsonDocument>("eventSubscriptions");
+        WebhookDeliveries = database.GetCollection<MongoDB.Bson.BsonDocument>("webhookDeliveries");
         WebhookAuthorizationNonces = database.GetCollection<WebhookAuthorizationNonceDocument>("webhookAuthorizationNonces");
 
         WebhookAuthorizationNonces.Indexes.CreateOne(
@@ -45,6 +47,10 @@ public sealed class MongoDbContext
     public IMongoCollection<ArtifactDocument> ContractArtifacts { get; }
 
     public IMongoCollection<DeploymentDocument> Deployments { get; }
+
+    public IMongoCollection<MongoDB.Bson.BsonDocument> WebhookSubscriptions { get; }
+
+    public IMongoCollection<MongoDB.Bson.BsonDocument> WebhookDeliveries { get; }
 
     public IMongoCollection<WebhookAuthorizationNonceDocument> WebhookAuthorizationNonces { get; }
 }

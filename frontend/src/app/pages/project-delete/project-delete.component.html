@@ -1,0 +1,40 @@
+<app-page-shell title="Delete Project">
+  <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Cancel</a>
+
+  @if (project) {
+    <section class="delete-panel">
+      <span class="eyebrow">Irreversible action</span>
+      <h1>Delete {{ project.name }}?</h1>
+      <p>
+        This permanently removes the project, all uploaded artifacts, deployment records,
+        webhooks, and webhook delivery history. It does not remove contracts already deployed on Neo.
+      </p>
+
+      <label>
+        <span>Type <strong>{{ project.name }}</strong> to confirm</span>
+        <input
+          type="text"
+          name="confirmationName"
+          [(ngModel)]="confirmationName"
+          autocomplete="off"
+          [disabled]="isDeleting"
+        />
+      </label>
+
+      <label>
+        <span>Project owner wallet</span>
+        <input type="text" [value]="walletAddress() || 'Connect wallet first'" readonly />
+      </label>
+
+      @if (errorMessage) {
+        <p class="form-error">{{ errorMessage }}</p>
+      }
+
+      <button class="delete-button" type="button" [disabled]="!canDelete" (click)="deleteProject()">
+        {{ isDeleting ? 'Waiting for wallet approval...' : 'Delete Project Permanently' }}
+      </button>
+    </section>
+  } @else {
+    <p class="missing">Project not found.</p>
+  }
+</app-page-shell>

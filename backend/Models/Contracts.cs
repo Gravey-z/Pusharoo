@@ -5,6 +5,10 @@ public sealed record CreateProjectRequest(
     string? Description,
     WalletSignatureRequest? Signature);
 
+public sealed record DeleteProjectRequest(
+    string ProjectName,
+    WalletSignatureRequest? Signature);
+
 public sealed record WalletSignatureRequest(
     string Address,
     string ScriptHash,

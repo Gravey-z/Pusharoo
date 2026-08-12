@@ -78,6 +78,26 @@ public sealed class ProjectManagementSignatureValidator(NeoWalletSignatureVerifi
         return ValidateSignedMessage(project, signature, expectedMessage);
     }
 
+    public ProjectManagementSignatureValidationResult ValidateProjectDeletion(
+        ProjectDocument project,
+        string projectName,
+        WalletSignatureRequest? signature)
+    {
+        var commonValidation = ValidateCommon(project, signature);
+        if (!commonValidation.IsValid || signature is null)
+        {
+            return commonValidation;
+        }
+
+        if (!string.Equals(project.Name.Trim(), projectName.Trim(), StringComparison.Ordinal))
+        {
+            return Fail("Type the exact project name to confirm deletion.");
+        }
+
+        var expectedMessage = BuildProjectDeletionMessage(project.Id, project.Name, signature);
+        return ValidateSignedMessage(project, signature, expectedMessage);
+    }
+
     private static readonly HashSet<string> WebhookOperations = new(StringComparer.Ordinal)
     {
         "subscriptions.read",
@@ -261,6 +281,26 @@ public sealed class ProjectManagementSignatureValidator(NeoWalletSignatureVerifi
             $"Project ID: {projectId.Trim()}",
             $"Operation: {operation}",
             $"Request SHA-256: {requestHash.Trim().ToLowerInvariant()}",
+            $"Wallet: {signature.Address.Trim()}",
+            $"Script hash: {signature.ScriptHash.Trim()}",
+            $"Network: {signature.Network.Trim()}",
+            $"Origin: {signature.Origin.Trim()}",
+            $"Issued at UTC: {signature.IssuedAtUtc.Trim()}",
+            $"Nonce: {signature.Nonce.Trim()}"
+        });
+    }
+
+    private static string BuildProjectDeletionMessage(
+        string projectId,
+        string projectName,
+        WalletSignatureRequest signature)
+    {
+        return string.Join('\n', new[]
+        {
+            "Pusharoo project deletion",
+            $"Project ID: {projectId.Trim()}",
+            $"Project: {projectName.Trim()}",
+            "Confirmation: DELETE",
             $"Wallet: {signature.Address.Trim()}",
             $"Script hash: {signature.ScriptHash.Trim()}",
             $"Network: {signature.Network.Trim()}",

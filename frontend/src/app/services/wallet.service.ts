@@ -334,6 +334,30 @@ export class WalletService {
     return this.toWalletActionSignature(account, session, challenge, signedMessage);
   }
 
+  async signProjectDeletion(projectId: string, projectName: string): Promise<WalletActionSignature> {
+    const session = this.session();
+    const account = this.account();
+
+    if (!this.walletKit || !session || !account) {
+      throw new Error('Connect the project owner wallet before deleting a project.');
+    }
+
+    const challenge = this.projectCreationMessage.createProjectDeletion(
+      projectId,
+      projectName,
+      account,
+      session
+    );
+    const signedMessage = await this.signMessage(
+      session,
+      account.address,
+      challenge.message,
+      `Delete Pusharoo project ${projectName.trim()}`
+    );
+
+    return this.toWalletActionSignature(account, session, challenge, signedMessage);
+  }
+
   async invokeContract(
     network: NetworkType,
     contractHash: string,

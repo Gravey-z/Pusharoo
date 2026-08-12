@@ -4,6 +4,9 @@
       <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
         Upload Artifact
       </a>
+      <a class="delete-project-button" [routerLink]="['/projects', overview.project.id, 'delete']">
+        Delete Project
+      </a>
     </div>
 
     <app-project-release-nav [projectId]="overview.project.id" />

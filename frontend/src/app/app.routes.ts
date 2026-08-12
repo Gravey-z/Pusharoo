@@ -8,6 +8,7 @@ import { EventWebhooksComponent } from './pages/event-webhooks/event-webhooks.co
 import { ManifestViewerComponent } from './pages/manifest-viewer/manifest-viewer.component';
 import { LandingComponent } from './pages/landing/landing.component';
 import { ProjectOverviewComponent } from './pages/project-overview/project-overview.component';
+import { ProjectDeleteComponent } from './pages/project-delete/project-delete.component';
 import { ProjectsComponent } from './pages/projects/projects.component';
 
 export const routes: Routes = [
@@ -15,6 +16,7 @@ export const routes: Routes = [
   { path: 'home', component: LandingComponent },
   { path: 'projects', component: ProjectsComponent },
   { path: 'projects/:projectId', component: ProjectOverviewComponent },
+  { path: 'projects/:projectId/delete', component: ProjectDeleteComponent },
   { path: 'projects/:projectId/artifacts', component: ProjectOverviewComponent, data: { releaseTab: 'artifacts' } },
   { path: 'projects/:projectId/deployments', component: ProjectOverviewComponent, data: { releaseTab: 'deployments' } },
   { path: 'projects/:projectId/upload', component: ArtifactUploadComponent },

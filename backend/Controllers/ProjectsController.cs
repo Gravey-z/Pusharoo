@@ -10,6 +10,7 @@ namespace backend.Controllers;
 public sealed class ProjectsController(
     ProjectService projectService,
     ProjectCreationSignatureValidator projectCreationSignatureValidator,
+    ProjectManagementSignatureValidator projectManagementSignatureValidator,
     SignatureNonceService nonceService) : ControllerBase
 {
     [HttpPost]
@@ -80,6 +81,38 @@ public sealed class ProjectsController(
         var project = await projectService.GetByIdAsync(projectId, cancellationToken);
 
         return project is null ? NotFound() : Ok(project.ToResponse());
+    }
+
+    [HttpDelete("{projectId}")]
+    public async Task<IActionResult> DeleteAsync(
+        string projectId,
+        DeleteProjectRequest request,
+        CancellationToken cancellationToken)
+    {
+        var project = await projectService.GetByIdAsync(projectId, cancellationToken);
+        if (project is null)
+        {
+            return NotFound(new { error = "Project was not found." });
+        }
+
+        var signatureValidation = projectManagementSignatureValidator.ValidateProjectDeletion(
+            project,
+            request.ProjectName,
+            request.Signature);
+        if (!signatureValidation.IsValid)
+        {
+            return signatureValidation.Error.StartsWith("Only the project creator", StringComparison.Ordinal)
+                ? StatusCode(StatusCodes.Status403Forbidden, new { error = signatureValidation.Error })
+                : BadRequest(new { error = signatureValidation.Error });
+        }
+
+        if (!await nonceService.TryConsumeAsync(request.Signature!, cancellationToken))
+        {
+            return Conflict(new { error = "This wallet signature has already been used." });
+        }
+
+        await projectService.DeleteAsync(projectId, cancellationToken);
+        return NoContent();
     }
 
     private string? ReadIdempotencyKey()

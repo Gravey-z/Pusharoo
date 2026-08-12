@@ -1,0 +1,95 @@
+.secondary-button,
+.delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  width: fit-content;
+  border-radius: 8px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 720;
+}
+
+.secondary-button {
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.delete-panel {
+  display: grid;
+  gap: 18px;
+  width: min(620px, 100%);
+  padding: 24px;
+  border: 1px solid rgba(255, 107, 138, 0.52);
+  border-radius: 8px;
+  background: rgba(255, 107, 138, 0.08);
+  box-shadow: var(--shadow);
+}
+
+.eyebrow,
+label {
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 720;
+}
+
+h1 {
+  margin: 0;
+  color: var(--danger);
+  font-family: var(--font-display);
+  font-size: 25px;
+}
+
+p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+}
+
+label strong {
+  color: var(--ink);
+}
+
+input {
+  width: 100%;
+  min-height: 42px;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+}
+
+input[readonly] {
+  color: var(--accent);
+}
+
+.delete-button {
+  border: 1px solid rgba(255, 107, 138, 0.7);
+  background: var(--danger);
+  color: #24060d;
+  cursor: pointer;
+}
+
+.delete-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.form-error,
+.missing {
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 650;
+}

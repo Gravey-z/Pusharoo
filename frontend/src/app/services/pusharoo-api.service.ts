@@ -6,6 +6,7 @@ import {
   ArtifactComparison,
   ChangedMethod,
   CreateDeploymentRequest,
+  DeleteProjectRequest,
   RecoverDeploymentRequest,
   CreateWebhookSubscriptionRequest,
   Deployment,
@@ -84,6 +85,10 @@ export class PusharooApiService {
       description: description.trim() || null,
       signature
     });
+  }
+
+  deleteProject(projectId: string, request: DeleteProjectRequest): Observable<void> {
+    return this.http.delete<void>(`${this.apiBaseUrl}/projects/${projectId}`, { body: request });
   }
 
   uploadArtifact(

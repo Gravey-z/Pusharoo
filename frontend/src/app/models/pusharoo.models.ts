@@ -24,6 +24,11 @@ export interface WalletActionSignature {
 
 export type ProjectCreationSignature = WalletActionSignature;
 
+export interface DeleteProjectRequest {
+  projectName: string;
+  signature: WalletActionSignature;
+}
+
 export interface ArtifactSummary {
   methodCount: number;
   eventCount: number;
