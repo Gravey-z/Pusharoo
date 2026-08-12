@@ -4,7 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { NetworkType } from 'neo-n3-walletkit';
 import { firstValueFrom } from 'rxjs';
 import { isPusharooNetwork } from '../../config/wallet.config';
-import { Artifact, ProjectOverviewViewModel } from '../../models/pusharoo.models';
+import { Artifact, Deployment, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { NeoRpcService } from '../../services/neo-rpc.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
@@ -13,11 +13,6 @@ import { RuntimeConfigService } from '../../services/runtime-config.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
-
-interface ConfirmedContractChange {
-  transactionId: string;
-  contractHash: string;
-}
 
 @Component({
   selector: 'app-deployment-create',
@@ -117,33 +112,55 @@ export class DeploymentCreateComponent implements OnInit {
     }
 
     this.isSaving = true;
+    let attempt: Deployment | null = null;
+    let transactionId = '';
 
     try {
+      const deploymentNotes = this.notes.trim() || null;
+      this.deployStatus = 'Creating deployment attempt...';
+      attempt = await firstValueFrom(this.api.startDeploymentAttempt(this.projectId, {
+        artifactId: this.artifactId,
+        network: session.network,
+        deployedBy: this.walletAddress(),
+        notes: deploymentNotes
+      }));
+
       this.deployStatus = 'Preparing NEF file...';
       const nefHex = await firstValueFrom(this.api.getArtifactNefHex(this.artifactId));
       this.ensureValidNef(nefHex);
       const manifestJson = JSON.stringify(artifact.manifest);
-      const contractChange = await this.deployOrUpdateContract(
+      transactionId = await this.deployOrUpdateContract(
         session.network,
         artifact,
         nefHex,
         manifestJson
       );
 
-      this.deployStatus = 'Saving deployment record...';
-      const deploymentNotes = this.notes.trim() || null;
-      await firstValueFrom(this.api.createDeployment(this.projectId, {
-        artifactId: this.artifactId,
-        network: session.network,
-        contractHash: contractChange.contractHash,
-        transactionId: contractChange.transactionId,
-        deployedBy: this.walletAddress(),
-        notes: deploymentNotes
-      }));
+      this.deployStatus = 'Saving submitted transaction...';
+      await firstValueFrom(this.api.markDeploymentSubmitted(
+        this.projectId,
+        attempt.id,
+        transactionId,
+        this.walletAddress()
+      ));
+
+      this.deployStatus = 'Confirming the transaction on Neo...';
+      await this.waitForTransaction(session.network, transactionId, attempt.operation);
+      await firstValueFrom(this.api.confirmDeploymentAttempt(this.projectId, attempt.id, this.walletAddress()));
 
       await this.router.navigate(['/projects', this.projectId]);
     } catch (error) {
       this.errorMessage = this.getErrorMessage(error);
+      if (attempt && !transactionId && this.walletAddress()) {
+        const stage = this.deployStatus.includes('wallet') ? 'wallet' : 'preparing';
+        void firstValueFrom(this.api.markDeploymentFailed(
+          this.projectId,
+          attempt.id,
+          this.walletAddress(),
+          stage,
+          this.errorMessage
+        ));
+      }
     } finally {
       this.isSaving = false;
       this.deployStatus = '';
@@ -214,7 +231,7 @@ export class DeploymentCreateComponent implements OnInit {
     artifact: Artifact,
     nefHex: string,
     manifestJson: string
-  ): Promise<ConfirmedContractChange> {
+  ): Promise<string> {
     if (!isPusharooNetwork(network)) {
       throw new Error(`Pusharoo does not support ${network}. Use Neo N3 testnet or mainnet.`);
     }
@@ -222,6 +239,12 @@ export class DeploymentCreateComponent implements OnInit {
     const deployments = this.overview?.deployments ?? [];
     const existingDeployment = this.deploymentHistory.latestForNetwork(deployments, network);
     const networkDeployments = this.deploymentHistory.forNetwork(deployments, network);
+    const submittedAttempt = networkDeployments.find((deployment) =>
+      ['submitted', 'confirming'].includes(deployment.status) && deployment.transactionId
+    );
+    const incompleteLegacyDeployment = networkDeployments.find((deployment) =>
+      (!deployment.status || deployment.status === 'confirmed') && !deployment.contractHash
+    );
 
     this.deployStatus = 'Waiting for wallet approval...';
 
@@ -234,16 +257,17 @@ export class DeploymentCreateComponent implements OnInit {
         artifact.contractName
       );
 
-      this.deployStatus = 'Waiting for update confirmation...';
-      await this.neoRpc.waitForHalt(network, transactionId);
-
-      return {
-        transactionId,
-        contractHash: existingDeployment.contractHash
-      };
+      return transactionId;
     }
 
-    if (networkDeployments.length > 0) {
+    if (submittedAttempt) {
+      throw new Error(
+        `A ${network} deployment transaction is already submitted but not confirmed. ` +
+        'Open Deployments and select Resume Confirmation instead of creating another transaction.'
+      );
+    }
+
+    if (incompleteLegacyDeployment) {
       throw new Error(`A deployment already exists on ${network}, but it has no contract hash. Pusharoo cannot update without the deployed contract hash.`);
     }
 
@@ -254,16 +278,19 @@ export class DeploymentCreateComponent implements OnInit {
       artifact.contractName
     );
 
-    this.deployStatus = 'Waiting for deployment confirmation...';
-    const confirmedDeployment = await this.neoRpc.waitForDeployment(
+    return transactionId;
+  }
+
+  private async waitForTransaction(network: NetworkType, transactionId: string, operation: Deployment['operation']): Promise<void> {
+    if (operation === 'update') {
+      await this.neoRpc.waitForHalt(network, transactionId);
+      return;
+    }
+
+    await this.neoRpc.waitForDeployment(
       network,
       transactionId,
       this.runtimeConfig.value.wallet.contractManagement[network]
     );
-
-    return {
-      transactionId,
-      contractHash: confirmedDeployment.contractHash
-    };
   }
 }

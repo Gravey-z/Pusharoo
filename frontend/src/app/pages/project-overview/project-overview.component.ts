@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { AsyncPipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Observable, map, switchMap } from 'rxjs';
+import { firstValueFrom, Observable, map, switchMap } from 'rxjs';
 import { Artifact, Deployment, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { ClipboardService } from '../../services/clipboard.service';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
@@ -19,6 +19,7 @@ import { ProjectReleaseNavComponent } from '../../components/project-release-nav
 export class ProjectOverviewComponent implements OnInit {
   overview$!: Observable<ProjectOverviewViewModel | null>;
   copiedValue = '';
+  confirmingDeploymentId = '';
   releaseTab: 'overview' | 'artifacts' | 'deployments' = 'overview';
 
   constructor(
@@ -99,5 +100,32 @@ export class ProjectOverviewComponent implements OnInit {
         this.copiedValue = '';
       }
     }, 1400);
+  }
+
+  deploymentStatusLabel(deployment: Deployment): string {
+    return deployment.status.replaceAll('_', ' ');
+  }
+
+  canResumeConfirmation(deployment: Deployment): boolean {
+    return Boolean(
+      deployment.transactionId
+      && ['submitted', 'confirming'].includes(deployment.status)
+      && this.wallet.account()?.address === deployment.deployedBy
+    );
+  }
+
+  async resumeConfirmation(overview: ProjectOverviewViewModel, deployment: Deployment): Promise<void> {
+    const walletAddress = this.wallet.account()?.address;
+    if (!walletAddress || !this.canResumeConfirmation(deployment)) {
+      return;
+    }
+
+    this.confirmingDeploymentId = deployment.id;
+    try {
+      await firstValueFrom(this.api.confirmDeploymentAttempt(overview.project.id, deployment.id, walletAddress));
+      this.overview$ = this.api.getProjectOverview(overview.project.id);
+    } finally {
+      this.confirmingDeploymentId = '';
+    }
   }
 }

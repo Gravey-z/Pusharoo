@@ -142,7 +142,8 @@ public sealed class NeoDeploymentVerificationService(
     {
         return deployments.Any(deployment =>
             string.Equals(deployment.Network, network.Trim(), StringComparison.Ordinal)
-            && !string.IsNullOrWhiteSpace(deployment.ContractHash));
+            && !string.IsNullOrWhiteSpace(deployment.ContractHash)
+            && (string.IsNullOrWhiteSpace(deployment.Status) || string.Equals(deployment.Status, "confirmed", StringComparison.Ordinal)));
     }
 
     private static string? ToConfigurationNetworkKey(string network)

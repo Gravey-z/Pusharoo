@@ -43,6 +43,11 @@ public static class ResponseMapper
             deployment.TransactionId,
             deployment.DeployedBy,
             deployment.Notes,
-            deployment.CreatedAt);
+            deployment.CreatedAt,
+            deployment.Operation,
+            string.IsNullOrWhiteSpace(deployment.Status) ? "confirmed" : deployment.Status,
+            deployment.FailureStage,
+            deployment.FailureReason,
+            deployment.UpdatedAt == default ? deployment.CreatedAt : deployment.UpdatedAt);
     }
 }

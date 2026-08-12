@@ -3,6 +3,13 @@ import { Artifact, Deployment, ProjectOverviewViewModel } from '../models/pushar
 
 @Injectable({ providedIn: 'root' })
 export class DeploymentHistoryService {
+  private confirmed(deployments: Deployment[]): Deployment[] {
+    return deployments.filter((deployment) =>
+      Boolean(deployment.contractHash)
+      && (!deployment.status || deployment.status === 'confirmed')
+    );
+  }
+
   latestByNetwork(deployments: Deployment[]): Deployment[] {
     return [...deployments.reduce((latestByNetwork, deployment) => {
       const current = latestByNetwork.get(deployment.network);
@@ -22,8 +29,8 @@ export class DeploymentHistoryService {
       return null;
     }
 
-    return this.latestByNetwork(deployments)
-      .find((deployment) => deployment.network === network && deployment.contractHash) ?? null;
+    return this.latestByNetwork(this.confirmed(deployments))
+      .find((deployment) => deployment.network === network) ?? null;
   }
 
   forNetwork(deployments: Deployment[], network: string): Deployment[] {
@@ -31,7 +38,7 @@ export class DeploymentHistoryService {
   }
 
   latestForArtifact(overview: ProjectOverviewViewModel, artifact: Artifact): Deployment[] {
-    return this.latestByNetwork(overview.deployments)
+    return this.latestByNetwork(this.confirmed(overview.deployments))
       .filter((deployment) => deployment.artifactId === artifact.id);
   }
 

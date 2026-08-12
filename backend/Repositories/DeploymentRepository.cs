@@ -26,4 +26,18 @@ public sealed class DeploymentRepository(MongoDbContext db) : IDeploymentReposit
         return await db.Deployments.Find(deployment => deployment.TransactionId == transactionId)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<DeploymentDocument?> GetByIdAsync(string deploymentId, CancellationToken cancellationToken)
+    {
+        return await db.Deployments.Find(deployment => deployment.Id == deploymentId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task ReplaceAsync(DeploymentDocument deployment, CancellationToken cancellationToken)
+    {
+        await db.Deployments.ReplaceOneAsync(
+            item => item.Id == deployment.Id,
+            deployment,
+            cancellationToken: cancellationToken);
+    }
 }

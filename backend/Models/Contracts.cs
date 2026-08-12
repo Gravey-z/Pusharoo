@@ -77,6 +77,18 @@ public sealed record CreateDeploymentRequest(
     string DeployedBy,
     string? Notes);
 
+public sealed record StartDeploymentAttemptRequest(
+    string ArtifactId,
+    string Network,
+    string DeployedBy,
+    string? Notes);
+
+public sealed record SubmitDeploymentAttemptRequest(string TransactionId, string DeployedBy);
+
+public sealed record ConfirmDeploymentAttemptRequest(string DeployedBy);
+
+public sealed record FailDeploymentAttemptRequest(string DeployedBy, string Stage, string Reason);
+
 public sealed record RecoverDeploymentRequest(
     string ArtifactId,
     string Network,
@@ -94,4 +106,9 @@ public sealed record DeploymentResponse(
     string? TransactionId,
     string DeployedBy,
     string? Notes,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string Operation,
+    string Status,
+    string? FailureStage,
+    string? FailureReason,
+    DateTime UpdatedAt);

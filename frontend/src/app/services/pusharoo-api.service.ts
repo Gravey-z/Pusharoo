@@ -8,6 +8,7 @@ import {
   CreateDeploymentRequest,
   DeleteProjectRequest,
   RecoverDeploymentRequest,
+  StartDeploymentAttemptRequest,
   CreateWebhookSubscriptionRequest,
   Deployment,
   EventRelayStatus,
@@ -160,6 +161,37 @@ export class PusharooApiService {
     );
   }
 
+  startDeploymentAttempt(projectId: string, request: StartDeploymentAttemptRequest): Observable<Deployment> {
+    return this.http.post<Deployment>(`${this.apiBaseUrl}/projects/${projectId}/deployments/attempts`, request);
+  }
+
+  markDeploymentSubmitted(projectId: string, deploymentId: string, transactionId: string, deployedBy: string): Observable<Deployment> {
+    return this.http.post<Deployment>(
+      `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/submitted`,
+      { transactionId, deployedBy }
+    );
+  }
+
+  confirmDeploymentAttempt(projectId: string, deploymentId: string, deployedBy: string): Observable<Deployment> {
+    return this.http.post<Deployment>(
+      `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/confirm`,
+      { deployedBy }
+    );
+  }
+
+  markDeploymentFailed(
+    projectId: string,
+    deploymentId: string,
+    deployedBy: string,
+    stage: 'preparing' | 'wallet' | 'confirmation' | 'record',
+    reason: string
+  ): Observable<Deployment> {
+    return this.http.post<Deployment>(
+      `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/failed`,
+      { deployedBy, stage, reason }
+    );
+  }
+
   getDeployments(projectId: string): Observable<Deployment[]> {
     return this.http
       .get<Deployment[]>(`${this.apiBaseUrl}/projects/${projectId}/deployments`)
@@ -265,13 +297,18 @@ export class PusharooApiService {
         new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
     );
 
+    const confirmedDeployments = sortedDeployments.filter((deployment) =>
+      Boolean(deployment.contractHash)
+      && (!deployment.status || deployment.status === 'confirmed')
+    );
+
     return {
       project,
       artifacts: sortedArtifacts,
       latestArtifact: sortedArtifacts[0] ?? null,
       deployments: sortedDeployments,
-      latestDeployment: sortedDeployments[0] ?? null,
-      deployed: sortedDeployments.length > 0
+      latestDeployment: confirmedDeployments[0] ?? null,
+      deployed: confirmedDeployments.length > 0
     };
   }
 

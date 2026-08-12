@@ -295,7 +295,7 @@ dd {
 
 .deployment-list > div:not(.deployment-empty-state) {
   display: grid;
-  grid-template-columns: 100px 130px 1fr 1fr 1fr;
+  grid-template-columns: 100px 130px 110px 1fr 1fr 1fr auto;
   gap: 14px;
   min-height: 48px;
   align-items: center;
@@ -303,6 +303,46 @@ dd {
   border-bottom: 1px solid var(--line);
   color: var(--ink);
   font-size: 14px;
+}
+
+.deployment-status {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: rgba(0, 214, 255, 0.1);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 760;
+  text-transform: capitalize;
+}
+
+.deployment-status.failed,
+.deployment-failure {
+  color: var(--danger);
+}
+
+.deployment-failure {
+  grid-column: 1 / -1;
+  padding-bottom: 12px;
+  font-size: 12px;
+}
+
+.resume-button {
+  width: fit-content;
+  border: 1px solid rgba(21, 244, 200, 0.35);
+  border-radius: 7px;
+  padding: 6px 9px;
+  background: rgba(21, 244, 200, 0.1);
+  color: var(--sage);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.resume-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
 .deployment-list > div:not(.deployment-empty-state):last-child {

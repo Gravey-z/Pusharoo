@@ -11,4 +11,8 @@ public interface IDeploymentRepository
         CancellationToken cancellationToken);
 
     Task<DeploymentDocument?> GetByTransactionIdAsync(string transactionId, CancellationToken cancellationToken);
+
+    Task<DeploymentDocument?> GetByIdAsync(string deploymentId, CancellationToken cancellationToken);
+
+    Task ReplaceAsync(DeploymentDocument deployment, CancellationToken cancellationToken);
 }

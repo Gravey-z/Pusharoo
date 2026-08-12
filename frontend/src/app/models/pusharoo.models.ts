@@ -101,6 +101,11 @@ export interface Deployment {
   deployedBy: string;
   notes?: string | null;
   createdAt: string;
+  operation: 'deploy' | 'update';
+  status: 'preparing' | 'awaiting_wallet' | 'submitted' | 'confirming' | 'confirmed' | 'failed' | 'record_failed';
+  failureStage?: string | null;
+  failureReason?: string | null;
+  updatedAt: string;
 }
 
 export interface CreateDeploymentRequest {
@@ -116,6 +121,13 @@ export interface RecoverDeploymentRequest {
   artifactId: string;
   network: string;
   transactionId: string;
+  deployedBy: string;
+  notes?: string | null;
+}
+
+export interface StartDeploymentAttemptRequest {
+  artifactId: string;
+  network: string;
   deployedBy: string;
   notes?: string | null;
 }
