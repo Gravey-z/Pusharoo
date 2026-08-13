@@ -19,6 +19,19 @@ The app is split into:
 - Compares artifact versions to highlight method, event, and permission changes.
 - Runs an optional event relay that monitors Neo application logs and sends matching contract events to user webhooks.
 
+## Wallet Key Isolation
+
+Pusharoo is non-custodial. It never requests, receives, stores, logs, imports, or
+exports private keys, WIFs, seed phrases, mnemonics, keystores, or wallet
+passwords. Wallet connections expose only the selected public account and
+network. Message signatures and transaction approvals are requested through
+NeoLine, OneGate, or WalletConnect and signing remains inside the wallet.
+
+The browser stores only the preferred wallet provider and network for silent
+reconnection. The backend stores public wallet identity, public keys, signatures,
+nonces, transaction IDs, contract hashes, and project/release data; none of these
+can be used as a wallet private key.
+
 ## Planned
 
 - Deployment tracking, including which artifact version is currently deployed.

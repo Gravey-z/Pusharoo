@@ -131,6 +131,16 @@ h2 {
   line-height: 1.4;
 }
 
+.key-safety {
+  margin: 0;
+  padding: 8px 9px;
+  border: 1px solid rgba(21, 244, 200, 0.22);
+  border-radius: 7px;
+  color: var(--sage);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .wallet-option {
   display: grid;
   gap: 3px;
