@@ -1,10 +1,10 @@
 @if (overview$ | async; as overview) {
   <app-page-shell [title]="'Project: ' + overview.project.name">
     <div actions class="actions">
-      <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
+      <a class="primary-button" [class.disabled-action]="!canManageProject(overview)" [routerLink]="['/projects', overview.project.id, 'upload']" [attr.aria-disabled]="!canManageProject(overview)" title="Only the project owner can upload artifacts">
         Upload Artifact
       </a>
-      <a class="delete-project-button" [routerLink]="['/projects', overview.project.id, 'delete']">
+      <a class="delete-project-button" [class.disabled-action]="!canManageProject(overview)" [routerLink]="['/projects', overview.project.id, 'delete']" [attr.aria-disabled]="!canManageProject(overview)" title="Only the project owner can delete this project">
         Delete Project
       </a>
     </div>
@@ -69,6 +69,7 @@
             } @else {
               <a
                 class="deploy-network-button"
+                [class.disabled-action]="!canManageProject(overview)"
                 [routerLink]="['/projects', overview.project.id, 'deployments', 'new']"
               >
                 Deploy contract
@@ -84,7 +85,7 @@
     <section class="artifact-list" aria-label="Artifacts">
       <header class="artifact-list-header">
         <h2>Artifacts</h2>
-        <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
+        <a class="primary-button" [class.disabled-action]="!canManageProject(overview)" [routerLink]="['/projects', overview.project.id, 'upload']" [attr.aria-disabled]="!canManageProject(overview)">
           Upload Artifact
         </a>
       </header>
@@ -126,10 +127,10 @@
         <h2>Deployments</h2>
         @if (overview.artifacts.length) {
           <div class="deployment-list-actions">
-            <a class="secondary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'recovery']">
+            <a class="secondary-button" [class.disabled-action]="!canManageProject(overview)" [routerLink]="['/projects', overview.project.id, 'deployments', 'recovery']" [attr.aria-disabled]="!canManageProject(overview)">
               Recover Existing Deployment
             </a>
-            <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'new']">
+            <a class="primary-button" [class.disabled-action]="!canManageProject(overview)" [routerLink]="['/projects', overview.project.id, 'deployments', 'new']" [attr.aria-disabled]="!canManageProject(overview)">
               Deploy Contract
             </a>
           </div>

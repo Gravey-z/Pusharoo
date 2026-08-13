@@ -42,6 +42,13 @@
   opacity: 0.52;
 }
 
+.disabled-action {
+  pointer-events: none;
+  cursor: not-allowed;
+  opacity: 0.48;
+  filter: grayscale(0.3);
+}
+
 .delete-project-button {
   display: inline-flex;
   align-items: center;
@@ -485,6 +492,14 @@ dd {
 
 .deployment-empty-state p {
   padding: 0;
+}
+
+.timeline-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 16px 16px;
 }
 
 .artifact-list > a {

@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { Project } from '../../models/pusharoo.models';
+import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
@@ -25,6 +26,7 @@ export class ProjectDeleteComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly api: PusharooApiService,
+    private readonly ownership: ProjectOwnershipService,
     readonly wallet: WalletService
   ) {
     this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
@@ -37,7 +39,8 @@ export class ProjectDeleteComponent implements OnInit {
   }
 
   get canDelete(): boolean {
-    return Boolean(this.project && this.confirmationName.trim() === this.project.name && !this.isDeleting);
+    return Boolean(this.project && this.confirmationName.trim() === this.project.name && !this.isDeleting
+      && this.ownership.canManage(this.project, this.walletAddress()));
   }
 
   async deleteProject(): Promise<void> {

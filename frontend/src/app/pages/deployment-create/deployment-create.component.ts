@@ -63,6 +63,10 @@ export class DeploymentCreateComponent implements OnInit {
     return this.getExistingDeployment(this.walletNetwork())?.contractHash ?? null;
   }
 
+  get canManageProject(): boolean {
+    return this.ownership.canManage(this.overview?.project, this.walletAddress());
+  }
+
   get networkDeploymentStatus(): string {
     const network = this.walletNetwork();
     const existingDeployment = this.getExistingDeployment(network);

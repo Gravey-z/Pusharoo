@@ -31,12 +31,27 @@
     </section>
   }
 
+  @if (projects$ | async; as projects) {
+  @if (projects.length) {
+    <section class="project-tools" aria-label="Project search and filters">
+      <input type="search" name="projectSearch" [(ngModel)]="searchTerm" (ngModelChange)="updateFilters()" placeholder="Search projects" aria-label="Search projects" />
+      <select name="projectStatus" [(ngModel)]="statusFilter" (ngModelChange)="updateFilters()" aria-label="Filter projects by deployment status">
+        <option value="all">All projects</option>
+        <option value="deployed">Deployed</option>
+        <option value="not-deployed">Not deployed</option>
+      </select>
+      <select name="projectSort" [(ngModel)]="sortOrder" (ngModelChange)="updateFilters()" aria-label="Sort projects">
+        <option value="recent">Newest first</option>
+        <option value="name">Name A–Z</option>
+      </select>
+    </section>
+
   <section class="project-grid">
-    @for (item of projects$ | async; track item.project.id) {
+    @for (item of visibleProjects(projects); track item.project.id) {
       <a class="project-card" [routerLink]="['/projects', item.project.id]">
         <div>
           <h2>{{ item.project.name }}</h2>
-          <p>{{ item.artifacts.length }} artifacts</p>
+          <p>{{ item.project.description || 'No project description yet.' }}</p>
         </div>
         <dl>
           <div>
@@ -57,6 +72,27 @@
           </div>
         </dl>
       </a>
+    } @empty {
+      <p class="no-results">No projects match those filters.</p>
     }
   </section>
+  @if (totalPages(projects) > 1) {
+    <nav class="pagination" aria-label="Project pages">
+      <button class="secondary-button" type="button" (click)="changePage(projects, -1)" [disabled]="page === 1">Previous</button>
+      <span>Page {{ page }} of {{ totalPages(projects) }}</span>
+      <button class="secondary-button" type="button" (click)="changePage(projects, 1)" [disabled]="page === totalPages(projects)">Next</button>
+    </nav>
+  }
+  } @else {
+    <section class="getting-started">
+      <h2>Start your first Neo release</h2>
+      <ol>
+        <li>Create a project and sign the readable ownership message.</li>
+        <li>Upload the matching compiled <code>.nef</code> and manifest.</li>
+        <li>Review the release, deploy with your wallet, then monitor it here.</li>
+      </ol>
+      <button class="primary-button" type="button" (click)="openCreateProject()">Create your first project</button>
+    </section>
+  }
+  }
 </app-page-shell>

@@ -11,6 +11,7 @@ import {
   WebhookSubscription
 } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
+import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
@@ -53,10 +54,15 @@ export class EventWebhooksComponent implements OnInit {
     return this.deploymentOptions.find((deployment) => deployment.contractHash === this.contractHash) ?? null;
   }
 
+  get canManageProject(): boolean {
+    return this.ownership.canManage(this.overview?.project, this.wallet.account()?.address ?? '');
+  }
+
   constructor(
     private readonly route: ActivatedRoute,
     private readonly api: PusharooApiService,
     private readonly deploymentHistory: DeploymentHistoryService,
+    private readonly ownership: ProjectOwnershipService,
     private readonly wallet: WalletService
   ) {
     this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';

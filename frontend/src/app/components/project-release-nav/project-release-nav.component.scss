@@ -25,3 +25,23 @@ a.active {
   background: rgba(21, 244, 200, 0.11);
   color: var(--sage);
 }
+
+.wallet-context {
+  align-self: center;
+  margin-left: auto;
+  padding: 6px 9px;
+  border: 1px solid rgba(21, 244, 200, 0.25);
+  border-radius: 999px;
+  color: var(--sage);
+  font-size: 11px;
+  font-weight: 740;
+}
+
+.wallet-context.mainnet {
+  border-color: rgba(255, 107, 138, 0.45);
+  color: var(--danger);
+}
+
+@media (max-width: 620px) {
+  .wallet-context { margin-left: 0; }
+}

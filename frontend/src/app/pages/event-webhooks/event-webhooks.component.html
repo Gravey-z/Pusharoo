@@ -72,7 +72,7 @@
             <p class="form-error">{{ errorMessage }}</p>
           }
 
-          <button class="primary-button" type="submit" [disabled]="isSaving">
+          <button class="primary-button" type="submit" [disabled]="isSaving || !canManageProject" title="Only the project owner can create webhooks">
             {{ isSaving ? 'Creating...' : 'Create Webhook' }}
           </button>
         </form>

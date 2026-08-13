@@ -22,6 +22,11 @@ export class ProjectsComponent implements OnInit {
   newProjectName = '';
   newProjectDescription = '';
   errorMessage = '';
+  searchTerm = '';
+  statusFilter: 'all' | 'deployed' | 'not-deployed' = 'all';
+  sortOrder: 'recent' | 'name' = 'recent';
+  page = 1;
+  readonly pageSize = 9;
 
   constructor(
     private readonly api: PusharooApiService,
@@ -75,6 +80,42 @@ export class ProjectsComponent implements OnInit {
     const networks = [...new Set(item.deployments.map((deployment) => deployment.network))];
 
     return networks.length > 0 ? networks.join(', ') : 'Not deployed';
+  }
+
+  visibleProjects(projects: ProjectCardViewModel[]): ProjectCardViewModel[] {
+    const query = this.searchTerm.trim().toLowerCase();
+    const filtered = projects.filter((item) => {
+      const matchesQuery = !query || [item.project.name, item.project.description ?? '']
+        .some((value) => value.toLowerCase().includes(query));
+      const matchesStatus = this.statusFilter === 'all'
+        || (this.statusFilter === 'deployed' ? item.deployed : !item.deployed);
+
+      return matchesQuery && matchesStatus;
+    });
+    const sorted = [...filtered].sort((left, right) => this.sortOrder === 'name'
+      ? left.project.name.localeCompare(right.project.name)
+      : new Date(right.project.createdAt).getTime() - new Date(left.project.createdAt).getTime());
+    const lastIndex = this.page * this.pageSize;
+
+    return sorted.slice(lastIndex - this.pageSize, lastIndex);
+  }
+
+  totalPages(projects: ProjectCardViewModel[]): number {
+    const query = this.searchTerm.trim().toLowerCase();
+    const count = projects.filter((item) => {
+      const matchesQuery = !query || [item.project.name, item.project.description ?? '']
+        .some((value) => value.toLowerCase().includes(query));
+      return matchesQuery && (this.statusFilter === 'all' || (this.statusFilter === 'deployed' ? item.deployed : !item.deployed));
+    }).length;
+    return Math.max(1, Math.ceil(count / this.pageSize));
+  }
+
+  updateFilters(): void {
+    this.page = 1;
+  }
+
+  changePage(projects: ProjectCardViewModel[], direction: number): void {
+    this.page = Math.min(Math.max(1, this.page + direction), this.totalPages(projects));
   }
 
   creatorSummary(item: ProjectCardViewModel): string {

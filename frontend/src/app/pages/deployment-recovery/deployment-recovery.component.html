@@ -45,7 +45,7 @@
 
         <label>
           <span>Project owner wallet</span>
-          <input type="text" name="deployedBy" [value]="walletAddress() || 'Connect wallet first'" readonly />
+          <input type="text" name="projectOwner" [value]="overview.project.createdByWalletAddress || 'Legacy project owner unavailable'" readonly />
         </label>
 
         <label>
@@ -61,7 +61,7 @@
           <p class="form-error">{{ errorMessage }}</p>
         }
 
-        <button class="primary-button" type="submit" [disabled]="isRecovering">
+        <button class="primary-button" type="submit" [disabled]="isRecovering || !canManageProject" title="Only the project owner can recover deployments">
           {{ isRecovering ? 'Verifying and Recovering...' : 'Recover Existing Deployment' }}
         </button>
       </form>

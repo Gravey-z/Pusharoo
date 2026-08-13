@@ -1,5 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { WalletService } from '../../services/wallet.service';
 
 @Component({
   selector: 'app-project-release-nav',
@@ -9,4 +10,6 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 })
 export class ProjectReleaseNavComponent {
   @Input({ required: true }) projectId = '';
+
+  constructor(readonly wallet: WalletService) {}
 }

@@ -46,7 +46,7 @@
           <p class="form-error">{{ errorMessage }}</p>
         }
 
-        <button class="primary-button" type="submit" [disabled]="isPreparingReview">
+        <button class="primary-button" type="submit" [disabled]="isPreparingReview || !canManageProject" title="Only the project owner can deploy or update contracts">
           {{ isPreparingReview ? 'Preparing Review...' : 'Review Release' }}
         </button>
       </form>
@@ -105,7 +105,7 @@
 
           <div class="confirmation-actions">
             <button class="secondary-button" type="button" (click)="editRelease()" [disabled]="isSaving">Edit Release</button>
-            <button class="primary-button" type="button" (click)="save()" [disabled]="isSaving || (walletNetwork() === 'neo3:mainnet' && !mainnetConfirmed)">
+            <button class="primary-button" type="button" (click)="save()" [disabled]="isSaving || !canManageProject || (walletNetwork() === 'neo3:mainnet' && !mainnetConfirmed)" title="Only the project owner can deploy or update contracts">
               {{ submitLabel }}
             </button>
           </div>

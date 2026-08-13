@@ -5,6 +5,7 @@ import { firstValueFrom, Observable, map, switchMap } from 'rxjs';
 import { Artifact, Deployment, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { ClipboardService } from '../../services/clipboard.service';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
+import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
@@ -37,6 +38,7 @@ export class ProjectOverviewComponent implements OnInit {
     private readonly api: PusharooApiService,
     private readonly clipboard: ClipboardService,
     private readonly deploymentHistory: DeploymentHistoryService,
+    private readonly ownership: ProjectOwnershipService,
     readonly wallet: WalletService
   ) {}
 
@@ -46,6 +48,10 @@ export class ProjectOverviewComponent implements OnInit {
       map((params) => params.get('projectId') ?? ''),
       switchMap((projectId) => this.api.getProjectOverview(projectId))
     );
+  }
+
+  canManageProject(overview: ProjectOverviewViewModel): boolean {
+    return this.ownership.canManage(overview.project, this.wallet.account()?.address ?? '');
   }
 
   latestDeploymentForNetwork(

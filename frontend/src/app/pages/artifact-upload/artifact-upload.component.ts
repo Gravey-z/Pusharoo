@@ -61,6 +61,10 @@ export class ArtifactUploadComponent implements OnInit {
     );
   }
 
+  get canManageProject(): boolean {
+    return this.ownership.canManage(this.overview?.project, this.wallet.account()?.address ?? '');
+  }
+
   onNefSelected(event: Event): void {
     this.nefFile = this.getFile(event);
   }

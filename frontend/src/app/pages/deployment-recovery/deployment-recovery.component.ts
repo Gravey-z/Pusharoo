@@ -32,6 +32,10 @@ export class DeploymentRecoveryComponent implements OnInit {
     return this.overview ? `${this.overview.project.name}: Recover Deployment` : 'Recover Deployment';
   }
 
+  get canManageProject(): boolean {
+    return this.ownership.canManage(this.overview?.project, this.walletAddress());
+  }
+
   constructor(
     private readonly route: ActivatedRoute,
     private readonly router: Router,

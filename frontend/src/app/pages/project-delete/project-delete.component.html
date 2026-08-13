@@ -23,6 +23,11 @@
 
       <label>
         <span>Project owner wallet</span>
+        <input type="text" [value]="project.createdByWalletAddress || 'Legacy project owner unavailable'" readonly />
+      </label>
+
+      <label>
+        <span>Connected wallet used to sign deletion</span>
         <input type="text" [value]="walletAddress() || 'Connect wallet first'" readonly />
       </label>
 
