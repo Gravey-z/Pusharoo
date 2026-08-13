@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { Project } from '../../models/pusharoo.models';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
+import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 
@@ -26,6 +27,7 @@ export class ProjectDeleteComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly api: PusharooApiService,
+    private readonly errors: ApiErrorFormatterService,
     private readonly ownership: ProjectOwnershipService,
     readonly wallet: WalletService
   ) {
@@ -64,20 +66,10 @@ export class ProjectDeleteComponent implements OnInit {
       }));
       await this.router.navigate(['/projects']);
     } catch (error) {
-      this.errorMessage = this.getErrorMessage(error);
+      this.errorMessage = this.errors.format(error, 'Could not delete the project.');
     } finally {
       this.isDeleting = false;
     }
   }
 
-  private getErrorMessage(error: unknown): string {
-    if (error && typeof error === 'object') {
-      const apiError = error as { error?: { error?: unknown } };
-      if (typeof apiError.error?.error === 'string' && apiError.error.error.trim()) {
-        return apiError.error.error;
-      }
-    }
-
-    return error instanceof Error && error.message ? error.message : 'Could not delete the project.';
-  }
 }

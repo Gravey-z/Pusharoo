@@ -9,6 +9,7 @@ import { DeploymentHistoryService } from '../../services/deployment-history.serv
 import { NeoRpcService } from '../../services/neo-rpc.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
+import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { RuntimeConfigService } from '../../services/runtime-config.service';
 import { DeploymentFeeEstimate, WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
@@ -86,6 +87,7 @@ export class DeploymentCreateComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly api: PusharooApiService,
+    private readonly errors: ApiErrorFormatterService,
     private readonly deploymentHistory: DeploymentHistoryService,
     private readonly neoRpc: NeoRpcService,
     private readonly ownership: ProjectOwnershipService,
@@ -264,18 +266,7 @@ export class DeploymentCreateComponent implements OnInit {
         : `Neo rejected the deployment: ${rpcException}`;
     }
 
-    if (error && typeof error === 'object') {
-      const apiError = error as { error?: { error?: unknown } };
-      if (typeof apiError.error?.error === 'string' && apiError.error.error.trim()) {
-        return apiError.error.error;
-      }
-    }
-
-    if (error instanceof Error && error.message) {
-      return error.message;
-    }
-
-    return 'Could not deploy or update contract.';
+    return this.errors.format(error, 'Could not deploy or update contract.');
   }
 
   private findRpcException(error: unknown): string | null {

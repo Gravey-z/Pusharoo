@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { catchError, forkJoin, map, Observable, of, switchMap } from 'rxjs';
+import { forkJoin, map, Observable, of, switchMap } from 'rxjs';
 import {
   Artifact,
   ArtifactComparison,
@@ -24,7 +24,6 @@ import {
   WebhookManagementOperation,
   WebhookSubscription
 } from '../models/pusharoo.models';
-import { demoArtifacts, demoProjectCards } from './demo-data';
 import { RuntimeConfigService } from './runtime-config.service';
 
 @Injectable({ providedIn: 'root' })
@@ -38,36 +37,22 @@ export class PusharooApiService {
     return this.http.get<Project[]>(`${this.apiBaseUrl}/projects`).pipe(
       switchMap((projects) => {
         if (projects.length === 0) {
-          return of(demoProjectCards);
+          return of([]);
         }
 
         return forkJoin(projects.map((project) => this.getProjectCard(project)));
-      }),
-      catchError(() => of(demoProjectCards))
+      })
     );
   }
 
-  getProjectOverview(projectId: string): Observable<ProjectOverviewViewModel | null> {
-    const demoProjectCard = demoProjectCards.find((card) => card.project.id === projectId);
-    if (demoProjectCard) {
-      return of(demoProjectCard);
-    }
-
+  getProjectOverview(projectId: string): Observable<ProjectOverviewViewModel> {
     return this.http.get<Project>(`${this.apiBaseUrl}/projects/${projectId}`).pipe(
-      switchMap((project) => this.getProjectCard(project)),
-      catchError(() => of(null))
+      switchMap((project) => this.getProjectCard(project))
     );
   }
 
-  getArtifact(artifactId: string): Observable<Artifact | null> {
-    const demoArtifact = demoArtifacts.find((artifact) => artifact.id === artifactId);
-    if (demoArtifact) {
-      return of(demoArtifact);
-    }
-
-    return this.http
-      .get<Artifact>(`${this.apiBaseUrl}/artifacts/${artifactId}`)
-      .pipe(catchError(() => of(null)));
+  getArtifact(artifactId: string): Observable<Artifact> {
+    return this.http.get<Artifact>(`${this.apiBaseUrl}/artifacts/${artifactId}`);
   }
 
   getArtifactNefHex(artifactId: string): Observable<string> {
@@ -117,28 +102,11 @@ export class PusharooApiService {
     projectId: string,
     fromVersion: string,
     toVersion: string
-  ): Observable<ArtifactComparison | null> {
-    const demoArtifactsForProject = demoArtifacts.filter(
-      (artifact) => artifact.projectId === projectId
+  ): Observable<ArtifactComparison> {
+    return this.http.get<ArtifactComparison>(
+      `${this.apiBaseUrl}/projects/${projectId}/artifacts/compare`,
+      { params: { from: fromVersion, to: toVersion } }
     );
-
-    if (demoArtifactsForProject.length > 0) {
-      const fromArtifact = this.findArtifactByVersion(demoArtifactsForProject, fromVersion);
-      const toArtifact = this.findArtifactByVersion(demoArtifactsForProject, toVersion);
-
-      return of(
-        fromArtifact && toArtifact
-          ? this.compareLocalArtifacts(fromArtifact, toArtifact)
-          : null
-      );
-    }
-
-    return this.http
-      .get<ArtifactComparison>(
-        `${this.apiBaseUrl}/projects/${projectId}/artifacts/compare`,
-        { params: { from: fromVersion, to: toVersion } }
-      )
-      .pipe(catchError(() => of(null)));
   }
 
   createDeployment(
@@ -193,9 +161,7 @@ export class PusharooApiService {
   }
 
   getDeployments(projectId: string): Observable<Deployment[]> {
-    return this.http
-      .get<Deployment[]>(`${this.apiBaseUrl}/projects/${projectId}/deployments`)
-      .pipe(catchError(() => of([])));
+    return this.http.get<Deployment[]>(`${this.apiBaseUrl}/projects/${projectId}/deployments`);
   }
 
   getWebhookSubscriptions(
@@ -269,9 +235,7 @@ export class PusharooApiService {
   }
 
   private getArtifacts(projectId: string): Observable<Artifact[]> {
-    return this.http
-      .get<Artifact[]>(`${this.apiBaseUrl}/projects/${projectId}/artifacts`)
-      .pipe(catchError(() => of([])));
+    return this.http.get<Artifact[]>(`${this.apiBaseUrl}/projects/${projectId}/artifacts`);
   }
 
   private getProjectCard(project: Project): Observable<ProjectCardViewModel> {

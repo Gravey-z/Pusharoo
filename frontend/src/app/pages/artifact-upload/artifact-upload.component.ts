@@ -1,5 +1,4 @@
 import { Component, OnInit } from '@angular/core';
-import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -7,6 +6,7 @@ import { ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { ContractManifestAnalyzerService } from '../../services/contract-manifest-analyzer.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
+import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
@@ -35,6 +35,7 @@ export class ArtifactUploadComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly api: PusharooApiService,
+    private readonly errors: ApiErrorFormatterService,
     private readonly manifestAnalyzer: ContractManifestAnalyzerService,
     private readonly ownership: ProjectOwnershipService,
     readonly wallet: WalletService
@@ -134,27 +135,10 @@ export class ArtifactUploadComponent implements OnInit {
       ));
       await this.router.navigate(['/projects', this.projectId]);
     } catch (error) {
-      this.errorMessage = this.getErrorMessage(error);
+      this.errorMessage = this.errors.format(error, 'Could not upload artifact.');
     } finally {
       this.isUploading = false;
     }
-  }
-
-  private getErrorMessage(error: unknown): string {
-    if (error instanceof HttpErrorResponse) {
-      const apiError = error.error;
-      if (apiError && typeof apiError === 'object' && typeof apiError.error === 'string') {
-        return apiError.error;
-      }
-
-      return `Could not upload artifact${error.status ? ` (HTTP ${error.status})` : ''}.`;
-    }
-
-    if (error instanceof Error && error.message) {
-      return error.message;
-    }
-
-    return 'Could not upload artifact.';
   }
 
   private getFile(event: Event): File | null {

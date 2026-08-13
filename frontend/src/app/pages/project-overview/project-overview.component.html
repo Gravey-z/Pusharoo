@@ -1,4 +1,15 @@
-@if (overview$ | async; as overview) {
+@if (isLoading) {
+  <app-page-shell title="Project">
+    <p class="missing" aria-live="polite">Loading project…</p>
+  </app-page-shell>
+} @else if (loadError) {
+  <app-page-shell title="Project">
+    <div class="missing" aria-live="assertive">
+      <p>{{ loadError }}</p>
+      <button class="secondary-button" type="button" (click)="retryLoad()">Try again</button>
+    </div>
+  </app-page-shell>
+} @else if (overview) {
   <app-page-shell [title]="'Project: ' + overview.project.name">
     <div actions class="actions">
       <a class="primary-button" [class.disabled-action]="!canManageProject(overview)" [routerLink]="['/projects', overview.project.id, 'upload']" [attr.aria-disabled]="!canManageProject(overview)" title="Only the project owner can upload artifacts">

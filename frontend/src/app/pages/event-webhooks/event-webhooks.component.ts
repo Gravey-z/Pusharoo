@@ -13,6 +13,7 @@ import {
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
+import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
@@ -61,6 +62,7 @@ export class EventWebhooksComponent implements OnInit {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly api: PusharooApiService,
+    private readonly errors: ApiErrorFormatterService,
     private readonly deploymentHistory: DeploymentHistoryService,
     private readonly ownership: ProjectOwnershipService,
     private readonly wallet: WalletService
@@ -131,8 +133,8 @@ export class EventWebhooksComponent implements OnInit {
       this.webhookUrl = '';
       this.secret = '';
       await this.loadSubscriptions();
-    } catch {
-      this.errorMessage = 'Could not create the webhook subscription.';
+    } catch (error) {
+      this.errorMessage = this.errors.format(error, 'Could not create the webhook subscription.');
     } finally {
       this.isSaving = false;
     }
@@ -172,7 +174,7 @@ export class EventWebhooksComponent implements OnInit {
 
       await this.loadSubscriptions();
     } catch (error) {
-      this.errorMessage = this.getErrorMessage(error, 'Could not load webhook subscriptions.');
+      this.errorMessage = this.errors.format(error, 'Could not load webhook subscriptions.');
     }
   }
 
@@ -189,10 +191,6 @@ export class EventWebhooksComponent implements OnInit {
     this.subscriptions = await firstValueFrom(
       this.api.getWebhookSubscriptions(this.projectId, signature)
     );
-  }
-
-  private getErrorMessage(error: unknown, fallback: string): string {
-    return error instanceof Error && error.message ? error.message : fallback;
   }
 
   selectDeployment(): void {

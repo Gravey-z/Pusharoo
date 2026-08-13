@@ -1,12 +1,12 @@
 import { Component, OnInit } from '@angular/core';
-import { AsyncPipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { firstValueFrom, Observable, map, switchMap } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import { Artifact, Deployment, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { ClipboardService } from '../../services/clipboard.service';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
+import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
@@ -23,12 +23,15 @@ interface ReleaseTimelineEvent {
 
 @Component({
   selector: 'app-project-overview',
-  imports: [AsyncPipe, PageShellComponent, ProjectReleaseNavComponent, RouterLink],
+  imports: [PageShellComponent, ProjectReleaseNavComponent, RouterLink],
   templateUrl: './project-overview.component.html',
   styleUrl: './project-overview.component.scss'
 })
 export class ProjectOverviewComponent implements OnInit {
-  overview$!: Observable<ProjectOverviewViewModel | null>;
+  overview: ProjectOverviewViewModel | null = null;
+  isLoading = true;
+  loadError = '';
+  private projectId = '';
   copiedValue = '';
   confirmingDeploymentId = '';
   releaseTab: 'overview' | 'artifacts' | 'deployments' = 'overview';
@@ -36,6 +39,7 @@ export class ProjectOverviewComponent implements OnInit {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly api: PusharooApiService,
+    private readonly errors: ApiErrorFormatterService,
     private readonly clipboard: ClipboardService,
     private readonly deploymentHistory: DeploymentHistoryService,
     private readonly ownership: ProjectOwnershipService,
@@ -44,10 +48,7 @@ export class ProjectOverviewComponent implements OnInit {
 
   ngOnInit(): void {
     this.releaseTab = this.route.snapshot.data['releaseTab'] ?? 'overview';
-    this.overview$ = this.route.paramMap.pipe(
-      map((params) => params.get('projectId') ?? ''),
-      switchMap((projectId) => this.api.getProjectOverview(projectId))
-    );
+    this.route.paramMap.subscribe((params) => this.loadOverview(params.get('projectId') ?? ''));
   }
 
   canManageProject(overview: ProjectOverviewViewModel): boolean {
@@ -207,9 +208,30 @@ export class ProjectOverviewComponent implements OnInit {
     this.confirmingDeploymentId = deployment.id;
     try {
       await firstValueFrom(this.api.confirmDeploymentAttempt(overview.project.id, deployment.id, walletAddress));
-      this.overview$ = this.api.getProjectOverview(overview.project.id);
+      this.loadOverview(overview.project.id);
     } finally {
       this.confirmingDeploymentId = '';
     }
+  }
+
+  loadOverview(projectId: string): void {
+    this.projectId = projectId;
+    this.isLoading = true;
+    this.loadError = '';
+    this.overview = null;
+    this.api.getProjectOverview(projectId).subscribe({
+      next: (overview) => {
+        this.overview = overview;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        this.loadError = this.errors.format(error, 'Could not load this project.');
+        this.isLoading = false;
+      }
+    });
+  }
+
+  retryLoad(): void {
+    this.loadOverview(this.projectId);
   }
 }

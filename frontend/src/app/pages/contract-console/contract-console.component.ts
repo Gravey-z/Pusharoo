@@ -18,6 +18,7 @@ import {
 } from '../../services/neo-rpc.service';
 import { NeoVmResultFormatterService } from '../../services/neo-vm-result-formatter.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
+import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
@@ -84,6 +85,7 @@ export class ContractConsoleComponent implements OnInit {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly api: PusharooApiService,
+    private readonly errors: ApiErrorFormatterService,
     private readonly deploymentHistory: DeploymentHistoryService,
     private readonly neoRpc: NeoRpcService,
     private readonly resultFormatter: NeoVmResultFormatterService,
@@ -139,7 +141,7 @@ export class ContractConsoleComponent implements OnInit {
         returnType: method.returntype ?? method.returnType
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Contract call failed.';
+      const message = this.errors.format(error, 'Contract call failed.');
       this.errorMessage = message;
       this.addConsoleEntry({
         id: crypto.randomUUID(),

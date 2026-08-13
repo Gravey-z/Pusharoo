@@ -1,22 +1,23 @@
-import { AsyncPipe } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { firstValueFrom, Observable } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import { ProjectCardViewModel } from '../../models/pusharoo.models';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
+import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 
 @Component({
   selector: 'app-projects',
-  imports: [AsyncPipe, FormsModule, PageShellComponent, RouterLink],
+  imports: [FormsModule, PageShellComponent, RouterLink],
   templateUrl: './projects.component.html',
   styleUrl: './projects.component.scss'
 })
 export class ProjectsComponent implements OnInit {
-  projects$!: Observable<ProjectCardViewModel[]>;
+  projects: ProjectCardViewModel[] = [];
+  isLoading = true;
+  loadError = '';
   isCreating = false;
   isSaving = false;
   newProjectName = '';
@@ -30,6 +31,7 @@ export class ProjectsComponent implements OnInit {
 
   constructor(
     private readonly api: PusharooApiService,
+    private readonly errors: ApiErrorFormatterService,
     readonly wallet: WalletService
   ) {}
 
@@ -70,7 +72,7 @@ export class ProjectsComponent implements OnInit {
       this.cancelCreateProject();
       this.loadProjects();
     } catch (error) {
-      this.errorMessage = this.getCreateProjectErrorMessage(error);
+      this.errorMessage = this.errors.format(error, 'Could not create project.');
     } finally {
       this.isSaving = false;
     }
@@ -124,22 +126,19 @@ export class ProjectsComponent implements OnInit {
     return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Legacy';
   }
 
-  private loadProjects(): void {
-    this.projects$ = this.api.getProjectCards();
-  }
-
-  private getCreateProjectErrorMessage(error: unknown): string {
-    if (error instanceof HttpErrorResponse) {
-      const apiError = error.error;
-      if (apiError && typeof apiError === 'object' && typeof apiError.error === 'string') {
-        return apiError.error;
+  loadProjects(): void {
+    this.isLoading = true;
+    this.loadError = '';
+    this.api.getProjectCards().subscribe({
+      next: (projects) => {
+        this.projects = projects;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        this.projects = [];
+        this.loadError = this.errors.format(error, 'Could not load projects.');
+        this.isLoading = false;
       }
-
-      return `Could not create project${error.status ? ` (HTTP ${error.status})` : ''}.`;
-    }
-
-    return error instanceof Error
-      ? error.message
-      : 'Could not create project.';
+    });
   }
 }

@@ -31,8 +31,18 @@
     </section>
   }
 
-  @if (projects$ | async; as projects) {
-  @if (projects.length) {
+  @if (isLoading) {
+    <section class="getting-started" aria-live="polite">
+      <h2>Loading projects</h2>
+      <p>Retrieving your project workspace…</p>
+    </section>
+  } @else if (loadError) {
+    <section class="getting-started" aria-live="assertive">
+      <h2>Could not load projects</h2>
+      <p>{{ loadError }}</p>
+      <button class="secondary-button" type="button" (click)="loadProjects()">Try again</button>
+    </section>
+  } @else if (projects.length) {
     <section class="project-tools" aria-label="Project search and filters">
       <input type="search" name="projectSearch" [(ngModel)]="searchTerm" (ngModelChange)="updateFilters()" placeholder="Search projects" aria-label="Search projects" />
       <select name="projectStatus" [(ngModel)]="statusFilter" (ngModelChange)="updateFilters()" aria-label="Filter projects by deployment status">
@@ -93,6 +103,5 @@
       </ol>
       <button class="primary-button" type="button" (click)="openCreateProject()">Create your first project</button>
     </section>
-  }
   }
 </app-page-shell>
