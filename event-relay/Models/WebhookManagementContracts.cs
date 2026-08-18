@@ -14,7 +14,7 @@ public sealed record WalletSignatureRequest(
     string? Salt,
     string? MessageHex);
 
-public sealed record WebhookAccessRequest(WalletSignatureRequest? Signature);
+public sealed record WebhookAccessRequest(WalletSignatureRequest? Signature, string? SessionToken = null);
 
 public sealed record CreateSubscriptionRequest(
     string Name,

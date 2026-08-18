@@ -191,6 +191,31 @@ export class PusharooApiService {
     );
   }
 
+  updateWebhookSubscription(
+    projectId: string,
+    subscriptionId: string,
+    request: CreateWebhookSubscriptionRequest,
+    signature: WalletActionSignature
+  ): Observable<WebhookSubscription> {
+    const { projectId: ignoredProjectId, ...subscription } = request;
+
+    return this.http.put<WebhookSubscription>(
+      `${this.eventRelayBaseUrl}/projects/${projectId}/subscriptions/${subscriptionId}`,
+      { ...subscription, signature }
+    );
+  }
+
+  deleteWebhookSubscription(
+    projectId: string,
+    subscriptionId: string,
+    signature: WalletActionSignature
+  ): Observable<void> {
+    return this.http.delete<void>(
+      `${this.eventRelayBaseUrl}/projects/${projectId}/subscriptions/${subscriptionId}`,
+      { body: { signature } }
+    );
+  }
+
   getWebhookDeliveries(
     projectId: string,
     subscriptionId: string,
@@ -200,6 +225,14 @@ export class PusharooApiService {
       `${this.eventRelayBaseUrl}/projects/${projectId}/subscriptions/${subscriptionId}/deliveries/query`,
       { signature }
     );
+  }
+
+  sendWebhookTest(projectId: string, subscriptionId: string, signature: WalletActionSignature): Observable<WebhookDelivery> {
+    return this.http.post<WebhookDelivery>(`${this.eventRelayBaseUrl}/projects/${projectId}/subscriptions/${subscriptionId}/test`, { signature });
+  }
+
+  redeliverWebhook(projectId: string, subscriptionId: string, deliveryId: string, signature: WalletActionSignature): Observable<WebhookDelivery> {
+    return this.http.post<WebhookDelivery>(`${this.eventRelayBaseUrl}/projects/${projectId}/subscriptions/${subscriptionId}/deliveries/${deliveryId}/redeliver`, { signature });
   }
 
   async getWebhookManagementRequestHash(

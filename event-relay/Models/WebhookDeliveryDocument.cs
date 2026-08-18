@@ -1,4 +1,5 @@
 using MongoDB.Bson.Serialization.Attributes;
+using System.Text.Json.Serialization;
 
 namespace Pusharoo.EventRelay.Models;
 
@@ -28,4 +29,8 @@ public sealed class WebhookDeliveryDocument
 
     [BsonElement("deliveredAt")]
     public DateTime DeliveredAt { get; init; }
+
+    [BsonElement("payloadJson")]
+    [JsonIgnore]
+    public string? PayloadJson { get; init; }
 }

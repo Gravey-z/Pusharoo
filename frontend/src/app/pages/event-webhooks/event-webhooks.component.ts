@@ -3,11 +3,15 @@ import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { Observable } from 'rxjs';
 import {
   Artifact,
+  CreateWebhookSubscriptionRequest,
   Deployment,
   ProjectOverviewViewModel,
   WebhookDelivery,
+  WebhookManagementOperation,
+  WalletActionSignature,
   WebhookSubscription
 } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
@@ -44,6 +48,11 @@ export class EventWebhooksComponent implements OnInit {
   webhookUrl = '';
   secret = '';
   isSaving = false;
+  editingSubscriptionId = '';
+  deliveryHistory: WebhookDelivery[] = [];
+  deliveryHistoryFor = '';
+  loadingDeliveryHistoryFor = '';
+  sendingFor = '';
   formStatus = '';
   errorMessage = '';
 
@@ -112,26 +121,31 @@ export class EventWebhooksComponent implements OnInit {
         headers: {},
         isEnabled: true
       };
+      const operation: WebhookManagementOperation = this.editingSubscriptionId
+        ? 'subscriptions.update'
+        : 'subscriptions.create';
       const requestHash = await this.api.getWebhookManagementRequestHash(
         this.projectId,
-        'subscriptions.create',
-        { subscription: subscriptionRequest }
+        operation,
+        { subscriptionId: this.editingSubscriptionId || undefined, subscription: subscriptionRequest }
       );
       const signature = await this.wallet.signWebhookAdministration(
         this.projectId,
-        'subscriptions.create',
+        operation,
         requestHash
       );
-      await firstValueFrom(this.api.createWebhookSubscription(
-        this.projectId,
-        subscriptionRequest,
-        signature
-      ));
+      if (this.editingSubscriptionId) {
+        await firstValueFrom(this.api.updateWebhookSubscription(
+          this.projectId, this.editingSubscriptionId, subscriptionRequest, signature
+        ));
+      } else {
+        await firstValueFrom(this.api.createWebhookSubscription(
+          this.projectId, subscriptionRequest, signature
+        ));
+      }
 
-      this.formStatus = 'Webhook created.';
-      this.name = '';
-      this.webhookUrl = '';
-      this.secret = '';
+      this.formStatus = this.editingSubscriptionId ? 'Webhook updated.' : 'Webhook created.';
+      this.resetForm();
       await this.loadSubscriptions();
     } catch (error) {
       this.errorMessage = this.errors.format(error, 'Could not create the webhook subscription.');
@@ -142,6 +156,86 @@ export class EventWebhooksComponent implements OnInit {
 
   latestDelivery(subscriptionId: string): WebhookDelivery | null {
     return this.subscriptions.find((subscription) => subscription.id === subscriptionId)?.latestDelivery ?? null;
+  }
+
+  edit(subscription: WebhookSubscription): void {
+    this.editingSubscriptionId = subscription.id;
+    this.name = subscription.name;
+    this.contractHash = subscription.contractHash;
+    this.eventName = subscription.eventName ?? '';
+    this.webhookUrl = subscription.webhookUrl;
+    this.secret = '';
+    this.selectDeployment();
+    this.eventName = subscription.eventName ?? '';
+    this.errorMessage = '';
+    this.formStatus = 'Editing webhook. Leave the signing secret empty to keep the existing secret.';
+  }
+
+  cancelEdit(): void {
+    this.resetForm();
+    this.errorMessage = '';
+    this.formStatus = '';
+  }
+
+  async toggle(subscription: WebhookSubscription): Promise<void> {
+    await this.updateSubscription(subscription, { isEnabled: !subscription.isEnabled });
+  }
+
+  async remove(subscription: WebhookSubscription): Promise<void> {
+    if (!confirm(`Delete webhook “${subscription.name}”?`)) {
+      return;
+    }
+
+    this.errorMessage = '';
+    try {
+      const requestHash = await this.api.getWebhookManagementRequestHash(
+        this.projectId, 'subscriptions.delete', { subscriptionId: subscription.id }
+      );
+      const signature = await this.wallet.signWebhookAdministration(
+        this.projectId, 'subscriptions.delete', requestHash
+      );
+      await firstValueFrom(this.api.deleteWebhookSubscription(this.projectId, subscription.id, signature));
+      this.formStatus = 'Webhook deleted.';
+      if (this.editingSubscriptionId === subscription.id) {
+        this.resetForm();
+      }
+      await this.loadSubscriptions();
+    } catch (error) {
+      this.errorMessage = this.errors.format(error, 'Could not delete the webhook.');
+    }
+  }
+
+  async showDeliveryHistory(subscription: WebhookSubscription): Promise<void> {
+    this.errorMessage = '';
+    this.loadingDeliveryHistoryFor = subscription.id;
+    try {
+      const requestHash = await this.api.getWebhookManagementRequestHash(
+        this.projectId, 'deliveries.read', { subscriptionId: subscription.id }
+      );
+      const signature = await this.wallet.signWebhookAdministration(
+        this.projectId, 'deliveries.read', requestHash
+      );
+      this.deliveryHistory = await firstValueFrom(
+        this.api.getWebhookDeliveries(this.projectId, subscription.id, signature)
+      );
+      this.deliveryHistoryFor = subscription.id;
+    } catch (error) {
+      this.deliveryHistory = [];
+      this.deliveryHistoryFor = '';
+      this.errorMessage = this.errors.format(error, 'Could not load webhook delivery history.');
+    } finally {
+      this.loadingDeliveryHistoryFor = '';
+    }
+  }
+
+  async sendTest(subscription: WebhookSubscription): Promise<void> {
+    await this.runDeliveryAction(subscription, 'deliveries.test', undefined, 'Sending test event...',
+      (signature) => this.api.sendWebhookTest(this.projectId, subscription.id, signature));
+  }
+
+  async redeliver(subscription: WebhookSubscription, delivery: WebhookDelivery): Promise<void> {
+    await this.runDeliveryAction(subscription, 'deliveries.redeliver', delivery.id, 'Redelivering event...',
+      (signature) => this.api.redeliverWebhook(this.projectId, subscription.id, delivery.id, signature));
   }
 
   eventLabel(subscription: WebhookSubscription): string {
@@ -191,6 +285,69 @@ export class EventWebhooksComponent implements OnInit {
     this.subscriptions = await firstValueFrom(
       this.api.getWebhookSubscriptions(this.projectId, signature)
     );
+  }
+
+  private async updateSubscription(
+    subscription: WebhookSubscription,
+    changes: Partial<CreateWebhookSubscriptionRequest>
+  ): Promise<void> {
+    this.errorMessage = '';
+    const request = {
+      name: subscription.name,
+      contractHash: subscription.contractHash,
+      network: subscription.network,
+      eventName: subscription.eventName ?? null,
+      webhookUrl: subscription.webhookUrl,
+      secret: null,
+      headers: subscription.headers,
+      isEnabled: subscription.isEnabled,
+      ...changes
+    };
+    try {
+      const requestHash = await this.api.getWebhookManagementRequestHash(
+        this.projectId, 'subscriptions.update', { subscriptionId: subscription.id, subscription: request }
+      );
+      const signature = await this.wallet.signWebhookAdministration(
+        this.projectId, 'subscriptions.update', requestHash
+      );
+      await firstValueFrom(this.api.updateWebhookSubscription(this.projectId, subscription.id, request, signature));
+      this.formStatus = request.isEnabled ? 'Webhook enabled.' : 'Webhook disabled.';
+      await this.loadSubscriptions();
+    } catch (error) {
+      this.errorMessage = this.errors.format(error, 'Could not update the webhook.');
+    }
+  }
+
+  private resetForm(): void {
+    this.editingSubscriptionId = '';
+    this.name = '';
+    this.webhookUrl = '';
+    this.secret = '';
+  }
+
+  private async runDeliveryAction(
+    subscription: WebhookSubscription,
+    operation: WebhookManagementOperation,
+    deliveryId: string | undefined,
+    status: string,
+    action: (signature: WalletActionSignature) => Observable<WebhookDelivery>
+  ): Promise<void> {
+    this.errorMessage = '';
+    this.formStatus = status;
+    this.sendingFor = `${subscription.id}:${deliveryId ?? 'test'}`;
+    try {
+      const signedId = deliveryId ? `${subscription.id}:${deliveryId}` : subscription.id;
+      const requestHash = await this.api.getWebhookManagementRequestHash(this.projectId, operation, { subscriptionId: signedId });
+      const signature = await this.wallet.signWebhookAdministration(this.projectId, operation, requestHash);
+      await firstValueFrom(action(signature));
+      this.formStatus = deliveryId ? 'Failed event redelivered.' : 'Test event sent.';
+      await this.loadSubscriptions();
+      await this.showDeliveryHistory(subscription);
+    } catch (error) {
+      this.errorMessage = this.errors.format(error, deliveryId ? 'Could not redeliver the event.' : 'Could not send a test event.');
+    } finally {
+      this.sendingFor = '';
+    }
   }
 
   selectDeployment(): void {

@@ -36,6 +36,35 @@ public sealed class WebhookDeliveryService(
             observedEvent.ObservedAt);
 
         var json = JsonSerializer.Serialize(payload, JsonOptions);
+        await DeliverPayloadAsync(subscription, deliveryId, observedEvent.Id, json, observedEvent.Network,
+            observedEvent.ContractHash, observedEvent.EventName, cancellationToken);
+    }
+
+    public async Task DeliverTestAsync(WebhookSubscriptionDocument subscription, CancellationToken cancellationToken)
+    {
+        var deliveryId = Guid.NewGuid().ToString("n");
+        var payload = new WebhookPayload(deliveryId, subscription.Id, subscription.Network, 0,
+            "test-event", subscription.ContractHash, subscription.EventName ?? "Pusharoo.Test",
+            JsonSerializer.SerializeToElement(new { test = true, message = "Pusharoo test delivery" }), DateTime.UtcNow);
+        await DeliverPayloadAsync(subscription, deliveryId, $"test-{deliveryId}", JsonSerializer.Serialize(payload, JsonOptions),
+            subscription.Network, subscription.ContractHash, subscription.EventName ?? "Pusharoo.Test", cancellationToken);
+    }
+
+    public async Task RedeliverAsync(WebhookSubscriptionDocument subscription, WebhookDeliveryDocument original, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(original.PayloadJson))
+        {
+            throw new InvalidOperationException("This delivery was recorded before payload replay was available.");
+        }
+
+        var deliveryId = Guid.NewGuid().ToString("n");
+        await DeliverPayloadAsync(subscription, deliveryId, original.EventId, original.PayloadJson,
+            subscription.Network, subscription.ContractHash, "redelivery", cancellationToken);
+    }
+
+    private async Task DeliverPayloadAsync(WebhookSubscriptionDocument subscription, string deliveryId, string eventId,
+        string json, string network, string contractHash, string eventName, CancellationToken cancellationToken)
+    {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(Math.Max(1, _options.WebhookTimeoutSeconds)));
 
@@ -47,7 +76,7 @@ public sealed class WebhookDeliveryService(
             using var request = new HttpRequestMessage(HttpMethod.Post, subscription.WebhookUrl);
             request.Content = new StringContent(json, Encoding.UTF8, "application/json");
             request.Headers.TryAddWithoutValidation("X-Pusharoo-Delivery", deliveryId);
-            request.Headers.TryAddWithoutValidation("X-Pusharoo-Event", observedEvent.EventName);
+            request.Headers.TryAddWithoutValidation("X-Pusharoo-Event", eventName);
 
             var secret = secretProtector.Unprotect(subscription.Secret);
             if (!string.IsNullOrWhiteSpace(secret))
@@ -89,12 +118,13 @@ public sealed class WebhookDeliveryService(
                 {
                     Id = deliveryId,
                     SubscriptionId = subscription.Id,
-                    EventId = observedEvent.Id,
+                    EventId = eventId,
                     WebhookUrl = subscription.WebhookUrl,
                     StatusCode = code,
                     Succeeded = succeeded,
                     Error = failure,
-                    DeliveredAt = DateTime.UtcNow
+                    DeliveredAt = DateTime.UtcNow,
+                    PayloadJson = json
                 },
                 recordCancellationToken);
 

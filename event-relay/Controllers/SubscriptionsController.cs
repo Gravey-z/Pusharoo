@@ -15,6 +15,8 @@ namespace Pusharoo.EventRelay.Controllers;
 public sealed class SubscriptionsController(
     IWebhookSubscriptionRepository subscriptions,
     IWebhookDeliveryRepository deliveries,
+    WebhookDeliveryService webhookDelivery,
+    WebhookSessionService sessions,
     ProjectAccessClient projectAccess,
     WebhookDestinationValidator destinationValidator,
     WebhookSecretProtector secretProtector,
@@ -56,6 +58,7 @@ public sealed class SubscriptionsController(
         {
             return authorization;
         }
+        Response.Headers.Append("X-Pusharoo-Webhook-Session", sessions.Create(projectId));
 
         var items = await subscriptions.GetByProjectIdAsync(projectId, cancellationToken);
         var response = await Task.WhenAll(items.Select(async subscription => ToResponse(
@@ -218,6 +221,31 @@ public sealed class SubscriptionsController(
         return Ok(await deliveries.GetBySubscriptionAsync(subscriptionId, cancellationToken));
     }
 
+    [HttpPost("{subscriptionId}/test")]
+    public async Task<IActionResult> Test(string projectId, string subscriptionId, WebhookAccessRequest request, CancellationToken cancellationToken)
+    {
+        var subscription = await GetProjectSubscriptionAsync(projectId, subscriptionId, cancellationToken);
+        if (subscription is null) return NotFound();
+        var authorization = await AuthorizeAsync(projectId, "deliveries.test",
+            WebhookManagementRequestHasher.Hash(projectId, "deliveries.test", subscriptionId), request.Signature, cancellationToken);
+        if (authorization is not null) return authorization;
+        await webhookDelivery.DeliverTestAsync(subscription, cancellationToken);
+        return Ok(await deliveries.GetLatestBySubscriptionAsync(subscriptionId, cancellationToken));
+    }
+
+    [HttpPost("{subscriptionId}/deliveries/{deliveryId}/redeliver")]
+    public async Task<IActionResult> Redeliver(string projectId, string subscriptionId, string deliveryId, WebhookAccessRequest request, CancellationToken cancellationToken)
+    {
+        var subscription = await GetProjectSubscriptionAsync(projectId, subscriptionId, cancellationToken);
+        var delivery = await deliveries.GetByIdAsync(deliveryId, cancellationToken);
+        if (subscription is null || delivery?.SubscriptionId != subscriptionId) return NotFound();
+        var authorization = await AuthorizeAsync(projectId, "deliveries.redeliver",
+            WebhookManagementRequestHasher.Hash(projectId, "deliveries.redeliver", $"{subscriptionId}:{deliveryId}"), request.Signature, cancellationToken);
+        if (authorization is not null) return authorization;
+        await webhookDelivery.RedeliverAsync(subscription, delivery, cancellationToken);
+        return Ok(await deliveries.GetLatestBySubscriptionAsync(subscriptionId, cancellationToken));
+    }
+
     private async Task<ActionResult?> AuthorizeAsync(
         string projectId,
         string operation,
@@ -225,6 +253,8 @@ public sealed class SubscriptionsController(
         WalletSignatureRequest? signature,
         CancellationToken cancellationToken)
     {
+        if (Request.Headers.TryGetValue("X-Pusharoo-Webhook-Session", out var session)
+            && sessions.IsValid(session.ToString(), projectId)) return null;
         var result = await projectAccess.ValidateAsync(
             projectId,
             operation,

@@ -177,7 +177,9 @@ export type WebhookManagementOperation =
   | 'subscriptions.create'
   | 'subscriptions.update'
   | 'subscriptions.delete'
-  | 'deliveries.read';
+  | 'deliveries.read'
+  | 'deliveries.test'
+  | 'deliveries.redeliver';
 
 export interface WebhookDelivery {
   id: string;

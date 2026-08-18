@@ -7,6 +7,7 @@
     @if (deploymentOptions.length) {
       <section class="webhook-layout">
         <form class="webhook-form" (ngSubmit)="save()">
+          <h2>{{ editingSubscriptionId ? 'Edit webhook' : 'Create webhook' }}</h2>
           <label>
             <span>Name</span>
             <input
@@ -72,9 +73,14 @@
             <p class="form-error">{{ errorMessage }}</p>
           }
 
-          <button class="primary-button" type="submit" [disabled]="isSaving || !canManageProject" title="Only the project owner can create webhooks">
-            {{ isSaving ? 'Creating...' : 'Create Webhook' }}
-          </button>
+          <div class="form-actions">
+            <button class="primary-button" type="submit" [disabled]="isSaving || !canManageProject" title="Only the project owner can manage webhooks">
+              {{ isSaving ? 'Saving...' : editingSubscriptionId ? 'Save changes' : 'Create Webhook' }}
+            </button>
+            @if (editingSubscriptionId) {
+              <button class="secondary-button" type="button" (click)="cancelEdit()">Cancel</button>
+            }
+          </div>
         </form>
 
         <section class="subscription-list" aria-label="Event webhook subscriptions">
@@ -103,6 +109,38 @@
                 <span>
                   {{ delivery?.deliveredAt ? (delivery?.deliveredAt | date: 'short') : '-' }}
                 </span>
+                <div class="subscription-actions">
+                  <button class="secondary-button" type="button" (click)="edit(subscription)" [disabled]="!canManageProject">Edit</button>
+                  <button class="secondary-button" type="button" (click)="toggle(subscription)" [disabled]="!canManageProject">
+                    {{ subscription.isEnabled ? 'Disable' : 'Enable' }}
+                  </button>
+                  <button class="secondary-button" type="button" (click)="showDeliveryHistory(subscription)" [disabled]="loadingDeliveryHistoryFor === subscription.id || !canManageProject">
+                    {{ loadingDeliveryHistoryFor === subscription.id ? 'Loading…' : 'History' }}
+                  </button>
+                  <button class="secondary-button" type="button" (click)="sendTest(subscription)" [disabled]="sendingFor === subscription.id + ':test' || !canManageProject">
+                    {{ sendingFor === subscription.id + ':test' ? 'Sending…' : 'Send test event' }}
+                  </button>
+                  <button class="danger-button" type="button" (click)="remove(subscription)" [disabled]="!canManageProject">Delete</button>
+                </div>
+                @if (deliveryHistoryFor === subscription.id && loadingDeliveryHistoryFor !== subscription.id) {
+                  <div class="delivery-history">
+                    <strong>Recent delivery attempts</strong>
+                    @for (attempt of deliveryHistory; track attempt.id) {
+                      <div>
+                        <span [class.failed-text]="!attempt.succeeded">{{ attempt.succeeded ? 'Delivered' : 'Failed' }}</span>
+                        <span>{{ attempt.statusCode ? 'HTTP ' + attempt.statusCode : 'No response' }}</span>
+                        <span>{{ attempt.deliveredAt | date: 'short' }}</span>
+                        @if (attempt.error) { <span class="delivery-error">{{ attempt.error }}</span> }
+                        @if (!attempt.succeeded) {
+                          <button class="secondary-button" type="button" (click)="redeliver(subscription, attempt)" [disabled]="sendingFor === subscription.id + ':' + attempt.id || !canManageProject">
+                            {{ sendingFor === subscription.id + ':' + attempt.id ? 'Sending…' : 'Redeliver' }}
+                          </button>
+                        }
+                      </div>
+                    }
+                    <p>Secrets, request headers, and event payload values are never displayed here.</p>
+                  </div>
+                }
               </article>
             }
           } @else {

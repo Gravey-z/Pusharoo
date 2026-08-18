@@ -31,4 +31,9 @@ public sealed class WebhookDeliveryRepository(MongoDbContext db) : IWebhookDeliv
             .SortByDescending(delivery => delivery.DeliveredAt)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<WebhookDeliveryDocument?> GetByIdAsync(string deliveryId, CancellationToken cancellationToken)
+    {
+        return await db.Deliveries.Find(delivery => delivery.Id == deliveryId).FirstOrDefaultAsync(cancellationToken);
+    }
 }

@@ -104,7 +104,9 @@ public sealed class ProjectManagementSignatureValidator(NeoWalletSignatureVerifi
         "subscriptions.create",
         "subscriptions.update",
         "subscriptions.delete",
-        "deliveries.read"
+        "deliveries.read",
+        "deliveries.test",
+        "deliveries.redeliver"
     };
 
     private ProjectManagementSignatureValidationResult ValidateSignedMessage(

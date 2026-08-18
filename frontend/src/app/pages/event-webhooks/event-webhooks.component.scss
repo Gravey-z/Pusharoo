@@ -59,6 +59,63 @@
   padding: 22px;
 }
 
+.webhook-form h2 {
+  margin: 0;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
+.form-actions,
+.subscription-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.subscription-actions {
+  grid-column: 1 / -1;
+}
+
+.subscription-actions .secondary-button,
+.danger-button {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.danger-button {
+  border: 1px solid rgba(255, 94, 117, 0.4);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--danger);
+  font: inherit;
+  font-weight: 720;
+}
+
+.delivery-history {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 7px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.delivery-history > div {
+  display: grid;
+  grid-template-columns: 86px 110px 145px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.delivery-history p,
+.delivery-error {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.failed-text { color: var(--danger); }
+
 label {
   display: grid;
   gap: 8px;

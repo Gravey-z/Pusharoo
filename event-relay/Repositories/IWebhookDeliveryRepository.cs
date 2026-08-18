@@ -13,4 +13,6 @@ public interface IWebhookDeliveryRepository
     Task<WebhookDeliveryDocument?> GetLatestBySubscriptionAsync(
         string subscriptionId,
         CancellationToken cancellationToken);
+
+    Task<WebhookDeliveryDocument?> GetByIdAsync(string deliveryId, CancellationToken cancellationToken);
 }
