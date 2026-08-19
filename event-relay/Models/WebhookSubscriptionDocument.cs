@@ -40,4 +40,7 @@ public sealed class WebhookSubscriptionDocument
 
     [BsonElement("updatedAt")]
     public DateTime UpdatedAt { get; init; }
+
+    [BsonElement("expiresAt")]
+    public DateTime? ExpiresAt { get; init; }
 }

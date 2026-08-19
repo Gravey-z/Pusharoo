@@ -105,7 +105,8 @@ public sealed class SubscriptionsController(
             Headers = NormalizeHeaders(request.Headers),
             IsEnabled = request.IsEnabled,
             CreatedAt = now,
-            UpdatedAt = now
+            UpdatedAt = now,
+            ExpiresAt = string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal) ? now.AddDays(7) : null
         };
 
         await subscriptions.InsertAsync(subscription, cancellationToken);
@@ -158,7 +159,8 @@ public sealed class SubscriptionsController(
             Headers = NormalizeHeaders(request.Headers),
             IsEnabled = request.IsEnabled,
             CreatedAt = existing.CreatedAt,
-            UpdatedAt = DateTime.UtcNow
+            UpdatedAt = DateTime.UtcNow,
+            ExpiresAt = existing.ExpiresAt
         };
 
         await subscriptions.ReplaceAsync(updated, cancellationToken);

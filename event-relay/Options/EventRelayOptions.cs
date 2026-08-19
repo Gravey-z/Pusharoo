@@ -10,4 +10,5 @@ public sealed class EventRelayOptions
     public int DeliveryPayloadRetentionDays { get; init; } = 7;
     public int DeliveryHistoryRetentionDays { get; init; } = 30;
     public int RetentionSweepMinutes { get; init; } = 60;
+    public int TestnetSubscriptionRetentionDays { get; init; } = 7;
 }

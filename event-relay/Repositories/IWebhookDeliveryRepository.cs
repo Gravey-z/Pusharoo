@@ -21,4 +21,5 @@ public interface IWebhookDeliveryRepository
     Task<WebhookDeliveryDocument?> ClaimDueAsync(CancellationToken cancellationToken);
     Task CompleteAsync(WebhookDeliveryDocument delivery, WebhookDeliveryAttemptDocument attempt, CancellationToken cancellationToken);
     Task PurgeExpiredAsync(DateTime payloadCutoff, DateTime historyCutoff, CancellationToken cancellationToken);
+    Task DeleteBySubscriptionIdsAsync(IReadOnlyList<string> subscriptionIds, CancellationToken cancellationToken);
 }

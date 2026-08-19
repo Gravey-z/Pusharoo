@@ -23,4 +23,5 @@ public interface IWebhookSubscriptionRepository
     Task<bool> ReplaceAsync(WebhookSubscriptionDocument subscription, CancellationToken cancellationToken);
 
     Task<bool> DeleteAsync(string subscriptionId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<string>> DeleteExpiredAsync(DateTime now, CancellationToken cancellationToken);
 }

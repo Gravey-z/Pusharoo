@@ -14,7 +14,10 @@ public sealed class WebhookRetentionWorker(IServiceScopeFactory scopeFactory, IO
             try
             {
                 using var scope = scopeFactory.CreateScope();
-                await scope.ServiceProvider.GetRequiredService<IWebhookDeliveryRepository>().PurgeExpiredAsync(
+                var deliveryRepository = scope.ServiceProvider.GetRequiredService<IWebhookDeliveryRepository>();
+                var expiredSubscriptions = await scope.ServiceProvider.GetRequiredService<IWebhookSubscriptionRepository>().DeleteExpiredAsync(DateTime.UtcNow, stoppingToken);
+                await deliveryRepository.DeleteBySubscriptionIdsAsync(expiredSubscriptions, stoppingToken);
+                await deliveryRepository.PurgeExpiredAsync(
                     DateTime.UtcNow.AddDays(-Math.Max(1, settings.DeliveryPayloadRetentionDays)),
                     DateTime.UtcNow.AddDays(-Math.Max(settings.DeliveryPayloadRetentionDays, settings.DeliveryHistoryRetentionDays)), stoppingToken);
             }

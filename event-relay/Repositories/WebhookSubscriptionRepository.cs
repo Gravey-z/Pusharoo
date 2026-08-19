@@ -76,4 +76,14 @@ public sealed class WebhookSubscriptionRepository(MongoDbContext db) : IWebhookS
 
         return result.DeletedCount == 1;
     }
+
+    public async Task<IReadOnlyList<string>> DeleteExpiredAsync(DateTime now, CancellationToken cancellationToken)
+    {
+        var filter = Builders<WebhookSubscriptionDocument>.Filter.And(
+            Builders<WebhookSubscriptionDocument>.Filter.Eq(item => item.Network, "neo3:testnet"),
+            Builders<WebhookSubscriptionDocument>.Filter.Lte(item => item.ExpiresAt, now));
+        var ids = await db.Subscriptions.Find(filter).Project(item => item.Id).ToListAsync(cancellationToken);
+        if (ids.Count > 0) await db.Subscriptions.DeleteManyAsync(filter, cancellationToken);
+        return ids;
+    }
 }

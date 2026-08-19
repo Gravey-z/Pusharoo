@@ -80,4 +80,12 @@ public sealed class WebhookDeliveryRepository(MongoDbContext db) : IWebhookDeliv
         await db.DeliveryAttempts.DeleteManyAsync(item => expired.Contains(item.DeliveryId), cancellationToken);
         await db.Deliveries.DeleteManyAsync(item => expired.Contains(item.Id), cancellationToken);
     }
+
+    public async Task DeleteBySubscriptionIdsAsync(IReadOnlyList<string> subscriptionIds, CancellationToken cancellationToken)
+    {
+        if (subscriptionIds.Count == 0) return;
+        var deliveryIds = await db.Deliveries.Find(item => subscriptionIds.Contains(item.SubscriptionId)).Project(item => item.Id).ToListAsync(cancellationToken);
+        if (deliveryIds.Count > 0) await db.DeliveryAttempts.DeleteManyAsync(item => deliveryIds.Contains(item.DeliveryId), cancellationToken);
+        await db.Deliveries.DeleteManyAsync(item => subscriptionIds.Contains(item.SubscriptionId), cancellationToken);
+    }
 }
