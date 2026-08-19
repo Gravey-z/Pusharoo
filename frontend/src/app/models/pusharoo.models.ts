@@ -199,6 +199,8 @@ export interface EventRelayStatus {
   network: string;
 }
 
+export interface RelayUsage { plan: string; status: string; periodEndsAt: string; maxActiveSubscriptions: number; activeSubscriptions: number; maxEvents: number; eventsUsed: number; eventsRemaining: number; }
+
 export interface ProjectCardViewModel {
   project: Project;
   artifacts: Artifact[];

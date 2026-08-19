@@ -11,6 +11,7 @@ namespace Pusharoo.EventRelay.Services;
 public sealed class WebhookDeliveryService(
     HttpClient httpClient,
     IWebhookDeliveryRepository deliveries,
+    RelayEntitlementService entitlements,
     RelayOperationsService operations,
     WebhookSecretProtector secretProtector,
     IOptions<EventRelayOptions> options,
@@ -45,6 +46,12 @@ public sealed class WebhookDeliveryService(
         if (subscription is null || !subscription.IsEnabled)
         {
             await CompleteAsync(delivery, false, false, null, "Webhook is no longer active.", 0, cancellationToken);
+            return true;
+        }
+        if (string.IsNullOrWhiteSpace(subscription.ProjectId)
+            || !await entitlements.TryConsumeEventAsync(subscription.ProjectId, subscription.Network, cancellationToken))
+        {
+            await CompleteAsync(delivery, false, false, null, "Relay event allowance is exhausted or inactive.", 0, cancellationToken);
             return true;
         }
 

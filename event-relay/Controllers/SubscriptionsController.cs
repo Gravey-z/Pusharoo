@@ -20,6 +20,7 @@ public sealed class SubscriptionsController(
     ProjectAccessClient projectAccess,
     WebhookDestinationValidator destinationValidator,
     WebhookSecretProtector secretProtector,
+    RelayEntitlementService entitlements,
     IOptions<NeoRpcOptions> neoRpcOptions) : ControllerBase
 {
     private static readonly Regex HeaderNamePattern = new("^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,64}$", RegexOptions.Compiled);
@@ -83,6 +84,18 @@ public sealed class SubscriptionsController(
             return authorization;
         }
 
+        var entitlement = await entitlements.GetAsync(projectId, request.Network.Trim(), cancellationToken);
+        if (entitlement.Status != "active" || entitlement.PeriodEndsAt <= DateTime.UtcNow)
+        {
+            return BadRequest(new { error = "Relay access is not active for this network." });
+        }
+        var activeSubscriptions = (await subscriptions.GetByProjectIdAsync(projectId, cancellationToken))
+            .Count(item => item.Network == request.Network.Trim() && item.IsEnabled);
+        if (request.IsEnabled && activeSubscriptions >= entitlement.MaxActiveSubscriptions)
+        {
+            return BadRequest(new { error = "The free beta active-webhook limit has been reached." });
+        }
+
         var validation = await ValidateSubscriptionAsync(request, cancellationToken);
         if (validation is not null)
         {
@@ -104,12 +117,22 @@ public sealed class SubscriptionsController(
             IsEnabled = request.IsEnabled,
             CreatedAt = now,
             UpdatedAt = now,
-            ExpiresAt = string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal) ? now.AddDays(7) : null
+            ExpiresAt = string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal) ? entitlement.PeriodEndsAt : null
         };
 
         await subscriptions.InsertAsync(subscription, cancellationToken);
 
         return CreatedAtAction(nameof(GetAll), new { projectId }, ToResponse(subscription, null));
+    }
+
+    [HttpPost("usage")]
+    public async Task<IActionResult> Usage(string projectId, WebhookAccessRequest request, CancellationToken cancellationToken)
+    {
+        var authorization = await AuthorizeAsync(projectId, "subscriptions.read", WebhookManagementRequestHasher.Hash(projectId, "subscriptions.read"), request.Signature, cancellationToken);
+        if (authorization is not null) return authorization;
+        var entitlement = await entitlements.GetAsync(projectId, neoRpcOptions.Value.Network, cancellationToken);
+        var active = (await subscriptions.GetByProjectIdAsync(projectId, cancellationToken)).Count(x => x.Network == neoRpcOptions.Value.Network && x.IsEnabled);
+        return Ok(new { entitlement.Plan, entitlement.Status, entitlement.PeriodStart, entitlement.PeriodEndsAt, entitlement.MaxActiveSubscriptions, activeSubscriptions = active, entitlement.MaxEvents, entitlement.EventsUsed, eventsRemaining = Math.Max(0, entitlement.MaxEvents - entitlement.EventsUsed) });
     }
 
     [HttpPut("{subscriptionId}")]
@@ -134,6 +157,17 @@ public sealed class SubscriptionsController(
         if (authorization is not null)
         {
             return authorization;
+        }
+
+        var entitlement = await entitlements.GetAsync(projectId, request.Network.Trim(), cancellationToken);
+        if (request.IsEnabled && (!existing.IsEnabled || !string.Equals(existing.Network, request.Network.Trim(), StringComparison.Ordinal)))
+        {
+            var activeSubscriptions = (await subscriptions.GetByProjectIdAsync(projectId, cancellationToken))
+                .Count(item => item.Id != existing.Id && item.Network == request.Network.Trim() && item.IsEnabled);
+            if (entitlement.Status != "active" || entitlement.PeriodEndsAt <= DateTime.UtcNow || activeSubscriptions >= entitlement.MaxActiveSubscriptions)
+            {
+                return BadRequest(new { error = "This network's relay allowance does not permit another active webhook." });
+            }
         }
 
         var validation = await ValidateSubscriptionAsync(request, cancellationToken);
@@ -218,7 +252,12 @@ public sealed class SubscriptionsController(
             return authorization;
         }
 
-        return Ok(await deliveries.GetBySubscriptionAsync(subscriptionId, cancellationToken));
+        var history = await deliveries.GetBySubscriptionAsync(subscriptionId, cancellationToken);
+        if (string.Equals(existing.Network, "neo3:testnet", StringComparison.Ordinal))
+        {
+            history = history.Where(item => item.DeliveredAt >= DateTime.UtcNow.AddDays(-7)).ToList();
+        }
+        return Ok(history);
     }
 
     [HttpPost("{subscriptionId}/test")]

@@ -15,4 +15,7 @@ public sealed class EventRelayOptions
     public int DeliveryWorkerStallSeconds { get; init; } = 120;
     public int MaxScannerLagBlocks { get; init; } = 30;
     public int MaxQueueDepth { get; init; } = 1000;
+    public int FreeBetaPeriodDays { get; init; } = 30;
+    public int FreeTestnetMaxActiveSubscriptions { get; init; } = 5;
+    public int FreeTestnetMaxEvents { get; init; } = 10000;
 }

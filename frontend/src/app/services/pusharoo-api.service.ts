@@ -23,6 +23,7 @@ import {
   WebhookDelivery,
   WebhookManagementOperation,
   WebhookSubscription
+  , RelayUsage
 } from '../models/pusharoo.models';
 import { RuntimeConfigService } from './runtime-config.service';
 
@@ -191,6 +192,10 @@ export class PusharooApiService {
   getEventRelayStatus(network: string): Observable<EventRelayStatus> {
     const healthUrl = this.eventRelayHealthUrl(network);
     return this.http.get<EventRelayStatus>(healthUrl);
+  }
+
+  getRelayUsage(projectId: string, network: string, signature?: WalletActionSignature): Observable<RelayUsage> {
+    return this.http.post<RelayUsage>(`${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions/usage`, { signature }, { headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }).pipe(map(response => this.readWebhookResponse(projectId, network, response)));
   }
 
   createWebhookSubscription(

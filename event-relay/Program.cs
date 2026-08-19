@@ -20,6 +20,7 @@ builder.Services.AddSingleton<WebhookDestinationValidator>();
 builder.Services.AddSingleton<WebhookSecretProtector>();
 builder.Services.AddSingleton<WebhookSessionService>();
 builder.Services.AddSingleton<RelayOperationsService>();
+builder.Services.AddScoped<RelayEntitlementService>();
 var dataProtection = builder.Services.AddDataProtection().SetApplicationName("Pusharoo.EventRelay");
 var keyRingPath = builder.Configuration["DataProtection:KeyRingPath"];
 if (!string.IsNullOrWhiteSpace(keyRingPath))

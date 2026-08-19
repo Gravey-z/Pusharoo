@@ -12,7 +12,8 @@ import {
   WebhookDelivery,
   WebhookManagementOperation,
   WalletActionSignature,
-  WebhookSubscription
+  WebhookSubscription,
+  RelayUsage
 } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
@@ -44,6 +45,7 @@ export class EventWebhooksComponent implements OnInit {
   relayNetwork = '';
   webhookNetwork = 'neo3:testnet';
   relayStatuses: Record<string, 'ok' | 'degraded' | 'offline'> = {};
+  readonly relayUsageByNetwork: Record<string, RelayUsage> = {};
   projectId = '';
   name = '';
   contractHash = '';
@@ -274,6 +276,7 @@ export class EventWebhooksComponent implements OnInit {
       }
 
       await this.loadSubscriptions();
+      await this.loadUsage(this.relayNetwork);
     } catch (error) {
       this.errorMessage = this.errors.format(error, 'Could not load webhook subscriptions.');
     }
@@ -286,6 +289,10 @@ export class EventWebhooksComponent implements OnInit {
     if (network === this.relayNetwork) {
       this.subscriptions = subscriptions;
     }
+  }
+
+  private async loadUsage(network: string): Promise<void> {
+    this.relayUsageByNetwork[network] = await this.executeWebhookRequest(network, 'subscriptions.read', {}, signature => this.api.getRelayUsage(this.projectId, network, signature));
   }
 
   private async updateSubscription(
@@ -363,6 +370,7 @@ export class EventWebhooksComponent implements OnInit {
     this.subscriptions = this.subscriptionsByNetwork[network] ?? [];
     if (!this.subscriptionsByNetwork[network] && this.deploymentOptions.some((item) => item.network === network)) {
       await this.loadSubscriptions(network);
+      await this.loadUsage(network);
     }
   }
 

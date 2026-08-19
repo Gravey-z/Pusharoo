@@ -19,6 +19,14 @@
     }
   </nav>
 
+  @if (relayUsageByNetwork[webhookNetwork]; as usage) {
+    <section class="relay-statuses" aria-label="Relay usage">
+      <span>{{ usage.plan }}: {{ usage.activeSubscriptions }}/{{ usage.maxActiveSubscriptions }} active webhooks</span>
+      <span>{{ usage.eventsRemaining }} of {{ usage.maxEvents }} events remaining</span>
+      <span>Access: {{ usage.status }}</span>
+    </section>
+  }
+
   @if (overview) {
     @if (deploymentOptions.length) {
       <section class="webhook-layout">
