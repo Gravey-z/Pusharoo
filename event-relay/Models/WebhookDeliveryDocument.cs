@@ -45,4 +45,8 @@ public sealed class WebhookDeliveryDocument
 
     [BsonElement("latencyMilliseconds")]
     public long? LatencyMilliseconds { get; init; }
+
+    [BsonElement("nextAttemptAt")] public DateTime? NextAttemptAt { get; init; }
+    [BsonElement("leaseUntil")] public DateTime? LeaseUntil { get; init; }
+    [BsonElement("eventName")] public string EventName { get; init; } = string.Empty;
 }

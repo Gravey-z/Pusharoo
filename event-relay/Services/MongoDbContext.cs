@@ -15,6 +15,7 @@ public sealed class MongoDbContext
 
         Subscriptions = database.GetCollection<WebhookSubscriptionDocument>("eventSubscriptions");
         Deliveries = database.GetCollection<WebhookDeliveryDocument>("webhookDeliveries");
+        DeliveryAttempts = database.GetCollection<WebhookDeliveryAttemptDocument>("webhookDeliveryAttempts");
         Deliveries.Indexes.CreateOne(new CreateIndexModel<WebhookDeliveryDocument>(
             Builders<WebhookDeliveryDocument>.IndexKeys.Ascending(delivery => delivery.IdempotencyKey),
             new CreateIndexOptions { Unique = true, Sparse = true }));
@@ -24,6 +25,7 @@ public sealed class MongoDbContext
     public IMongoCollection<WebhookSubscriptionDocument> Subscriptions { get; }
 
     public IMongoCollection<WebhookDeliveryDocument> Deliveries { get; }
+    public IMongoCollection<WebhookDeliveryAttemptDocument> DeliveryAttempts { get; }
 
     public IMongoCollection<EventCheckpointDocument> Checkpoints { get; }
 }
