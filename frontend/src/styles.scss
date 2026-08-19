@@ -44,7 +44,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font-family: var(--font-body);
   letter-spacing: 0;
 }
@@ -52,14 +53,61 @@ textarea {
 button,
 a,
 input,
-textarea {
+textarea,
+select {
   transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease, transform 140ms ease;
 }
 
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
-textarea:focus-visible {
+textarea:focus-visible,
+select:focus-visible {
   outline: 3px solid rgba(0, 214, 255, 0.28);
   outline-offset: 2px;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+
+.primary-button,
+.secondary-button,
+.danger-button,
+.delete-button {
+  cursor: pointer;
+}
+
+.primary-button:not(:disabled):hover {
+  color: #061017;
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.secondary-button:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.danger-button:not(:disabled):hover {
+  border-color: var(--danger);
+  background: rgba(255, 107, 138, 0.1);
+}
+
+.delete-button:not(:disabled):hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
 }

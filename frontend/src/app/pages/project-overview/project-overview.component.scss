@@ -139,7 +139,7 @@
 
 .release-state {
   width: fit-content;
-  border-radius: 999px;
+  border-radius: 8px;
   padding: 4px 8px;
   background: rgba(21, 244, 200, 0.13);
   color: var(--sage);
@@ -314,7 +314,7 @@ dd {
 
 .deployment-status {
   width: fit-content;
-  border-radius: 999px;
+  border-radius: 8px;
   padding: 4px 8px;
   background: rgba(0, 214, 255, 0.1);
   color: var(--accent);
@@ -368,7 +368,7 @@ dd {
 .network-pill {
   width: fit-content;
   border: 1px solid rgba(21, 244, 200, 0.28);
-  border-radius: 999px;
+  border-radius: 8px;
   padding: 4px 9px;
   background: rgba(21, 244, 200, 0.08);
   color: var(--sage);
