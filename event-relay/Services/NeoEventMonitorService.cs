@@ -96,7 +96,7 @@ public sealed class NeoEventMonitorService(
 
                     foreach (var subscription in matches)
                     {
-                        await webhookDelivery.DeliverAsync(subscription, observedEvent, cancellationToken);
+                        await webhookDelivery.QueueAsync(subscription, observedEvent, cancellationToken);
                     }
                 }
             }

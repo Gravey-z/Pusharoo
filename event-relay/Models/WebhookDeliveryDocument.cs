@@ -49,4 +49,6 @@ public sealed class WebhookDeliveryDocument
     [BsonElement("nextAttemptAt")] public DateTime? NextAttemptAt { get; init; }
     [BsonElement("leaseUntil")] public DateTime? LeaseUntil { get; init; }
     [BsonElement("eventName")] public string EventName { get; init; } = string.Empty;
+    [BsonElement("trigger")] public string Trigger { get; init; } = "automatic";
+    [BsonElement("redeliveryOfDeliveryId")] public string? RedeliveryOfDeliveryId { get; init; }
 }

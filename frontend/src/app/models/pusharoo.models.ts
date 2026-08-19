@@ -190,6 +190,8 @@ export interface WebhookDelivery {
   succeeded: boolean;
   error?: string | null;
   deliveredAt: string;
+  trigger?: 'automatic' | 'manual' | 'test';
+  redeliveryOfDeliveryId?: string | null;
 }
 
 export interface EventRelayStatus {

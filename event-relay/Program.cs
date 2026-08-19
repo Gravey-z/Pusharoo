@@ -34,6 +34,7 @@ builder.Services.AddHttpClient<WebhookDeliveryService>()
         ConnectCallback = WebhookDestinationValidator.ConnectPublicAsync
     });
 builder.Services.AddHostedService<NeoEventMonitorService>();
+builder.Services.AddHostedService<WebhookDeliveryWorker>();
 builder.Services.AddHostedService<WebhookSecretMigrationService>();
 builder.Services.AddRateLimiter(options =>
 {
