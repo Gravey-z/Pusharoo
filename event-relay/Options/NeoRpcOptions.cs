@@ -17,4 +17,6 @@ public sealed class NeoRpcOptions
     public int MaxBlocksPerPoll { get; init; } = 10;
 
     public uint ConfirmationBlocks { get; init; } = 1;
+
+    public bool StartAtLatest { get; init; }
 }

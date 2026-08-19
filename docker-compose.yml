@@ -31,6 +31,7 @@ services:
       NeoRpc__Endpoint: ${PUSHAROO_TESTNET_RPC_URL:-https://testnet1.neo.coz.io:443}
       NeoRpc__FallbackEndpoint: ${PUSHAROO_TESTNET_FALLBACK_RPC_URL:-}
       NeoRpc__Network: neo3:testnet
+      NeoRpc__StartAtLatest: ${PUSHAROO_RELAY_START_AT_LATEST:-true}
       NeoRpc__PollIntervalSeconds: ${PUSHAROO_RELAY_POLL_INTERVAL_SECONDS:-15}
       NeoRpc__MaxBlocksPerPoll: ${PUSHAROO_RELAY_MAX_BLOCKS_PER_POLL:-10}
       EventRelay__ScannerStallSeconds: ${PUSHAROO_RELAY_SCANNER_STALL_SECONDS:-120}
@@ -60,6 +61,7 @@ services:
       NeoRpc__Endpoint: ${PUSHAROO_MAINNET_RPC_URL:-https://mainnet1.neo.coz.io:443}
       NeoRpc__FallbackEndpoint: ${PUSHAROO_MAINNET_FALLBACK_RPC_URL:-}
       NeoRpc__Network: neo3:mainnet
+      NeoRpc__StartAtLatest: ${PUSHAROO_RELAY_START_AT_LATEST:-true}
       NeoRpc__PollIntervalSeconds: ${PUSHAROO_RELAY_POLL_INTERVAL_SECONDS:-15}
       NeoRpc__MaxBlocksPerPoll: ${PUSHAROO_RELAY_MAX_BLOCKS_PER_POLL:-10}
       EventRelay__ScannerStallSeconds: ${PUSHAROO_RELAY_SCANNER_STALL_SECONDS:-120}

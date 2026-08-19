@@ -63,6 +63,18 @@ public sealed class NeoEventMonitorService(
 
         var confirmedTip = tip - _options.ConfirmationBlocks;
         var checkpointId = $"neo:{_options.Network}";
+        if (_options.StartAtLatest)
+        {
+            await checkpoints.UpsertAsync(new EventCheckpointDocument
+            {
+                Id = checkpointId,
+                NextBlock = confirmedTip + 1,
+                UpdatedAt = DateTime.UtcNow
+            }, cancellationToken);
+            operations.RecordScannerProgress(confirmedTip, confirmedTip);
+            logger.LogInformation("Neo event relay is configured to start at the latest confirmed block {ConfirmedTip}.", confirmedTip);
+            return;
+        }
         var checkpoint = await checkpoints.GetAsync(checkpointId, cancellationToken);
         var nextBlock = checkpoint?.NextBlock ?? _options.StartBlock ?? confirmedTip;
 

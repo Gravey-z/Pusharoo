@@ -266,7 +266,7 @@ export class EventWebhooksComponent implements OnInit {
       this.selectDeployment();
       await Promise.all(['neo3:testnet', 'neo3:mainnet'].map(async (network) => {
         try { this.relayStatuses[network] = (await firstValueFrom(this.api.getEventRelayStatus(network))).status === 'ok' ? 'ok' : 'degraded'; }
-        catch { this.relayStatuses[network] = 'offline'; }
+        catch (error: unknown) { this.relayStatuses[network] = (error as { status?: number })?.status === 503 ? 'degraded' : 'offline'; }
       }));
 
       // Listing subscriptions is wallet-authorized. Do not prompt for a signature
