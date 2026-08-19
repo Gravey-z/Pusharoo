@@ -19,6 +19,7 @@ builder.Services.AddScoped<IEventCheckpointRepository, EventCheckpointRepository
 builder.Services.AddSingleton<WebhookDestinationValidator>();
 builder.Services.AddSingleton<WebhookSecretProtector>();
 builder.Services.AddSingleton<WebhookSessionService>();
+builder.Services.AddSingleton<RelayOperationsService>();
 var dataProtection = builder.Services.AddDataProtection().SetApplicationName("Pusharoo.EventRelay");
 var keyRingPath = builder.Configuration["DataProtection:KeyRingPath"];
 if (!string.IsNullOrWhiteSpace(keyRingPath))
@@ -35,6 +36,7 @@ builder.Services.AddHttpClient<WebhookDeliveryService>()
     });
 builder.Services.AddHostedService<NeoEventMonitorService>();
 builder.Services.AddHostedService<WebhookDeliveryWorker>();
+builder.Services.AddHostedService<WebhookRetentionWorker>();
 builder.Services.AddHostedService<WebhookSecretMigrationService>();
 builder.Services.AddRateLimiter(options =>
 {
@@ -74,8 +76,14 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.MapGet("/health", (IOptions<NeoRpcOptions> neoRpcOptions) =>
-    Results.Ok(new { status = "ok", network = neoRpcOptions.Value.Network }));
+app.MapGet("/health", (IOptions<NeoRpcOptions> neoRpcOptions, RelayOperationsService operations) =>
+{
+    var snapshot = operations.Snapshot();
+    var now = DateTime.UtcNow;
+    var scannerHealthy = snapshot.ScannerHeartbeat != DateTime.MinValue && now - snapshot.ScannerHeartbeat < TimeSpan.FromMinutes(2);
+    var workerHealthy = snapshot.WorkerHeartbeat != DateTime.MinValue && now - snapshot.WorkerHeartbeat < TimeSpan.FromMinutes(2);
+    return Results.Json(new { status = scannerHealthy && workerHealthy ? "ok" : "degraded", network = neoRpcOptions.Value.Network, scannerHealthy, workerHealthy, metrics = new { snapshot.Succeeded, snapshot.Failed, snapshot.Retried, snapshot.DeadLetters } }, statusCode: scannerHealthy && workerHealthy ? 200 : 503);
+});
 if (allowedCorsOrigins.Length > 0)
 {
     app.UseCors("Frontend");

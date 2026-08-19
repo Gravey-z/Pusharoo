@@ -9,6 +9,7 @@ namespace Pusharoo.EventRelay.Services;
 public sealed class NeoEventMonitorService(
     IServiceScopeFactory scopeFactory,
     NeoRpcClient neoRpc,
+    RelayOperationsService operations,
     IOptions<NeoRpcOptions> options,
     ILogger<NeoEventMonitorService> logger) : BackgroundService
 {
@@ -26,6 +27,7 @@ public sealed class NeoEventMonitorService(
             try
             {
                 await PollOnceAsync(stoppingToken);
+                operations.ScannerHeartbeat();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -54,18 +56,24 @@ public sealed class NeoEventMonitorService(
         }
 
         var tip = blockCount - 1;
+        if (tip < _options.ConfirmationBlocks)
+        {
+            return;
+        }
+
+        var confirmedTip = tip - _options.ConfirmationBlocks;
         var checkpointId = $"neo:{_options.Network}";
         var checkpoint = await checkpoints.GetAsync(checkpointId, cancellationToken);
-        var nextBlock = checkpoint?.NextBlock ?? _options.StartBlock ?? tip;
+        var nextBlock = checkpoint?.NextBlock ?? _options.StartBlock ?? confirmedTip;
 
-        if (nextBlock > tip)
+        if (nextBlock > confirmedTip)
         {
-            logger.LogDebug("Neo event relay is caught up at block {Tip}.", tip);
+            logger.LogDebug("Neo event relay is caught up through confirmed block {ConfirmedTip}.", confirmedTip);
             return;
         }
 
         var maxBlocks = Math.Max(1, _options.MaxBlocksPerPoll);
-        var toBlock = Math.Min(tip, nextBlock + (uint)maxBlocks - 1);
+        var toBlock = Math.Min(confirmedTip, nextBlock + (uint)maxBlocks - 1);
 
         for (var blockIndex = nextBlock; blockIndex <= toBlock; blockIndex++)
         {

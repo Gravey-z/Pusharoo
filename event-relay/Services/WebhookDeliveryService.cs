@@ -11,6 +11,7 @@ namespace Pusharoo.EventRelay.Services;
 public sealed class WebhookDeliveryService(
     HttpClient httpClient,
     IWebhookDeliveryRepository deliveries,
+    RelayOperationsService operations,
     WebhookSecretProtector secretProtector,
     IOptions<EventRelayOptions> options,
     ILogger<WebhookDeliveryService> logger)
@@ -78,6 +79,7 @@ public sealed class WebhookDeliveryService(
         var updated = new WebhookDeliveryDocument { Id = delivery.Id, SubscriptionId = delivery.SubscriptionId, EventId = delivery.EventId, WebhookUrl = delivery.WebhookUrl, PayloadJson = delivery.PayloadJson, IdempotencyKey = delivery.IdempotencyKey, EventName = delivery.EventName, Trigger = delivery.Trigger, RedeliveryOfDeliveryId = delivery.RedeliveryOfDeliveryId, DeliveredAt = DateTime.UtcNow, StatusCode = statusCode, Succeeded = succeeded, Error = error, AttemptCount = attempt, LatencyMilliseconds = latency, Status = succeeded ? "succeeded" : dead ? "dead_letter" : "retrying", NextAttemptAt = next };
         var record = new WebhookDeliveryAttemptDocument { Id = Guid.NewGuid().ToString("n"), DeliveryId = delivery.Id, AttemptNumber = attempt, StatusCode = statusCode, Succeeded = succeeded, Retryable = retryable, Error = error, LatencyMilliseconds = latency, AttemptedAt = DateTime.UtcNow };
         await deliveries.CompleteAsync(updated, record, cancellationToken);
+        operations.RecordDelivery(succeeded, !succeeded && !dead, dead);
     }
 
     public async Task DeliverAsync(

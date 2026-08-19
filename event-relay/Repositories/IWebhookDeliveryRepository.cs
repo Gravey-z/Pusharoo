@@ -20,4 +20,5 @@ public interface IWebhookDeliveryRepository
     Task<bool> EnqueueAsync(WebhookDeliveryDocument delivery, CancellationToken cancellationToken);
     Task<WebhookDeliveryDocument?> ClaimDueAsync(CancellationToken cancellationToken);
     Task CompleteAsync(WebhookDeliveryDocument delivery, WebhookDeliveryAttemptDocument attempt, CancellationToken cancellationToken);
+    Task PurgeExpiredAsync(DateTime payloadCutoff, DateTime historyCutoff, CancellationToken cancellationToken);
 }

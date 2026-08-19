@@ -13,4 +13,6 @@ public sealed class NeoRpcOptions
     public int PollIntervalSeconds { get; init; } = 15;
 
     public int MaxBlocksPerPoll { get; init; } = 10;
+
+    public uint ConfirmationBlocks { get; init; } = 1;
 }

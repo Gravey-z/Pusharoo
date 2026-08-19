@@ -62,4 +62,22 @@ public sealed class WebhookDeliveryRepository(MongoDbContext db) : IWebhookDeliv
         await db.DeliveryAttempts.InsertOneAsync(attempt, cancellationToken: cancellationToken);
         await db.Deliveries.ReplaceOneAsync(item => item.Id == delivery.Id, delivery, cancellationToken: cancellationToken);
     }
+
+    public async Task PurgeExpiredAsync(DateTime payloadCutoff, DateTime historyCutoff, CancellationToken cancellationToken)
+    {
+        await db.Deliveries.UpdateManyAsync(
+            Builders<WebhookDeliveryDocument>.Filter.And(
+                Builders<WebhookDeliveryDocument>.Filter.Lt(item => item.DeliveredAt, payloadCutoff),
+                Builders<WebhookDeliveryDocument>.Filter.Ne(item => item.PayloadJson, null),
+                Builders<WebhookDeliveryDocument>.Filter.In(item => item.Status, ["succeeded", "dead_letter", "cancelled"])),
+            Builders<WebhookDeliveryDocument>.Update.Unset(item => item.PayloadJson), cancellationToken: cancellationToken);
+
+        var expired = await db.Deliveries.Find(Builders<WebhookDeliveryDocument>.Filter.And(
+            Builders<WebhookDeliveryDocument>.Filter.Lt(item => item.DeliveredAt, historyCutoff),
+            Builders<WebhookDeliveryDocument>.Filter.In(item => item.Status, ["succeeded", "dead_letter", "cancelled"])))
+            .Project(item => item.Id).ToListAsync(cancellationToken);
+        if (expired.Count == 0) return;
+        await db.DeliveryAttempts.DeleteManyAsync(item => expired.Contains(item.DeliveryId), cancellationToken);
+        await db.Deliveries.DeleteManyAsync(item => expired.Contains(item.Id), cancellationToken);
+    }
 }
