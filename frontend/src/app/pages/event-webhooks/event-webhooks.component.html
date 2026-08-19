@@ -3,6 +3,22 @@
 
   <app-project-release-nav [projectId]="projectId" />
 
+  <section class="relay-statuses" aria-label="Relay network status">
+    @for (network of ['neo3:testnet', 'neo3:mainnet']; track network) {
+      <span [class.ok]="relayStatuses[network] === 'ok'" [class.degraded]="relayStatuses[network] !== 'ok'">
+        {{ network }} relay: {{ relayStatuses[network] || 'checking' }}
+      </span>
+    }
+  </section>
+
+  <nav class="webhook-network-tabs" aria-label="Webhook network">
+    @for (network of ['neo3:testnet', 'neo3:mainnet']; track network) {
+      <button type="button" class="secondary-button" [class.active-network]="webhookNetwork === network" (click)="selectWebhookNetwork(network)">
+        {{ network === 'neo3:testnet' ? 'TestNet webhooks' : 'MainNet webhooks' }}
+      </button>
+    }
+  </nav>
+
   @if (overview) {
     @if (deploymentOptions.length) {
       <section class="webhook-layout">

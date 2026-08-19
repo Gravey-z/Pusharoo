@@ -58,8 +58,6 @@ public sealed class SubscriptionsController(
         {
             return authorization;
         }
-        Response.Headers.Append("X-Pusharoo-Webhook-Session", sessions.Create(projectId));
-
         var items = await subscriptions.GetByProjectIdAsync(projectId, cancellationToken);
         var response = await Task.WhenAll(items.Select(async subscription => ToResponse(
             subscription,
@@ -255,8 +253,22 @@ public sealed class SubscriptionsController(
         WalletSignatureRequest? signature,
         CancellationToken cancellationToken)
     {
-        if (Request.Headers.TryGetValue("X-Pusharoo-Webhook-Session", out var session)
-            && sessions.IsValid(session.ToString(), projectId)) return null;
+        if (Request.Headers.TryGetValue("X-Pusharoo-Webhook-Session", out var session))
+        {
+            if (sessions.IsValid(session.ToString(), projectId, neoRpcOptions.Value.Network))
+            {
+                return null;
+            }
+
+            // The browser only sends a session token when it is attempting to
+            // reuse a previous wallet authorization. Make expiry observable so it
+            // can request one fresh approval, rather than treating it as a bad
+            // management request or failing silently.
+            if (signature is null)
+            {
+                return Unauthorized(new { error = "Webhook session expired. Approve this action again to continue." });
+            }
+        }
         var result = await projectAccess.ValidateAsync(
             projectId,
             operation,
@@ -264,7 +276,13 @@ public sealed class SubscriptionsController(
             signature,
             cancellationToken);
 
-        return result.IsAllowed ? null : StatusCode(result.StatusCode, new { error = result.Error });
+        if (!result.IsAllowed)
+        {
+            return StatusCode(result.StatusCode, new { error = result.Error });
+        }
+
+        Response.Headers.Append("X-Pusharoo-Webhook-Session", sessions.Create(projectId, neoRpcOptions.Value.Network));
+        return null;
     }
 
     private async Task<WebhookSubscriptionDocument?> GetProjectSubscriptionAsync(

@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { forkJoin, map, Observable, of, switchMap } from 'rxjs';
 import {
@@ -28,14 +28,22 @@ import { RuntimeConfigService } from './runtime-config.service';
 
 @Injectable({ providedIn: 'root' })
 export class PusharooApiService {
-  private webhookRelayNetwork = '';
+  private readonly webhookSessions = new Map<string, string>();
   private get apiBaseUrl(): string { return this.runtimeConfig.value.apiBaseUrl.replace(/\/$/, ''); }
-  private get eventRelayBaseUrl(): string { return (this.runtimeConfig.value.eventRelays?.[this.webhookRelayNetwork]?.baseUrl ?? this.runtimeConfig.value.eventRelayBaseUrl).replace(/\/$/, ''); }
-  private get eventRelayHealthUrl(): string { return this.runtimeConfig.value.eventRelays?.[this.webhookRelayNetwork]?.healthUrl ?? this.runtimeConfig.value.eventRelayHealthUrl; }
 
   constructor(private readonly http: HttpClient, private readonly runtimeConfig: RuntimeConfigService) {}
 
-  setWebhookRelayNetwork(network: string): void { this.webhookRelayNetwork = network; }
+  hasWebhookSession(projectId: string, network: string): boolean {
+    return this.webhookSessions.has(this.webhookSessionKey(projectId, network));
+  }
+
+  clearWebhookSession(projectId: string, network: string): void {
+    this.webhookSessions.delete(this.webhookSessionKey(projectId, network));
+  }
+
+  isWebhookSessionExpired(error: unknown): boolean {
+    return error instanceof HttpErrorResponse && error.status === 401;
+  }
 
   getProjectCards(): Observable<ProjectCardViewModel[]> {
     return this.http.get<Project[]>(`${this.apiBaseUrl}/projects`).pipe(
@@ -170,73 +178,91 @@ export class PusharooApiService {
 
   getWebhookSubscriptions(
     projectId: string,
-    signature: WalletActionSignature
+    network: string,
+    signature?: WalletActionSignature
   ): Observable<WebhookSubscription[]> {
     return this.http.post<WebhookSubscription[]>(
-      `${this.eventRelayBaseUrl}/projects/${projectId}/subscriptions/query`,
-      { signature }
-    );
+      `${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions/query`,
+      { signature },
+      { headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }
+    ).pipe(map((response) => this.readWebhookResponse(projectId, network, response)));
   }
 
-  getEventRelayStatus(): Observable<EventRelayStatus> {
-    return this.http.get<EventRelayStatus>(this.eventRelayHealthUrl);
+  getEventRelayStatus(network: string): Observable<EventRelayStatus> {
+    const healthUrl = this.eventRelayHealthUrl(network);
+    return this.http.get<EventRelayStatus>(healthUrl);
   }
 
   createWebhookSubscription(
     projectId: string,
+    network: string,
     request: CreateWebhookSubscriptionRequest,
-    signature: WalletActionSignature
+    signature?: WalletActionSignature
   ): Observable<WebhookSubscription> {
     const { projectId: ignoredProjectId, ...subscription } = request;
 
     return this.http.post<WebhookSubscription>(
-      `${this.eventRelayBaseUrl}/projects/${projectId}/subscriptions`,
-      { ...subscription, signature }
-    );
+      `${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions`,
+      { ...subscription, signature },
+      { headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }
+    ).pipe(map((response) => this.readWebhookResponse(projectId, network, response)));
   }
 
   updateWebhookSubscription(
     projectId: string,
+    network: string,
     subscriptionId: string,
     request: CreateWebhookSubscriptionRequest,
-    signature: WalletActionSignature
+    signature?: WalletActionSignature
   ): Observable<WebhookSubscription> {
     const { projectId: ignoredProjectId, ...subscription } = request;
 
     return this.http.put<WebhookSubscription>(
-      `${this.eventRelayBaseUrl}/projects/${projectId}/subscriptions/${subscriptionId}`,
-      { ...subscription, signature }
-    );
+      `${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions/${subscriptionId}`,
+      { ...subscription, signature },
+      { headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }
+    ).pipe(map((response) => this.readWebhookResponse(projectId, network, response)));
   }
 
   deleteWebhookSubscription(
     projectId: string,
+    network: string,
     subscriptionId: string,
-    signature: WalletActionSignature
+    signature?: WalletActionSignature
   ): Observable<void> {
     return this.http.delete<void>(
-      `${this.eventRelayBaseUrl}/projects/${projectId}/subscriptions/${subscriptionId}`,
-      { body: { signature } }
-    );
+      `${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions/${subscriptionId}`,
+      { body: { signature }, headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }
+    ).pipe(map((response) => this.readWebhookResponse(projectId, network, response)));
   }
 
   getWebhookDeliveries(
     projectId: string,
+    network: string,
     subscriptionId: string,
-    signature: WalletActionSignature
+    signature?: WalletActionSignature
   ): Observable<WebhookDelivery[]> {
     return this.http.post<WebhookDelivery[]>(
-      `${this.eventRelayBaseUrl}/projects/${projectId}/subscriptions/${subscriptionId}/deliveries/query`,
-      { signature }
-    );
+      `${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions/${subscriptionId}/deliveries/query`,
+      { signature },
+      { headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }
+    ).pipe(map((response) => this.readWebhookResponse(projectId, network, response) ?? []));
   }
 
-  sendWebhookTest(projectId: string, subscriptionId: string, signature: WalletActionSignature): Observable<WebhookDelivery> {
-    return this.http.post<WebhookDelivery>(`${this.eventRelayBaseUrl}/projects/${projectId}/subscriptions/${subscriptionId}/test`, { signature });
+  sendWebhookTest(projectId: string, network: string, subscriptionId: string, signature?: WalletActionSignature): Observable<WebhookDelivery> {
+    return this.http.post<WebhookDelivery>(
+      `${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions/${subscriptionId}/test`,
+      { signature },
+      { headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }
+    ).pipe(map((response) => this.readWebhookResponse(projectId, network, response)));
   }
 
-  redeliverWebhook(projectId: string, subscriptionId: string, deliveryId: string, signature: WalletActionSignature): Observable<WebhookDelivery> {
-    return this.http.post<WebhookDelivery>(`${this.eventRelayBaseUrl}/projects/${projectId}/subscriptions/${subscriptionId}/deliveries/${deliveryId}/redeliver`, { signature });
+  redeliverWebhook(projectId: string, network: string, subscriptionId: string, deliveryId: string, signature?: WalletActionSignature): Observable<WebhookDelivery> {
+    return this.http.post<WebhookDelivery>(
+      `${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions/${subscriptionId}/deliveries/${deliveryId}/redeliver`,
+      { signature },
+      { headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }
+    ).pipe(map((response) => this.readWebhookResponse(projectId, network, response)));
   }
 
   async getWebhookManagementRequestHash(
@@ -273,6 +299,34 @@ export class PusharooApiService {
 
   private getArtifacts(projectId: string): Observable<Artifact[]> {
     return this.http.get<Artifact[]>(`${this.apiBaseUrl}/projects/${projectId}/artifacts`);
+  }
+
+  private eventRelayBaseUrl(network: string): string {
+    return (this.runtimeConfig.value.eventRelays?.[network]?.baseUrl
+      ?? this.runtimeConfig.value.eventRelayBaseUrl).replace(/\/$/, '');
+  }
+
+  private eventRelayHealthUrl(network: string): string {
+    return this.runtimeConfig.value.eventRelays?.[network]?.healthUrl
+      ?? this.runtimeConfig.value.eventRelayHealthUrl;
+  }
+
+  private webhookSessionHeaders(projectId: string, network: string): HttpHeaders {
+    const session = this.webhookSessions.get(this.webhookSessionKey(projectId, network));
+    return session ? new HttpHeaders({ 'X-Pusharoo-Webhook-Session': session }) : new HttpHeaders();
+  }
+
+  private webhookSessionKey(projectId: string, network: string): string {
+    return `${network}\n${projectId.trim()}`;
+  }
+
+  private readWebhookResponse<T>(projectId: string, network: string, response: { headers: HttpHeaders; body: T | null }): T {
+    const session = response.headers.get('X-Pusharoo-Webhook-Session');
+    if (session) {
+      this.webhookSessions.set(this.webhookSessionKey(projectId, network), session);
+    }
+
+    return response.body as T;
   }
 
   private getProjectCard(project: Project): Observable<ProjectCardViewModel> {

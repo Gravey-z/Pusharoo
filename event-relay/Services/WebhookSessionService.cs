@@ -6,15 +6,18 @@ public sealed class WebhookSessionService(IDataProtectionProvider protectionProv
 {
     private readonly IDataProtector protector = protectionProvider.CreateProtector("Pusharoo.WebhookSession.v1");
 
-    public string Create(string projectId) => protector.Protect($"{projectId}\n{DateTimeOffset.UtcNow.AddMinutes(20).ToUnixTimeSeconds()}");
+    public string Create(string projectId, string network) => protector.Protect(
+        $"{projectId}\n{network}\n{DateTimeOffset.UtcNow.AddMinutes(20).ToUnixTimeSeconds()}");
 
-    public bool IsValid(string? token, string projectId)
+    public bool IsValid(string? token, string projectId, string network)
     {
         try
         {
             var parts = protector.Unprotect(token ?? string.Empty).Split('\n');
-            return parts.Length == 2 && parts[0] == projectId
-                && long.TryParse(parts[1], out var expiry)
+            return parts.Length == 3
+                && string.Equals(parts[0], projectId, StringComparison.Ordinal)
+                && string.Equals(parts[1], network, StringComparison.Ordinal)
+                && long.TryParse(parts[2], out var expiry)
                 && DateTimeOffset.UtcNow.ToUnixTimeSeconds() < expiry;
         }
         catch { return false; }

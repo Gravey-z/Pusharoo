@@ -43,6 +43,13 @@
   align-items: start;
 }
 
+.relay-statuses { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.webhook-network-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.active-network { border-color: var(--accent) !important; color: var(--accent) !important; }
+.relay-statuses span { border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; color: var(--muted); font-size: 12px; }
+.relay-statuses .ok { color: var(--sage); border-color: rgba(21, 244, 200, .32); }
+.relay-statuses .degraded { color: var(--danger); border-color: rgba(255, 94, 117, .32); }
+
 .webhook-form,
 .subscription-list,
 .empty-state {

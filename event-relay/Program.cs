@@ -63,7 +63,8 @@ if (allowedCorsOrigins.Length > 0)
         policy
             .WithOrigins(allowedCorsOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .WithExposedHeaders("X-Pusharoo-Webhook-Session");
     }));
 }
 builder.Services.AddControllers();
