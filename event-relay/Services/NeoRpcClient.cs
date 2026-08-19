@@ -6,7 +6,11 @@ using Pusharoo.EventRelay.Options;
 
 namespace Pusharoo.EventRelay.Services;
 
-public sealed class NeoRpcClient(HttpClient httpClient, IOptions<NeoRpcOptions> options)
+public sealed class NeoRpcClient(
+    HttpClient httpClient,
+    IOptions<NeoRpcOptions> options,
+    RelayOperationsService operations,
+    ILogger<NeoRpcClient> logger)
 {
     private readonly NeoRpcOptions _options = options.Value;
     private int _requestId;
@@ -66,10 +70,44 @@ public sealed class NeoRpcClient(HttpClient httpClient, IOptions<NeoRpcOptions> 
             Id = Interlocked.Increment(ref _requestId)
         };
 
-        using var response = await httpClient.PostAsJsonAsync(
-            _options.Endpoint,
-            request,
-            cancellationToken);
+        try
+        {
+            return await SendToEndpointAsync(_options.Endpoint, request, method, cancellationToken);
+        }
+        catch (Exception ex) when (CanFailOver(ex, cancellationToken))
+        {
+            operations.RecordRpcFailure();
+            var fallback = _options.FallbackEndpoint!.Trim();
+            logger.LogWarning(ex,
+                "Neo RPC {Method} failed on primary endpoint {PrimaryEndpoint}; trying fallback endpoint {FallbackEndpoint}.",
+                method,
+                _options.Endpoint,
+                fallback);
+
+            try
+            {
+                return await SendToEndpointAsync(fallback, request, method, cancellationToken);
+            }
+            catch
+            {
+                operations.RecordRpcFailure();
+                throw;
+            }
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            operations.RecordRpcFailure();
+            throw;
+        }
+    }
+
+    private async Task<JsonElement> SendToEndpointAsync(
+        string endpoint,
+        NeoRpcRequest request,
+        string method,
+        CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.PostAsJsonAsync(endpoint, request, cancellationToken);
 
         response.EnsureSuccessStatusCode();
 
@@ -87,7 +125,16 @@ public sealed class NeoRpcClient(HttpClient httpClient, IOptions<NeoRpcOptions> 
             throw new InvalidOperationException($"Neo RPC {method} returned no result.");
         }
 
+        operations.RecordRpcSuccess(endpoint);
         return result.Clone();
+    }
+
+    private bool CanFailOver(Exception exception, CancellationToken cancellationToken)
+    {
+        return !cancellationToken.IsCancellationRequested
+            && !string.IsNullOrWhiteSpace(_options.FallbackEndpoint)
+            && !string.Equals(_options.Endpoint.Trim(), _options.FallbackEndpoint.Trim(), StringComparison.OrdinalIgnoreCase)
+            && exception is not OperationCanceledException;
     }
 
     private sealed class NeoRpcRequest

@@ -47,6 +47,13 @@ public sealed class WebhookDeliveryRepository(MongoDbContext db) : IWebhookDeliv
         catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey) { return false; }
     }
 
+    public Task<long> CountOutstandingAsync(CancellationToken cancellationToken)
+    {
+        return db.Deliveries.CountDocumentsAsync(
+            Builders<WebhookDeliveryDocument>.Filter.In(item => item.Status, ["pending", "retrying", "delivering"]),
+            cancellationToken: cancellationToken);
+    }
+
     public async Task<WebhookDeliveryDocument?> ClaimDueAsync(CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;

@@ -25,12 +25,16 @@ public sealed class WebhookDeliveryService(
         var key = $"{subscription.Id}:{observedEvent.Id}";
         var payload = new WebhookPayload(id, subscription.Id, observedEvent.Network, observedEvent.BlockIndex,
             observedEvent.TransactionHash, observedEvent.ContractHash, observedEvent.EventName, observedEvent.State, observedEvent.ObservedAt);
-        await deliveries.EnqueueAsync(new WebhookDeliveryDocument
+        var queued = await deliveries.EnqueueAsync(new WebhookDeliveryDocument
         {
             Id = id, SubscriptionId = subscription.Id, EventId = observedEvent.Id, WebhookUrl = subscription.WebhookUrl,
             PayloadJson = JsonSerializer.Serialize(payload, JsonOptions), IdempotencyKey = key, EventName = observedEvent.EventName,
             Trigger = "automatic", Status = "pending", AttemptCount = 0, DeliveredAt = DateTime.UtcNow, NextAttemptAt = DateTime.UtcNow
         }, cancellationToken);
+        if (!queued)
+        {
+            logger.LogDebug("Skipping duplicate webhook delivery {IdempotencyKey}.", key);
+        }
     }
 
     public async Task<bool> ProcessNextAsync(IWebhookSubscriptionRepository subscriptions, CancellationToken cancellationToken)
@@ -79,7 +83,7 @@ public sealed class WebhookDeliveryService(
         var updated = new WebhookDeliveryDocument { Id = delivery.Id, SubscriptionId = delivery.SubscriptionId, EventId = delivery.EventId, WebhookUrl = delivery.WebhookUrl, PayloadJson = delivery.PayloadJson, IdempotencyKey = delivery.IdempotencyKey, EventName = delivery.EventName, Trigger = delivery.Trigger, RedeliveryOfDeliveryId = delivery.RedeliveryOfDeliveryId, DeliveredAt = DateTime.UtcNow, StatusCode = statusCode, Succeeded = succeeded, Error = error, AttemptCount = attempt, LatencyMilliseconds = latency, Status = succeeded ? "succeeded" : dead ? "dead_letter" : "retrying", NextAttemptAt = next };
         var record = new WebhookDeliveryAttemptDocument { Id = Guid.NewGuid().ToString("n"), DeliveryId = delivery.Id, AttemptNumber = attempt, StatusCode = statusCode, Succeeded = succeeded, Retryable = retryable, Error = error, LatencyMilliseconds = latency, AttemptedAt = DateTime.UtcNow };
         await deliveries.CompleteAsync(updated, record, cancellationToken);
-        operations.RecordDelivery(succeeded, !succeeded && !dead, dead);
+        operations.RecordDelivery(succeeded, !succeeded && !dead, dead, latency);
     }
 
     public async Task DeliverAsync(

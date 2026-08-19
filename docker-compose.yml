@@ -29,9 +29,14 @@ services:
       MongoDb__ConnectionString: mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongo:27017/?authSource=admin
       MongoDb__DatabaseName: ${MONGO_DATABASE:-Pusharoo}
       NeoRpc__Endpoint: ${PUSHAROO_TESTNET_RPC_URL:-https://testnet1.neo.coz.io:443}
+      NeoRpc__FallbackEndpoint: ${PUSHAROO_TESTNET_FALLBACK_RPC_URL:-}
       NeoRpc__Network: neo3:testnet
       NeoRpc__PollIntervalSeconds: ${PUSHAROO_RELAY_POLL_INTERVAL_SECONDS:-15}
       NeoRpc__MaxBlocksPerPoll: ${PUSHAROO_RELAY_MAX_BLOCKS_PER_POLL:-10}
+      EventRelay__ScannerStallSeconds: ${PUSHAROO_RELAY_SCANNER_STALL_SECONDS:-120}
+      EventRelay__DeliveryWorkerStallSeconds: ${PUSHAROO_RELAY_WORKER_STALL_SECONDS:-120}
+      EventRelay__MaxScannerLagBlocks: ${PUSHAROO_RELAY_MAX_SCANNER_LAG_BLOCKS:-30}
+      EventRelay__MaxQueueDepth: ${PUSHAROO_RELAY_MAX_QUEUE_DEPTH:-1000}
       PusharooApi__Endpoint: http://api:8080
       DataProtection__KeyRingPath: /var/lib/pusharoo/data-protection
     expose:
@@ -53,9 +58,14 @@ services:
       MongoDb__ConnectionString: mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongo:27017/?authSource=admin
       MongoDb__DatabaseName: ${MONGO_DATABASE:-Pusharoo}
       NeoRpc__Endpoint: ${PUSHAROO_MAINNET_RPC_URL:-https://mainnet1.neo.coz.io:443}
+      NeoRpc__FallbackEndpoint: ${PUSHAROO_MAINNET_FALLBACK_RPC_URL:-}
       NeoRpc__Network: neo3:mainnet
       NeoRpc__PollIntervalSeconds: ${PUSHAROO_RELAY_POLL_INTERVAL_SECONDS:-15}
       NeoRpc__MaxBlocksPerPoll: ${PUSHAROO_RELAY_MAX_BLOCKS_PER_POLL:-10}
+      EventRelay__ScannerStallSeconds: ${PUSHAROO_RELAY_SCANNER_STALL_SECONDS:-120}
+      EventRelay__DeliveryWorkerStallSeconds: ${PUSHAROO_RELAY_WORKER_STALL_SECONDS:-120}
+      EventRelay__MaxScannerLagBlocks: ${PUSHAROO_RELAY_MAX_SCANNER_LAG_BLOCKS:-30}
+      EventRelay__MaxQueueDepth: ${PUSHAROO_RELAY_MAX_QUEUE_DEPTH:-1000}
       PusharooApi__Endpoint: http://api:8080
       DataProtection__KeyRingPath: /var/lib/pusharoo/data-protection
     expose: ["8080"]

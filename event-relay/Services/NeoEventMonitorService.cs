@@ -68,6 +68,7 @@ public sealed class NeoEventMonitorService(
 
         if (nextBlock > confirmedTip)
         {
+            operations.RecordScannerProgress(confirmedTip, confirmedTip);
             logger.LogDebug("Neo event relay is caught up through confirmed block {ConfirmedTip}.", confirmedTip);
             return;
         }
@@ -117,6 +118,8 @@ public sealed class NeoEventMonitorService(
                     UpdatedAt = DateTime.UtcNow
                 },
                 cancellationToken);
+
+            operations.RecordScannerProgress(confirmedTip, blockIndex);
 
             logger.LogInformation("Neo event relay checkpoint advanced to block {NextBlock}.", blockIndex + 1);
         }
