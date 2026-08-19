@@ -1,19 +1,5 @@
 namespace Pusharoo.EventRelay.Models;
 
-public sealed record WalletSignatureRequest(
-    string Address,
-    string ScriptHash,
-    string Network,
-    string Provider,
-    string Origin,
-    string IssuedAtUtc,
-    string Nonce,
-    string Message,
-    string PublicKey,
-    string Data,
-    string? Salt,
-    string? MessageHex);
-
 public sealed record WebhookAccessRequest(WalletSignatureRequest? Signature, string? SessionToken = null);
 
 public sealed record CreateSubscriptionRequest(

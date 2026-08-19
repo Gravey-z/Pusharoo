@@ -1,0 +1,12 @@
+C:\Users\soran\Desktop\App\C#\Pusharoo\shared\bin\Debug\net10.0\Pusharoo.Contracts.deps.json
+C:\Users\soran\Desktop\App\C#\Pusharoo\shared\bin\Debug\net10.0\Pusharoo.Contracts.dll
+C:\Users\soran\Desktop\App\C#\Pusharoo\shared\bin\Debug\net10.0\Pusharoo.Contracts.pdb
+C:\Users\soran\Desktop\App\C#\Pusharoo\shared\obj\Debug\net10.0\Pusharoo.Contracts.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\soran\Desktop\App\C#\Pusharoo\shared\obj\Debug\net10.0\Pusharoo.Contracts.AssemblyInfoInputs.cache
+C:\Users\soran\Desktop\App\C#\Pusharoo\shared\obj\Debug\net10.0\Pusharoo.Contracts.AssemblyInfo.cs
+C:\Users\soran\Desktop\App\C#\Pusharoo\shared\obj\Debug\net10.0\Pusharoo.Contracts.csproj.CoreCompileInputs.cache
+C:\Users\soran\Desktop\App\C#\Pusharoo\shared\obj\Debug\net10.0\Pusharoo.Contracts.sourcelink.json
+C:\Users\soran\Desktop\App\C#\Pusharoo\shared\obj\Debug\net10.0\Pusharoo.Contracts.dll
+C:\Users\soran\Desktop\App\C#\Pusharoo\shared\obj\Debug\net10.0\refint\Pusharoo.Contracts.dll
+C:\Users\soran\Desktop\App\C#\Pusharoo\shared\obj\Debug\net10.0\Pusharoo.Contracts.pdb
+C:\Users\soran\Desktop\App\C#\Pusharoo\shared\obj\Debug\net10.0\ref\Pusharoo.Contracts.dll

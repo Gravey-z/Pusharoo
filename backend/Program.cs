@@ -24,13 +24,14 @@ builder.Services.AddScoped<ProjectService>();
 builder.Services.AddScoped<ArtifactService>();
 builder.Services.AddSingleton<ArtifactValidator>();
 builder.Services.AddScoped<DeploymentService>();
+builder.Services.AddScoped<DeploymentWorkflowService>();
 builder.Services.AddHttpClient<NeoRpcClient>();
 builder.Services.AddScoped<NeoDeploymentVerificationService>();
 builder.Services.AddSingleton<NeoWalletSignatureVerifier>();
+builder.Services.AddSingleton<WalletSignatureRequestValidator>();
 builder.Services.AddSingleton<ProjectCreationSignatureValidator>();
 builder.Services.AddSingleton<ProjectManagementSignatureValidator>();
 builder.Services.AddSingleton<ProjectOwnershipService>();
-builder.Services.AddSingleton<WebhookAuthorizationNonceService>();
 builder.Services.AddSingleton<SignatureNonceService>();
 var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?.Where(origin => Uri.TryCreate(origin, UriKind.Absolute, out _))

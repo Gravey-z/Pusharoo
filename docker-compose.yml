@@ -1,8 +1,8 @@
 services:
   api:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -20,8 +20,8 @@ services:
 
   event-relay-testnet:
     build:
-      context: ./event-relay
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: event-relay/Dockerfile
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -50,8 +50,8 @@ services:
 
   event-relay-mainnet:
     build:
-      context: ./event-relay
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: event-relay/Dockerfile
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production

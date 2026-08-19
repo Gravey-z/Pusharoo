@@ -345,7 +345,7 @@ export class EventWebhooksComponent implements OnInit {
     try {
       const signedId = deliveryId ? `${subscription.id}:${deliveryId}` : subscription.id;
       await this.executeWebhookRequest(subscription.network, operation, { subscriptionId: signedId }, action);
-      this.formStatus = deliveryId ? 'Failed event redelivered.' : 'Test event sent.';
+      this.formStatus = deliveryId ? 'Failed event redelivered.' : 'Test event queued.';
       await this.loadSubscriptions(subscription.network);
       await this.showDeliveryHistory(subscription);
     } catch (error) {

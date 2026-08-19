@@ -1,6 +1,7 @@
 using backend.Models;
 using backend.Options;
 using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace backend.Services;
@@ -16,8 +17,10 @@ public sealed class MongoDbContext
         Projects = database.GetCollection<ProjectDocument>("projects");
         ContractArtifacts = database.GetCollection<ArtifactDocument>("contractArtifacts");
         Deployments = database.GetCollection<DeploymentDocument>("deployments");
-        WebhookSubscriptions = database.GetCollection<MongoDB.Bson.BsonDocument>("eventSubscriptions");
-        WebhookDeliveries = database.GetCollection<MongoDB.Bson.BsonDocument>("webhookDeliveries");
+        WebhookSubscriptions = database.GetCollection<BsonDocument>("eventSubscriptions");
+        WebhookDeliveries = database.GetCollection<BsonDocument>("webhookDeliveries");
+        WebhookDeliveryAttempts = database.GetCollection<BsonDocument>("webhookDeliveryAttempts");
+        RelayEntitlements = database.GetCollection<BsonDocument>("relayEntitlements");
         WebhookAuthorizationNonces = database.GetCollection<WebhookAuthorizationNonceDocument>("webhookAuthorizationNonces");
 
         WebhookAuthorizationNonces.Indexes.CreateOne(
@@ -48,9 +51,13 @@ public sealed class MongoDbContext
 
     public IMongoCollection<DeploymentDocument> Deployments { get; }
 
-    public IMongoCollection<MongoDB.Bson.BsonDocument> WebhookSubscriptions { get; }
+    public IMongoCollection<BsonDocument> WebhookSubscriptions { get; }
 
-    public IMongoCollection<MongoDB.Bson.BsonDocument> WebhookDeliveries { get; }
+    public IMongoCollection<BsonDocument> WebhookDeliveries { get; }
+
+    public IMongoCollection<BsonDocument> WebhookDeliveryAttempts { get; }
+
+    public IMongoCollection<BsonDocument> RelayEntitlements { get; }
 
     public IMongoCollection<WebhookAuthorizationNonceDocument> WebhookAuthorizationNonces { get; }
 }

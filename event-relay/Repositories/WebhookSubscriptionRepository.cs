@@ -86,4 +86,5 @@ public sealed class WebhookSubscriptionRepository(MongoDbContext db) : IWebhookS
         if (ids.Count > 0) await db.Subscriptions.DeleteManyAsync(filter, cancellationToken);
         return ids;
     }
+
 }

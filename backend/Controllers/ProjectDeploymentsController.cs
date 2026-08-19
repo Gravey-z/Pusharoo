@@ -8,10 +8,8 @@ namespace backend.Controllers;
 [ApiController]
 [Route("api/projects/{projectId}/deployments")]
 public sealed class ProjectDeploymentsController(
-    ProjectService projectService,
-    ArtifactService artifactService,
     DeploymentService deploymentService,
-    ProjectOwnershipService projectOwnershipService,
+    DeploymentWorkflowService deploymentWorkflow,
     NeoDeploymentVerificationService deploymentVerification) : ControllerBase
 {
     [HttpPost]
@@ -20,12 +18,6 @@ public sealed class ProjectDeploymentsController(
         CreateDeploymentRequest request,
         CancellationToken cancellationToken)
     {
-        var project = await projectService.GetByIdAsync(projectId, cancellationToken);
-        if (project is null)
-        {
-            return NotFound(new { error = "Project was not found." });
-        }
-
         if (string.IsNullOrWhiteSpace(request.ArtifactId))
         {
             return BadRequest(new { error = "Artifact is required." });
@@ -58,21 +50,12 @@ public sealed class ProjectDeploymentsController(
             }
         }
 
-        var ownershipValidation = projectOwnershipService.ValidateCanManage(project, request.DeployedBy);
-        if (!ownershipValidation.IsValid)
-        {
-            return ForbidWithError(ownershipValidation.Error);
-        }
-
-        var artifact = await artifactService.GetByIdAsync(request.ArtifactId, cancellationToken);
-        if (artifact is null || artifact.ProjectId != projectId)
-        {
-            return BadRequest(new { error = "Artifact does not belong to this project." });
-        }
+        var context = await deploymentWorkflow.LoadOwnedArtifactAsync(projectId, request.ArtifactId, request.DeployedBy, cancellationToken);
+        if (!context.IsSuccess || context.Value is null) return WorkflowFailure(context);
 
         var existingDeployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
         var verification = await deploymentVerification.VerifyAsync(
-            project,
+            context.Value.Project,
             existingDeployments,
             request,
             cancellationToken);
@@ -83,7 +66,7 @@ public sealed class ProjectDeploymentsController(
 
         try
         {
-            var deployment = await deploymentService.CreateAsync(projectId, artifact, request, null, cancellationToken);
+            var deployment = await deploymentService.CreateAsync(projectId, context.Value.Artifact, request, null, cancellationToken);
             return Created($"/api/projects/{projectId}/deployments/{deployment.Id}", deployment.ToResponse());
         }
         catch (MongoWriteException exception) when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
@@ -97,11 +80,8 @@ public sealed class ProjectDeploymentsController(
         string projectId,
         CancellationToken cancellationToken)
     {
-        var project = await projectService.GetByIdAsync(projectId, cancellationToken);
-        if (project is null)
-        {
-            return NotFound(new { error = "Project was not found." });
-        }
+        var project = await deploymentWorkflow.LoadProjectAsync(projectId, cancellationToken);
+        if (!project.IsSuccess) return WorkflowFailure(project);
 
         var deployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
         var response = deployments.Select(deployment => deployment.ToResponse()).ToArray();
@@ -115,38 +95,16 @@ public sealed class ProjectDeploymentsController(
         StartDeploymentAttemptRequest request,
         CancellationToken cancellationToken)
     {
-        var project = await projectService.GetByIdAsync(projectId, cancellationToken);
-        if (project is null)
-        {
-            return NotFound(new { error = "Project was not found." });
-        }
-
         if (string.IsNullOrWhiteSpace(request.ArtifactId) || string.IsNullOrWhiteSpace(request.Network)
             || string.IsNullOrWhiteSpace(request.DeployedBy))
         {
             return BadRequest(new { error = "Artifact, network, and wallet address are required to start a deployment." });
         }
 
-        var ownershipValidation = projectOwnershipService.ValidateCanManage(project, request.DeployedBy);
-        if (!ownershipValidation.IsValid)
-        {
-            return ForbidWithError(ownershipValidation.Error);
-        }
-
-        var artifact = await artifactService.GetByIdAsync(request.ArtifactId, cancellationToken);
-        if (artifact is null || artifact.ProjectId != projectId)
-        {
-            return BadRequest(new { error = "Artifact does not belong to this project." });
-        }
-
-        var deployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
-        var operation = deployments.Any(deployment =>
-            string.Equals(deployment.Network, request.Network.Trim(), StringComparison.Ordinal)
-            && !string.IsNullOrWhiteSpace(deployment.ContractHash)
-            && (string.IsNullOrWhiteSpace(deployment.Status) || deployment.Status == "confirmed"))
-            ? "update"
-            : "deploy";
-        var attempt = await deploymentService.StartAttemptAsync(projectId, artifact, request, operation, cancellationToken);
+        var context = await deploymentWorkflow.LoadOwnedArtifactAsync(projectId, request.ArtifactId, request.DeployedBy, cancellationToken);
+        if (!context.IsSuccess || context.Value is null) return WorkflowFailure(context);
+        var operation = await deploymentWorkflow.DetermineOperationAsync(projectId, request.Network, cancellationToken);
+        var attempt = await deploymentService.StartAttemptAsync(projectId, context.Value.Artifact, request, operation, cancellationToken);
         return Created($"/api/projects/{projectId}/deployments/{attempt.Id}", attempt.ToResponse());
     }
 
@@ -162,18 +120,9 @@ public sealed class ProjectDeploymentsController(
             return BadRequest(new { error = "Transaction ID is required." });
         }
 
-        var project = await projectService.GetByIdAsync(projectId, cancellationToken);
-        var attempt = await deploymentService.GetByIdAsync(deploymentId, cancellationToken);
-        if (project is null || attempt is null || attempt.ProjectId != projectId)
-        {
-            return NotFound(new { error = "Deployment attempt was not found." });
-        }
-
-        var ownershipValidation = projectOwnershipService.ValidateCanManage(project, request.DeployedBy);
-        if (!ownershipValidation.IsValid || !string.Equals(attempt.DeployedBy, request.DeployedBy.Trim(), StringComparison.Ordinal))
-        {
-            return ForbidWithError("Only the project owner who started this deployment can update it.");
-        }
+        var context = await deploymentWorkflow.LoadOwnedAttemptAsync(projectId, deploymentId, request.DeployedBy, "Only the project owner who started this deployment can update it.", cancellationToken);
+        if (!context.IsSuccess || context.Value is null) return WorkflowFailure(context);
+        var attempt = context.Value.Attempt;
 
         if (attempt.Status == "submitted" || attempt.Status == "confirmed")
         {
@@ -197,18 +146,10 @@ public sealed class ProjectDeploymentsController(
         ConfirmDeploymentAttemptRequest request,
         CancellationToken cancellationToken)
     {
-        var project = await projectService.GetByIdAsync(projectId, cancellationToken);
-        var attempt = await deploymentService.GetByIdAsync(deploymentId, cancellationToken);
-        if (project is null || attempt is null || attempt.ProjectId != projectId)
-        {
-            return NotFound(new { error = "Deployment attempt was not found." });
-        }
-
-        var ownershipValidation = projectOwnershipService.ValidateCanManage(project, request.DeployedBy);
-        if (!ownershipValidation.IsValid || !string.Equals(attempt.DeployedBy, request.DeployedBy.Trim(), StringComparison.Ordinal))
-        {
-            return ForbidWithError("Only the project owner who started this deployment can confirm it.");
-        }
+        var context = await deploymentWorkflow.LoadOwnedAttemptAsync(projectId, deploymentId, request.DeployedBy, "Only the project owner who started this deployment can confirm it.", cancellationToken);
+        if (!context.IsSuccess || context.Value is null) return WorkflowFailure(context);
+        var project = context.Value.Project;
+        var attempt = context.Value.Attempt;
 
         if (attempt.Status == "confirmed")
         {
@@ -256,18 +197,9 @@ public sealed class ProjectDeploymentsController(
         FailDeploymentAttemptRequest request,
         CancellationToken cancellationToken)
     {
-        var project = await projectService.GetByIdAsync(projectId, cancellationToken);
-        var attempt = await deploymentService.GetByIdAsync(deploymentId, cancellationToken);
-        if (project is null || attempt is null || attempt.ProjectId != projectId)
-        {
-            return NotFound(new { error = "Deployment attempt was not found." });
-        }
-
-        var ownershipValidation = projectOwnershipService.ValidateCanManage(project, request.DeployedBy);
-        if (!ownershipValidation.IsValid || !string.Equals(attempt.DeployedBy, request.DeployedBy.Trim(), StringComparison.Ordinal))
-        {
-            return ForbidWithError("Only the project owner who started this deployment can update it.");
-        }
+        var context = await deploymentWorkflow.LoadOwnedAttemptAsync(projectId, deploymentId, request.DeployedBy, "Only the project owner who started this deployment can update it.", cancellationToken);
+        if (!context.IsSuccess || context.Value is null) return WorkflowFailure(context);
+        var attempt = context.Value.Attempt;
 
         if (attempt.Status == "confirmed")
         {
@@ -287,12 +219,6 @@ public sealed class ProjectDeploymentsController(
         RecoverDeploymentRequest request,
         CancellationToken cancellationToken)
     {
-        var project = await projectService.GetByIdAsync(projectId, cancellationToken);
-        if (project is null)
-        {
-            return NotFound(new { error = "Project was not found." });
-        }
-
         if (string.IsNullOrWhiteSpace(request.ArtifactId)
             || string.IsNullOrWhiteSpace(request.Network)
             || string.IsNullOrWhiteSpace(request.TransactionId)
@@ -316,21 +242,12 @@ public sealed class ProjectDeploymentsController(
                 : Conflict(new { error = "The transaction ID is already recorded for another project." });
         }
 
-        var ownershipValidation = projectOwnershipService.ValidateCanManage(project, request.DeployedBy);
-        if (!ownershipValidation.IsValid)
-        {
-            return ForbidWithError(ownershipValidation.Error);
-        }
-
-        var artifact = await artifactService.GetByIdAsync(request.ArtifactId, cancellationToken);
-        if (artifact is null || artifact.ProjectId != projectId)
-        {
-            return BadRequest(new { error = "Artifact does not belong to this project." });
-        }
+        var context = await deploymentWorkflow.LoadOwnedArtifactAsync(projectId, request.ArtifactId, request.DeployedBy, cancellationToken);
+        if (!context.IsSuccess || context.Value is null) return WorkflowFailure(context);
 
         var existingDeployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
         var verification = await deploymentVerification.RecoverAsync(
-            project,
+            context.Value.Project,
             existingDeployments,
             request,
             cancellationToken);
@@ -349,7 +266,7 @@ public sealed class ProjectDeploymentsController(
 
         try
         {
-            var deployment = await deploymentService.CreateAsync(projectId, artifact, createRequest, null, cancellationToken);
+            var deployment = await deploymentService.CreateAsync(projectId, context.Value.Artifact, createRequest, null, cancellationToken);
             return Created($"/api/projects/{projectId}/deployments/{deployment.Id}", deployment.ToResponse());
         }
         catch (MongoWriteException exception) when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
@@ -358,8 +275,6 @@ public sealed class ProjectDeploymentsController(
         }
     }
 
-    private ActionResult ForbidWithError(string error)
-    {
-        return StatusCode(StatusCodes.Status403Forbidden, new { error });
-    }
+    private ActionResult WorkflowFailure<T>(DeploymentWorkflowResult<T> result)
+        => StatusCode(result.StatusCode, new { error = result.Error });
 }

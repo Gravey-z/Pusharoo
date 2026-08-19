@@ -5,11 +5,13 @@ EXPOSE 8080
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY event-relay.csproj ./
-RUN dotnet restore event-relay.csproj
+COPY shared/Pusharoo.Contracts.csproj shared/
+COPY event-relay/event-relay.csproj event-relay/
+RUN dotnet restore event-relay/event-relay.csproj
 
-COPY . .
-RUN dotnet publish event-relay.csproj -c Release -o /app/publish --no-restore
+COPY shared/ shared/
+COPY event-relay/ event-relay/
+RUN dotnet publish event-relay/event-relay.csproj -c Release -o /app/publish --no-restore
 
 FROM runtime AS final
 WORKDIR /app

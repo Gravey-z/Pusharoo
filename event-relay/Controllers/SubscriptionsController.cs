@@ -60,9 +60,12 @@ public sealed class SubscriptionsController(
             return authorization;
         }
         var items = await subscriptions.GetByProjectIdAsync(projectId, cancellationToken);
-        var response = await Task.WhenAll(items.Select(async subscription => ToResponse(
+        var latestDeliveries = await deliveries.GetLatestBySubscriptionIdsAsync(
+            items.Select(subscription => subscription.Id).ToArray(),
+            cancellationToken);
+        var response = items.Select(subscription => ToResponse(
             subscription,
-            await deliveries.GetLatestBySubscriptionAsync(subscription.Id, cancellationToken))));
+            latestDeliveries.GetValueOrDefault(subscription.Id))).ToArray();
 
         return Ok(response);
     }
@@ -268,8 +271,8 @@ public sealed class SubscriptionsController(
         var authorization = await AuthorizeAsync(projectId, "deliveries.test",
             WebhookManagementRequestHasher.Hash(projectId, "deliveries.test", subscriptionId), request.Signature, cancellationToken);
         if (authorization is not null) return authorization;
-        await webhookDelivery.DeliverTestAsync(subscription, cancellationToken);
-        return Ok(await deliveries.GetLatestBySubscriptionAsync(subscriptionId, cancellationToken));
+        var delivery = await webhookDelivery.QueueTestAsync(subscription, cancellationToken);
+        return Accepted(delivery);
     }
 
     [HttpPost("{subscriptionId}/deliveries/{deliveryId}/redeliver")]
