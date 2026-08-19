@@ -18,7 +18,7 @@ services:
     depends_on:
       - mongo
 
-  event-relay:
+  event-relay-testnet:
     build:
       context: ./event-relay
       dockerfile: Dockerfile
@@ -28,8 +28,8 @@ services:
       ASPNETCORE_URLS: http://+:8080
       MongoDb__ConnectionString: mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongo:27017/?authSource=admin
       MongoDb__DatabaseName: ${MONGO_DATABASE:-Pusharoo}
-      NeoRpc__Endpoint: ${PUSHAROO_RELAY_RPC_URL:-https://mainnet1.neo.coz.io:443}
-      NeoRpc__Network: ${PUSHAROO_RELAY_NETWORK:-neo3:mainnet}
+      NeoRpc__Endpoint: ${PUSHAROO_TESTNET_RPC_URL:-https://testnet1.neo.coz.io:443}
+      NeoRpc__Network: neo3:testnet
       NeoRpc__PollIntervalSeconds: ${PUSHAROO_RELAY_POLL_INTERVAL_SECONDS:-15}
       NeoRpc__MaxBlocksPerPoll: ${PUSHAROO_RELAY_MAX_BLOCKS_PER_POLL:-10}
       PusharooApi__Endpoint: http://api:8080
@@ -40,7 +40,28 @@ services:
       - mongo
       - api
     volumes:
-      - event-relay-data:/var/lib/pusharoo/data-protection
+      - event-relay-testnet-data:/var/lib/pusharoo/data-protection
+
+  event-relay-mainnet:
+    build:
+      context: ./event-relay
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      MongoDb__ConnectionString: mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongo:27017/?authSource=admin
+      MongoDb__DatabaseName: ${MONGO_DATABASE:-Pusharoo}
+      NeoRpc__Endpoint: ${PUSHAROO_MAINNET_RPC_URL:-https://mainnet1.neo.coz.io:443}
+      NeoRpc__Network: neo3:mainnet
+      NeoRpc__PollIntervalSeconds: ${PUSHAROO_RELAY_POLL_INTERVAL_SECONDS:-15}
+      NeoRpc__MaxBlocksPerPoll: ${PUSHAROO_RELAY_MAX_BLOCKS_PER_POLL:-10}
+      PusharooApi__Endpoint: http://api:8080
+      DataProtection__KeyRingPath: /var/lib/pusharoo/data-protection
+    expose: ["8080"]
+    depends_on: [mongo, api]
+    volumes:
+      - event-relay-mainnet-data:/var/lib/pusharoo/data-protection
 
   frontend:
     build:
@@ -49,8 +70,10 @@ services:
     restart: unless-stopped
     environment:
       PUSHAROO_API_BASE_URL: /api
-      PUSHAROO_EVENT_RELAY_BASE_URL: /relay/api
-      PUSHAROO_EVENT_RELAY_HEALTH_URL: /relay/health
+      PUSHAROO_TESTNET_EVENT_RELAY_BASE_URL: /relay/testnet/api
+      PUSHAROO_TESTNET_EVENT_RELAY_HEALTH_URL: /relay/testnet/health
+      PUSHAROO_MAINNET_EVENT_RELAY_BASE_URL: /relay/mainnet/api
+      PUSHAROO_MAINNET_EVENT_RELAY_HEALTH_URL: /relay/mainnet/health
       PUSHAROO_DEFAULT_NETWORK: ${PUSHAROO_DEFAULT_NETWORK:-neo3:testnet}
       PUSHAROO_WALLETCONNECT_PROJECT_ID: ${PUSHAROO_WALLETCONNECT_PROJECT_ID}
       PUSHAROO_TESTNET_CONTRACT_MANAGEMENT_HASH: ${PUSHAROO_TESTNET_CONTRACT_MANAGEMENT_HASH:-0xfffdc93764dbaddd97c48f252a53ea4643faa3fd}
@@ -59,7 +82,8 @@ services:
       PUSHAROO_MAINNET_RPC_URL: ${PUSHAROO_MAINNET_RPC_URL:-https://mainnet1.neo.coz.io:443}
     depends_on:
       - api
-      - event-relay
+      - event-relay-testnet
+      - event-relay-mainnet
     ports:
       - "${PUSHAROO_HTTP_PORT:-8080}:80"
 
@@ -74,4 +98,5 @@ services:
 
 volumes:
   mongo-data:
-  event-relay-data:
+  event-relay-testnet-data:
+  event-relay-mainnet-data:

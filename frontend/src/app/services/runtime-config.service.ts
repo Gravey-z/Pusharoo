@@ -5,6 +5,7 @@ export interface RuntimeConfig {
   apiBaseUrl: string;
   eventRelayBaseUrl: string;
   eventRelayHealthUrl: string;
+  eventRelays?: Record<string, { baseUrl: string; healthUrl: string }>;
   wallet: {
     network: string;
     walletConnectProjectId: string;
