@@ -23,6 +23,12 @@ public sealed class WebhookDeliveryService(
         ObservedNeoEvent observedEvent,
         CancellationToken cancellationToken)
     {
+        var idempotencyKey = $"{subscription.Id}:{observedEvent.Id}";
+        if (await deliveries.ExistsAsync(idempotencyKey, cancellationToken))
+        {
+            logger.LogDebug("Skipping duplicate webhook delivery {IdempotencyKey}.", idempotencyKey);
+            return;
+        }
         var deliveryId = Guid.NewGuid().ToString("n");
         var payload = new WebhookPayload(
             deliveryId,
@@ -36,8 +42,8 @@ public sealed class WebhookDeliveryService(
             observedEvent.ObservedAt);
 
         var json = JsonSerializer.Serialize(payload, JsonOptions);
-        await DeliverPayloadAsync(subscription, deliveryId, observedEvent.Id, json, observedEvent.Network,
-            observedEvent.ContractHash, observedEvent.EventName, cancellationToken);
+        await DeliverWithRetriesAsync(subscription, deliveryId, observedEvent.Id, json, observedEvent.Network,
+            observedEvent.ContractHash, observedEvent.EventName, idempotencyKey, cancellationToken);
     }
 
     public async Task DeliverTestAsync(WebhookSubscriptionDocument subscription, CancellationToken cancellationToken)
@@ -46,8 +52,8 @@ public sealed class WebhookDeliveryService(
         var payload = new WebhookPayload(deliveryId, subscription.Id, subscription.Network, 0,
             "test-event", subscription.ContractHash, subscription.EventName ?? "Pusharoo.Test",
             JsonSerializer.SerializeToElement(new { test = true, message = "Pusharoo test delivery" }), DateTime.UtcNow);
-        await DeliverPayloadAsync(subscription, deliveryId, $"test-{deliveryId}", JsonSerializer.Serialize(payload, JsonOptions),
-            subscription.Network, subscription.ContractHash, subscription.EventName ?? "Pusharoo.Test", cancellationToken);
+        await DeliverWithRetriesAsync(subscription, deliveryId, $"test-{deliveryId}", JsonSerializer.Serialize(payload, JsonOptions),
+            subscription.Network, subscription.ContractHash, subscription.EventName ?? "Pusharoo.Test", $"test:{deliveryId}", cancellationToken);
     }
 
     public async Task RedeliverAsync(WebhookSubscriptionDocument subscription, WebhookDeliveryDocument original, CancellationToken cancellationToken)
@@ -58,12 +64,28 @@ public sealed class WebhookDeliveryService(
         }
 
         var deliveryId = Guid.NewGuid().ToString("n");
-        await DeliverPayloadAsync(subscription, deliveryId, original.EventId, original.PayloadJson,
-            subscription.Network, subscription.ContractHash, "redelivery", cancellationToken);
+        await DeliverWithRetriesAsync(subscription, deliveryId, original.EventId, original.PayloadJson,
+            subscription.Network, subscription.ContractHash, "redelivery", $"redelivery:{deliveryId}", cancellationToken);
     }
 
-    private async Task DeliverPayloadAsync(WebhookSubscriptionDocument subscription, string deliveryId, string eventId,
-        string json, string network, string contractHash, string eventName, CancellationToken cancellationToken)
+    private async Task DeliverWithRetriesAsync(WebhookSubscriptionDocument subscription, string deliveryId, string eventId,
+        string json, string network, string contractHash, string eventName, string idempotencyKey, CancellationToken cancellationToken)
+    {
+        var attempts = Math.Max(1, _options.WebhookMaxAttempts);
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            if (await DeliverPayloadAsync(subscription, deliveryId, eventId, json, network, contractHash, eventName,
+                idempotencyKey, attempt, attempt == attempts, cancellationToken)) return;
+            if (attempt < attempts)
+            {
+                var delay = Math.Pow(2, attempt - 1) * Math.Max(1, _options.WebhookRetryBaseSeconds);
+                await Task.Delay(TimeSpan.FromSeconds(delay + Random.Shared.NextDouble()), cancellationToken);
+            }
+        }
+    }
+
+    private async Task<bool> DeliverPayloadAsync(WebhookSubscriptionDocument subscription, string deliveryId, string eventId,
+        string json, string network, string contractHash, string eventName, string idempotencyKey, int attempt, bool finalAttempt, CancellationToken cancellationToken)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(Math.Max(1, _options.WebhookTimeoutSeconds)));
@@ -97,7 +119,9 @@ public sealed class WebhookDeliveryService(
             using var response = await httpClient.SendAsync(request, timeout.Token);
             statusCode = (int)response.StatusCode;
 
-            await RecordAsync(statusCode.Value is >= 200 and <= 299, null, statusCode, cancellationToken);
+            var succeeded = statusCode.Value is >= 200 and <= 299;
+            if (succeeded || finalAttempt) await RecordAsync(succeeded, null, statusCode, cancellationToken);
+            return succeeded;
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -108,7 +132,8 @@ public sealed class WebhookDeliveryService(
                 deliveryId,
                 subscription.Id);
 
-            await RecordAsync(false, error, statusCode, cancellationToken);
+            if (finalAttempt) await RecordAsync(false, error, statusCode, cancellationToken);
+            return false;
         }
 
         async Task RecordAsync(bool succeeded, string? failure, int? code, CancellationToken recordCancellationToken)
@@ -125,6 +150,9 @@ public sealed class WebhookDeliveryService(
                     Error = failure,
                     DeliveredAt = DateTime.UtcNow,
                     PayloadJson = json
+                    , IdempotencyKey = idempotencyKey
+                    , AttemptCount = attempt
+                    , Status = succeeded ? "succeeded" : "dead_letter"
                 },
                 recordCancellationToken);
 

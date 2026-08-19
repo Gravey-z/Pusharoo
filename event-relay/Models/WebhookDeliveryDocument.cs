@@ -33,4 +33,16 @@ public sealed class WebhookDeliveryDocument
     [BsonElement("payloadJson")]
     [JsonIgnore]
     public string? PayloadJson { get; init; }
+
+    [BsonElement("idempotencyKey")]
+    public string IdempotencyKey { get; init; } = string.Empty;
+
+    [BsonElement("status")]
+    public string Status { get; init; } = "succeeded";
+
+    [BsonElement("attemptCount")]
+    public int AttemptCount { get; init; } = 1;
+
+    [BsonElement("latencyMilliseconds")]
+    public long? LatencyMilliseconds { get; init; }
 }

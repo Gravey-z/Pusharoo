@@ -15,6 +15,9 @@ public sealed class MongoDbContext
 
         Subscriptions = database.GetCollection<WebhookSubscriptionDocument>("eventSubscriptions");
         Deliveries = database.GetCollection<WebhookDeliveryDocument>("webhookDeliveries");
+        Deliveries.Indexes.CreateOne(new CreateIndexModel<WebhookDeliveryDocument>(
+            Builders<WebhookDeliveryDocument>.IndexKeys.Ascending(delivery => delivery.IdempotencyKey),
+            new CreateIndexOptions { Unique = true, Sparse = true }));
         Checkpoints = database.GetCollection<EventCheckpointDocument>("eventCheckpoints");
     }
 

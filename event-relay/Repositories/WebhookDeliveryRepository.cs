@@ -36,4 +36,7 @@ public sealed class WebhookDeliveryRepository(MongoDbContext db) : IWebhookDeliv
     {
         return await db.Deliveries.Find(delivery => delivery.Id == deliveryId).FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<bool> ExistsAsync(string idempotencyKey, CancellationToken cancellationToken)
+        => await db.Deliveries.Find(delivery => delivery.IdempotencyKey == idempotencyKey).AnyAsync(cancellationToken);
 }

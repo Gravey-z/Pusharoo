@@ -15,4 +15,6 @@ public interface IWebhookDeliveryRepository
         CancellationToken cancellationToken);
 
     Task<WebhookDeliveryDocument?> GetByIdAsync(string deliveryId, CancellationToken cancellationToken);
+
+    Task<bool> ExistsAsync(string idempotencyKey, CancellationToken cancellationToken);
 }
