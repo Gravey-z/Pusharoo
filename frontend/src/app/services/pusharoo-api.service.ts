@@ -28,10 +28,14 @@ import { RuntimeConfigService } from './runtime-config.service';
 
 @Injectable({ providedIn: 'root' })
 export class PusharooApiService {
+  private webhookRelayNetwork = '';
   private get apiBaseUrl(): string { return this.runtimeConfig.value.apiBaseUrl.replace(/\/$/, ''); }
-  private get eventRelayBaseUrl(): string { return this.runtimeConfig.value.eventRelayBaseUrl.replace(/\/$/, ''); }
+  private get eventRelayBaseUrl(): string { return (this.runtimeConfig.value.eventRelays?.[this.webhookRelayNetwork]?.baseUrl ?? this.runtimeConfig.value.eventRelayBaseUrl).replace(/\/$/, ''); }
+  private get eventRelayHealthUrl(): string { return this.runtimeConfig.value.eventRelays?.[this.webhookRelayNetwork]?.healthUrl ?? this.runtimeConfig.value.eventRelayHealthUrl; }
 
   constructor(private readonly http: HttpClient, private readonly runtimeConfig: RuntimeConfigService) {}
+
+  setWebhookRelayNetwork(network: string): void { this.webhookRelayNetwork = network; }
 
   getProjectCards(): Observable<ProjectCardViewModel[]> {
     return this.http.get<Project[]>(`${this.apiBaseUrl}/projects`).pipe(
@@ -175,7 +179,7 @@ export class PusharooApiService {
   }
 
   getEventRelayStatus(): Observable<EventRelayStatus> {
-    return this.http.get<EventRelayStatus>(this.runtimeConfig.value.eventRelayHealthUrl);
+    return this.http.get<EventRelayStatus>(this.eventRelayHealthUrl);
   }
 
   createWebhookSubscription(

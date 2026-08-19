@@ -18,6 +18,10 @@ const defaultConfig: RuntimeConfig = {
   apiBaseUrl: 'http://localhost:5000/api',
   eventRelayBaseUrl: 'http://localhost:5001/api',
   eventRelayHealthUrl: 'http://localhost:5001/health',
+  eventRelays: {
+    'neo3:testnet': { baseUrl: 'http://localhost:5001/api', healthUrl: 'http://localhost:5001/health' },
+    'neo3:mainnet': { baseUrl: 'http://localhost:5002/api', healthUrl: 'http://localhost:5002/health' }
+  },
   wallet: {
     network: defaultWalletConfig.network,
     walletConnectProjectId: defaultWalletConfig.walletConnectProjectId,

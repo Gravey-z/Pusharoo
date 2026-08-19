@@ -253,12 +253,12 @@ export class EventWebhooksComponent implements OnInit {
   private async load(): Promise<void> {
     try {
       this.overview = await firstValueFrom(this.api.getProjectOverview(this.projectId));
-      const relayStatus = await firstValueFrom(this.api.getEventRelayStatus());
-      this.relayNetwork = relayStatus.network;
-      this.deploymentOptions = this.toDeploymentOptions(this.overview?.deployments ?? [])
-        .filter((deployment) => deployment.network === this.relayNetwork);
+      this.deploymentOptions = this.toDeploymentOptions(this.overview?.deployments ?? []);
       this.contractHash = this.deploymentOptions[0]?.contractHash ?? '';
       this.selectDeployment();
+      if (this.selectedDeployment) {
+        this.relayNetwork = (await firstValueFrom(this.api.getEventRelayStatus())).network;
+      }
 
       // Listing subscriptions is wallet-authorized. Do not prompt for a signature
       // when this project has nothing deployed on the network the relay monitors.
@@ -351,6 +351,10 @@ export class EventWebhooksComponent implements OnInit {
   }
 
   selectDeployment(): void {
+    if (this.selectedDeployment) {
+      this.api.setWebhookRelayNetwork(this.selectedDeployment.network);
+      this.relayNetwork = this.selectedDeployment.network;
+    }
     this.eventOptions = this.selectedDeployment?.artifact.manifest.abi.events
       .map((event) => event.name) ?? [];
     this.eventName = this.eventOptions[0] ?? '';
