@@ -79,11 +79,18 @@
 }
 
 .relay-plan .relay-plan-status { color: var(--ink); }
+.relay-plan .relay-plan-warning { color: var(--danger); }
+.relay-plan > .secondary-button { margin-left: auto; }
+.payment-status,
+.payment-error { margin: -6px 0 16px; font-size: 13px; font-weight: 650; }
+.payment-status { color: var(--accent); }
+.payment-error { color: var(--danger); }
 
 .payment-history { overflow: hidden; }
 .payment-history h2 { padding: 13px 16px; border-bottom: 1px solid var(--line); }
 .payment-history div { display: grid; grid-template-columns: minmax(150px, .8fr) 120px 1fr; gap: 12px; padding: 11px 16px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 .payment-history div:last-child { border-bottom: 0; }
+.pending-payments div { grid-template-columns: minmax(190px, 1fr) 170px minmax(220px, 1fr) auto; align-items: center; }
 .active-network { border-color: var(--accent) !important; color: var(--accent) !important; }
 .relay-statuses span { border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; color: var(--muted); font-size: 12px; }
 .relay-statuses .ok { color: var(--sage); border-color: rgba(21, 244, 200, .32); }
@@ -310,5 +317,7 @@ select {
 
 @media (max-width: 620px) {
   .relay-plan { align-items: stretch; flex-direction: column; }
-  .payment-history div { grid-template-columns: 1fr; }
+  .relay-plan > .secondary-button { margin-left: 0; }
+  .payment-history div,
+  .pending-payments div { grid-template-columns: 1fr; }
 }

@@ -14,7 +14,8 @@ import {
   WalletActionSignature,
   WebhookSubscription,
   RelayUsage,
-  RelayPaymentHistory
+  RelayPaymentHistory,
+  RelayPaymentIntent
 } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
@@ -41,7 +42,7 @@ export class EventWebhooksComponent implements OnInit {
   overview: ProjectOverviewViewModel | null = null;
   subscriptions: WebhookSubscription[] = [];
   readonly subscriptionsByNetwork: Record<string, WebhookSubscription[]> = {};
-  deploymentOptions: DeploymentOption[] = [];
+  private allDeploymentOptions: DeploymentOption[] = [];
   eventOptions: string[] = [];
   relayNetwork = '';
   webhookNetwork = 'neo3:testnet';
@@ -49,6 +50,8 @@ export class EventWebhooksComponent implements OnInit {
   readonly relayUsageByNetwork: Record<string, RelayUsage> = {};
   paymentHistory: RelayPaymentHistory | null = null;
   renewingRelay = false;
+  payingIntentId = '';
+  resumingIntentId = '';
   projectId = '';
   name = '';
   contractHash = '';
@@ -91,6 +94,10 @@ export class EventWebhooksComponent implements OnInit {
 
   get selectedDeployment(): DeploymentOption | null {
     return this.deploymentOptions.find((deployment) => deployment.contractHash === this.contractHash) ?? null;
+  }
+
+  get deploymentOptions(): DeploymentOption[] {
+    return this.allDeploymentOptions.filter((deployment) => deployment.network === this.webhookNetwork);
   }
 
   get canManageProject(): boolean {
@@ -257,15 +264,33 @@ export class EventWebhooksComponent implements OnInit {
       return;
     }
     const account = this.wallet.account();
-    if (!account) {
-      this.errorMessage = 'Connect the project owner wallet on Neo MainNet before renewing.';
+    if (!account || this.wallet.session()?.network !== 'neo3:mainnet') {
+      this.errorMessage = 'Connect the project owner wallet on N3:Mainnet before renewing.';
       return;
     }
     this.renewingRelay = true;
     try {
       const intentHash = await this.api.getPaymentIntentRequestHash(this.projectId);
       const intentSignature = await this.wallet.signWebhookAdministration(this.projectId, 'payments.create', intentHash);
-      const intent = await firstValueFrom(this.api.createRelayPaymentIntent(this.projectId, intentSignature));
+      await firstValueFrom(this.api.createRelayPaymentIntent(this.projectId, intentSignature));
+      await this.loadPaymentHistory();
+      this.formStatus = 'Payment intent created. Review the recipient and amount, then approve the GAS transfer in your wallet.';
+    } catch (error) {
+      this.errorMessage = this.errors.format(error, 'Could not create a Relay payment intent.');
+    } finally {
+      this.renewingRelay = false;
+    }
+  }
+
+  async payRelayIntent(intent: RelayPaymentIntent): Promise<void> {
+    const account = this.wallet.account();
+    if (!account || this.wallet.session()?.network !== 'neo3:mainnet') {
+      this.errorMessage = 'Connect the project owner wallet on N3:Mainnet before approving this payment.';
+      return;
+    }
+    this.errorMessage = '';
+    this.payingIntentId = intent.id;
+    try {
       const transactionId = await this.wallet.invokeContract(
         'neo3:mainnet',
         '0xd2a4cff31913016155e38e474a2c06d08be276cf',
@@ -280,14 +305,44 @@ export class EventWebhooksComponent implements OnInit {
       );
       const confirmation = await this.confirmPayment(intent.id, transactionId);
       this.formStatus = confirmation.status === 'confirmed'
-        ? `Relay renewed until ${new Date(confirmation.entitlementEndsAt ?? '').toLocaleDateString()}.`
-        : confirmation.message ?? 'Payment submitted. Relay access will renew once MainNet finality is reached.';
+        ? `Relay renewed until ${new Date(confirmation.entitlementEndsAt ?? '').toLocaleDateString('en-GB')}.`
+        : confirmation.message ?? 'Payment submitted. Relay access will renew once N3:Mainnet finality is reached.';
       await Promise.all([this.loadUsage('neo3:testnet'), this.loadUsage('neo3:mainnet'), this.loadPaymentHistory()]);
     } catch (error) {
-      this.errorMessage = this.errors.format(error, 'Could not renew Relay access.');
+      this.errorMessage = this.errors.format(error, 'Could not submit the Relay payment.');
     } finally {
-      this.renewingRelay = false;
+      this.payingIntentId = '';
     }
+  }
+
+  async resumeRelayPayment(intent: RelayPaymentIntent): Promise<void> {
+    if (!intent.submittedTransactionId) return;
+    this.errorMessage = '';
+    this.resumingIntentId = intent.id;
+    try {
+      const confirmation = await this.confirmPayment(intent.id, intent.submittedTransactionId);
+      this.formStatus = confirmation.status === 'confirmed'
+        ? `Relay renewed until ${new Date(confirmation.entitlementEndsAt ?? '').toLocaleDateString('en-GB')}.`
+        : confirmation.message ?? 'Payment is still waiting for N3:Mainnet finality.';
+      await Promise.all([this.loadUsage('neo3:testnet'), this.loadUsage('neo3:mainnet'), this.loadPaymentHistory()]);
+    } catch (error) {
+      this.errorMessage = this.errors.format(error, 'Could not confirm the submitted Relay payment.');
+    } finally {
+      this.resumingIntentId = '';
+    }
+  }
+
+  async showPaymentHistory(): Promise<void> {
+    this.errorMessage = '';
+    try {
+      await this.loadPaymentHistory();
+    } catch (error) {
+      this.errorMessage = this.errors.format(error, 'Could not load Relay payment history.');
+    }
+  }
+
+  gasAmount(datoshis: number): string {
+    return (datoshis / 100000000).toLocaleString(undefined, { maximumFractionDigits: 8 });
   }
 
   eventLabel(subscription: WebhookSubscription): string {
@@ -302,10 +357,14 @@ export class EventWebhooksComponent implements OnInit {
     return value.length > 17 ? `${value.slice(0, 10)}...${value.slice(-4)}` : value;
   }
 
+  networkLabel(network: string): string {
+    return this.wallet.networkLabel(network);
+  }
+
   private async load(): Promise<void> {
     try {
       this.overview = await firstValueFrom(this.api.getProjectOverview(this.projectId));
-      this.deploymentOptions = this.toDeploymentOptions(this.overview?.deployments ?? []);
+      this.allDeploymentOptions = this.toDeploymentOptions(this.overview?.deployments ?? []);
       this.contractHash = this.deploymentOptions[0]?.contractHash ?? '';
       this.selectDeployment();
       await Promise.all(['neo3:testnet', 'neo3:mainnet'].map(async (network) => {
@@ -321,6 +380,9 @@ export class EventWebhooksComponent implements OnInit {
 
       await this.loadSubscriptions();
       await this.loadUsage(this.relayNetwork);
+      if (this.relayNetwork !== 'neo3:mainnet') {
+        await this.loadUsage('neo3:mainnet');
+      }
       if (this.api.hasWebhookSession(this.projectId, 'neo3:mainnet')) {
         await this.loadPaymentHistory();
       }
@@ -431,6 +493,14 @@ export class EventWebhooksComponent implements OnInit {
   async selectWebhookNetwork(network: string): Promise<void> {
     this.webhookNetwork = network;
     this.useRelay(network);
+    this.contractHash = this.deploymentOptions[0]?.contractHash ?? '';
+    this.eventOptions = [];
+    this.eventName = '';
+    this.editingSubscriptionId = '';
+    this.secret = '';
+    if (this.contractHash) {
+      this.selectDeployment();
+    }
     this.subscriptions = this.subscriptionsByNetwork[network] ?? [];
     if (!this.subscriptionsByNetwork[network] && this.deploymentOptions.some((item) => item.network === network)) {
       await this.loadSubscriptions(network);
@@ -473,7 +543,7 @@ export class EventWebhooksComponent implements OnInit {
         const artifact = this.overview?.artifacts.find((item) => item.id === deployment.artifactId);
         return artifact
           ? {
-              label: `${deployment.network} - ${deployment.version}`,
+              label: `${this.networkLabel(deployment.network)} - ${deployment.version}`,
               contractHash: deployment.contractHash ?? '',
               network: deployment.network,
               artifact

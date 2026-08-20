@@ -215,6 +215,7 @@ export interface RelayPaymentIntent {
   createdAt: string;
   expiresAt: string;
   confirmedTransactionId?: string | null;
+  submittedTransactionId?: string | null;
 }
 
 export interface RelayPayment {
@@ -233,7 +234,7 @@ export interface RelayEntitlementHistory {
   graceEndsAt: string;
 }
 
-export interface RelayPaymentHistory { payments: RelayPayment[]; entitlements: RelayEntitlementHistory[]; }
+export interface RelayPaymentHistory { payments: RelayPayment[]; entitlements: RelayEntitlementHistory[]; pendingIntents: RelayPaymentIntent[]; }
 
 export interface ProjectCardViewModel {
   project: Project;

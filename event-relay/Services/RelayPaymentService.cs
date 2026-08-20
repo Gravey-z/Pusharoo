@@ -24,13 +24,13 @@ public sealed class RelayPaymentService(
 
     public async Task<PaymentIntentResponse> CreateIntentAsync(string projectId, WalletSignatureRequest signature, CancellationToken ct)
     {
-        EnsureAvailable();
+        var recipientScriptHash = GetRecipientScriptHash();
         var now = DateTime.UtcNow;
         var intent = new RelayPaymentIntentDocument
         {
             Id = Guid.NewGuid().ToString("n"), ProjectId = projectId.Trim(), PayerAddress = signature.Address.Trim(),
             PayerScriptHash = NormalizeHash(signature.ScriptHash), RecipientAddress = settings.PaymentRecipientAddress.Trim(),
-            RecipientScriptHash = NormalizeHash(settings.PaymentRecipientScriptHash), RequiredGasDatoshis = settings.PaidPlanGasDatoshis,
+            RecipientScriptHash = recipientScriptHash, RequiredGasDatoshis = settings.PaidPlanGasDatoshis,
             CreatedAt = now, ExpiresAt = now.AddMinutes(settings.PaymentIntentMinutes)
         };
         await db.PaymentIntents.InsertOneAsync(intent, cancellationToken: ct);
@@ -43,7 +43,7 @@ public sealed class RelayPaymentService(
         var intent = await db.PaymentIntents.Find(x => x.Id == intentId && x.ProjectId == projectId).FirstOrDefaultAsync(ct);
         if (intent is null) throw new PaymentValidationException("Payment intent was not found.", 404);
         if (intent.Status == "confirmed") return new PaymentResponse(intent.ConfirmedTransactionId ?? string.Empty, intent.Id, "confirmed", await PaidUntilAsync(projectId, ct));
-        if (intent.Status != "pending") throw new PaymentValidationException("This payment intent is no longer usable.", 409);
+        if (intent.Status is not ("pending" or "awaiting_finality")) throw new PaymentValidationException("This payment intent is no longer usable.", 409);
         if (intent.ExpiresAt <= DateTime.UtcNow)
         {
             await db.PaymentIntents.UpdateOneAsync(x => x.Id == intent.Id, Builders<RelayPaymentIntentDocument>.Update.Set(x => x.Status, "expired"), cancellationToken: ct);
@@ -51,6 +51,28 @@ public sealed class RelayPaymentService(
         }
 
         var normalizedTransactionId = NormalizeTransactionId(transactionId);
+        if (!string.IsNullOrWhiteSpace(intent.SubmittedTransactionId)
+            && !string.Equals(intent.SubmittedTransactionId, normalizedTransactionId, StringComparison.Ordinal))
+            throw new PaymentValidationException("This payment intent is already associated with another transaction.", 409);
+        try
+        {
+            var association = await db.PaymentIntents.UpdateOneAsync(
+                Builders<RelayPaymentIntentDocument>.Filter.And(
+                    Builders<RelayPaymentIntentDocument>.Filter.Eq(item => item.Id, intent.Id),
+                    Builders<RelayPaymentIntentDocument>.Filter.Or(
+                        Builders<RelayPaymentIntentDocument>.Filter.Eq(item => item.SubmittedTransactionId, null),
+                        Builders<RelayPaymentIntentDocument>.Filter.Eq(item => item.SubmittedTransactionId, normalizedTransactionId))),
+                Builders<RelayPaymentIntentDocument>.Update
+                    .Set(item => item.SubmittedTransactionId, normalizedTransactionId)
+                    .Set(item => item.SubmittedAt, DateTime.UtcNow),
+                cancellationToken: ct);
+            if (association.MatchedCount != 1)
+                throw new PaymentValidationException("This payment intent is already associated with another transaction.", 409);
+        }
+        catch (MongoWriteException)
+        {
+            throw new PaymentValidationException("This transaction is already associated with another payment intent.", 409);
+        }
         var claimed = await db.Payments.Find(x => x.Id == normalizedTransactionId).FirstOrDefaultAsync(ct);
         if (claimed is not null)
         {
@@ -64,11 +86,16 @@ public sealed class RelayPaymentService(
         var raw = await neoRpc.GetRawTransactionAsync(normalizedTransactionId, ct);
         var confirmations = ReadUInt(raw, "confirmations");
         if (confirmations < Math.Max(1, settings.PaymentConfirmationBlocks))
+        {
+            await db.PaymentIntents.UpdateOneAsync(item => item.Id == intent.Id, Builders<RelayPaymentIntentDocument>.Update.Set(item => item.Status, "awaiting_finality"), cancellationToken: ct);
             return new PaymentResponse(normalizedTransactionId, intent.Id, "awaiting_finality", null, $"Waiting for {Math.Max(1, settings.PaymentConfirmationBlocks)} MainNet confirmations.");
+        }
         var log = await neoRpc.GetApplicationLogAsync(normalizedTransactionId, ct);
-        if (!HasHalt(log)) throw new PaymentValidationException("The transaction did not complete successfully on MainNet.", 409);
-        if (!TryFindGasTransfer(log, intent.PayerScriptHash, intent.RecipientScriptHash, intent.RequiredGasDatoshis, out var amount))
+        if (!TryFindVerifiedGasTransfer(log, intent.PayerScriptHash, intent.RecipientScriptHash, intent.RequiredGasDatoshis, out var amount))
+        {
+            await db.PaymentIntents.UpdateOneAsync(item => item.Id == intent.Id, Builders<RelayPaymentIntentDocument>.Update.Set(item => item.Status, "rejected").Set(item => item.RejectionReason, "The transaction did not contain a successful required GAS transfer."), cancellationToken: ct);
             throw new PaymentValidationException("The confirmed transaction does not contain the required GAS transfer from this wallet.", 409);
+        }
 
         var payment = new RelayPaymentDocument
         {
@@ -88,11 +115,17 @@ public sealed class RelayPaymentService(
 
     public async Task<PaymentHistoryResponse> HistoryAsync(string projectId, CancellationToken ct)
     {
+        await db.PaymentIntents.UpdateManyAsync(
+            item => item.ProjectId == projectId && (item.Status == "pending" || item.Status == "awaiting_finality") && item.ExpiresAt <= DateTime.UtcNow,
+            Builders<RelayPaymentIntentDocument>.Update.Set(item => item.Status, "expired"),
+            cancellationToken: ct);
         var payments = await db.Payments.Find(x => x.ProjectId == projectId).SortByDescending(x => x.VerifiedAt).Limit(25).ToListAsync(ct);
         var history = await db.EntitlementHistory.Find(x => x.ProjectId == projectId).SortByDescending(x => x.CreatedAt).Limit(50).ToListAsync(ct);
+        var pending = await db.PaymentIntents.Find(x => x.ProjectId == projectId && (x.Status == "pending" || x.Status == "awaiting_finality")).SortByDescending(x => x.CreatedAt).Limit(10).ToListAsync(ct);
         return new PaymentHistoryResponse(
             payments.Select(x => new PaymentResponse(x.Id, x.IntentId, "confirmed", x.EntitlementEndsAt)).ToArray(),
-            history.Select(x => new EntitlementHistoryResponse(x.Network, x.Plan, x.PeriodStart, x.PeriodEndsAt, x.GraceEndsAt)).ToArray());
+            history.Select(x => new EntitlementHistoryResponse(x.Network, x.Plan, x.PeriodStart, x.PeriodEndsAt, x.GraceEndsAt)).ToArray(),
+            pending.Select(ToResponse).ToArray());
     }
 
     private async Task<DateTime?> PaidUntilAsync(string projectId, CancellationToken ct) => (await entitlements.GetAsync(projectId, "neo3:mainnet", ct)).PaidUntil;
@@ -100,15 +133,24 @@ public sealed class RelayPaymentService(
     private void EnsureAvailable()
     {
         if (!IsMainNet) throw new PaymentValidationException("Payments are available from the MainNet relay only.", 404);
-        if (!IsScriptHash(settings.PaymentRecipientScriptHash) || !AddressMatchesScriptHash(settings.PaymentRecipientAddress, settings.PaymentRecipientScriptHash) || settings.PaidPlanGasDatoshis <= 0)
+        if (!TryGetScriptHashFromAddress(settings.PaymentRecipientAddress, out _) || settings.PaidPlanGasDatoshis <= 0)
             throw new PaymentValidationException("Paid Relay is not configured yet. Set the MainNet payment recipient before launching payments.", 503);
     }
 
-    private static PaymentIntentResponse ToResponse(RelayPaymentIntentDocument intent) => new(intent.Id, intent.ProjectId, intent.Network, intent.RecipientAddress, intent.RecipientScriptHash, intent.RequiredGasDatoshis, intent.Status, intent.CreatedAt, intent.ExpiresAt, intent.ConfirmedTransactionId);
+    private string GetRecipientScriptHash()
+    {
+        EnsureAvailable();
+        return TryGetScriptHashFromAddress(settings.PaymentRecipientAddress, out var scriptHash)
+            ? scriptHash
+            : throw new PaymentValidationException("Paid Relay is not configured yet. Set the MainNet payment recipient before launching payments.", 503);
+    }
+
+    private static PaymentIntentResponse ToResponse(RelayPaymentIntentDocument intent) => new(intent.Id, intent.ProjectId, intent.Network, intent.RecipientAddress, intent.RecipientScriptHash, intent.RequiredGasDatoshis, intent.Status, intent.CreatedAt, intent.ExpiresAt, intent.ConfirmedTransactionId, intent.SubmittedTransactionId);
     private static string NormalizeHash(string? hash) { var value = hash?.Trim() ?? string.Empty; return value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? $"0x{value[2..].ToLowerInvariant()}" : $"0x{value.ToLowerInvariant()}"; }
     private static bool IsScriptHash(string? hash) => NormalizeHash(hash).Length == 42 && NormalizeHash(hash)[2..].All(Uri.IsHexDigit);
-    private static bool AddressMatchesScriptHash(string address, string scriptHash)
+    private static bool TryGetScriptHashFromAddress(string address, out string scriptHash)
     {
+        scriptHash = string.Empty;
         try
         {
             var decoded = Base58Decode(address.Trim());
@@ -117,7 +159,8 @@ public sealed class RelayPaymentService(
             if (!checksum.SequenceEqual(decoded[21..])) return false;
             var bytes = decoded[1..21];
             Array.Reverse(bytes);
-            return string.Equals("0x" + Convert.ToHexString(bytes).ToLowerInvariant(), NormalizeHash(scriptHash), StringComparison.Ordinal);
+            scriptHash = "0x" + Convert.ToHexString(bytes).ToLowerInvariant();
+            return true;
         }
         catch { return false; }
     }
@@ -137,13 +180,13 @@ public sealed class RelayPaymentService(
     }
     private static string NormalizeTransactionId(string? id) { var value = id?.Trim() ?? string.Empty; if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) value = value[2..]; if (value.Length != 64 || !value.All(Uri.IsHexDigit)) throw new PaymentValidationException("Transaction ID must be a 32-byte hexadecimal hash.", 400); return "0x" + value.ToLowerInvariant(); }
     private static uint ReadUInt(JsonElement value, params string[] names) { foreach (var name in names) if (value.TryGetProperty(name, out var item)) { if (item.ValueKind == JsonValueKind.Number && item.TryGetUInt32(out var number)) return number; if (uint.TryParse(item.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out number)) return number; } return 0; }
-    private static bool HasHalt(JsonElement log) => log.TryGetProperty("executions", out var executions) && executions.ValueKind == JsonValueKind.Array && executions.EnumerateArray().Any(x => x.TryGetProperty("vmstate", out var state) && string.Equals(state.GetString(), "HALT", StringComparison.OrdinalIgnoreCase));
-    private static bool TryFindGasTransfer(JsonElement log, string payer, string recipient, long minimum, out long amount)
+    private static bool TryFindVerifiedGasTransfer(JsonElement log, string payer, string recipient, long minimum, out long amount)
     {
         amount = 0;
         if (!log.TryGetProperty("executions", out var executions) || executions.ValueKind != JsonValueKind.Array) return false;
         foreach (var execution in executions.EnumerateArray())
         {
+            if (!execution.TryGetProperty("vmstate", out var vmState) || !string.Equals(vmState.GetString(), "HALT", StringComparison.OrdinalIgnoreCase)) return false;
             if (!execution.TryGetProperty("notifications", out var notifications) || notifications.ValueKind != JsonValueKind.Array) continue;
             foreach (var notification in notifications.EnumerateArray())
             {

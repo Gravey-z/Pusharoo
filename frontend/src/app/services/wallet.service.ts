@@ -75,6 +75,19 @@ export class WalletService {
     return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
   });
 
+  networkLabel(network: string | null | undefined): string {
+    switch (network?.toLowerCase()) {
+      case 'neo3:mainnet':
+      case 'mainnet':
+        return 'N3:Mainnet';
+      case 'neo3:testnet':
+      case 'testnet':
+        return 'N3:Testnet';
+      default:
+        return network || 'No network';
+    }
+  }
+
   constructor(
     private readonly projectCreationMessage: ProjectCreationSignatureMessageService,
     private readonly runtimeConfig: RuntimeConfigService

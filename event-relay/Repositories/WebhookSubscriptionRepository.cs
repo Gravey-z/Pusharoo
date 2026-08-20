@@ -23,8 +23,10 @@ public sealed class WebhookSubscriptionRepository(MongoDbContext db) : IWebhookS
         string projectId,
         CancellationToken cancellationToken)
     {
+        var now = DateTime.UtcNow;
         return await db.Subscriptions
-            .Find(subscription => subscription.ProjectId == projectId)
+            .Find(subscription => subscription.ProjectId == projectId
+                && (subscription.ExpiresAt == null || subscription.ExpiresAt > now))
             .SortByDescending(subscription => subscription.CreatedAt)
             .ToListAsync(cancellationToken);
     }
@@ -44,11 +46,15 @@ public sealed class WebhookSubscriptionRepository(MongoDbContext db) : IWebhookS
         string eventName,
         CancellationToken cancellationToken)
     {
+        var now = DateTime.UtcNow;
         var filter = Builders<WebhookSubscriptionDocument>.Filter.And(
             Builders<WebhookSubscriptionDocument>.Filter.Eq(subscription => subscription.IsEnabled, true),
             Builders<WebhookSubscriptionDocument>.Filter.Ne(subscription => subscription.ProjectId, null),
             Builders<WebhookSubscriptionDocument>.Filter.Eq(subscription => subscription.Network, network),
             Builders<WebhookSubscriptionDocument>.Filter.Eq(subscription => subscription.ContractHash, contractHash),
+            Builders<WebhookSubscriptionDocument>.Filter.Or(
+                Builders<WebhookSubscriptionDocument>.Filter.Eq(subscription => subscription.ExpiresAt, null),
+                Builders<WebhookSubscriptionDocument>.Filter.Gt(subscription => subscription.ExpiresAt, now)),
             Builders<WebhookSubscriptionDocument>.Filter.Or(
                 Builders<WebhookSubscriptionDocument>.Filter.Eq(subscription => subscription.EventName, null),
                 Builders<WebhookSubscriptionDocument>.Filter.Eq(subscription => subscription.EventName, eventName)));
@@ -75,6 +81,34 @@ public sealed class WebhookSubscriptionRepository(MongoDbContext db) : IWebhookS
             cancellationToken);
 
         return result.DeletedCount == 1;
+    }
+
+    public async Task SetFreeTestnetSubscriptionExpiryAsync(string projectId, int retentionDays, CancellationToken cancellationToken)
+    {
+        var filter = Builders<WebhookSubscriptionDocument>.Filter.And(
+            Builders<WebhookSubscriptionDocument>.Filter.Eq(item => item.ProjectId, projectId),
+            Builders<WebhookSubscriptionDocument>.Filter.Eq(item => item.Network, "neo3:testnet"));
+        var subscriptions = await db.Subscriptions.Find(filter).ToListAsync(cancellationToken);
+        var days = Math.Max(1, retentionDays);
+        foreach (var subscription in subscriptions)
+        {
+            await db.Subscriptions.UpdateOneAsync(
+                item => item.Id == subscription.Id,
+                Builders<WebhookSubscriptionDocument>.Update.Set(item => item.ExpiresAt, subscription.CreatedAt.AddDays(days)),
+                cancellationToken: cancellationToken);
+        }
+    }
+
+    public async Task ClearTestnetSubscriptionExpiryAsync(string projectId, CancellationToken cancellationToken)
+    {
+        var filter = Builders<WebhookSubscriptionDocument>.Filter.And(
+            Builders<WebhookSubscriptionDocument>.Filter.Eq(item => item.ProjectId, projectId),
+            Builders<WebhookSubscriptionDocument>.Filter.Eq(item => item.Network, "neo3:testnet"),
+            Builders<WebhookSubscriptionDocument>.Filter.Ne(item => item.ExpiresAt, null));
+        await db.Subscriptions.UpdateManyAsync(
+            filter,
+            Builders<WebhookSubscriptionDocument>.Update.Set(item => item.ExpiresAt, null),
+            cancellationToken: cancellationToken);
     }
 
     public async Task<IReadOnlyList<string>> DeleteExpiredAsync(DateTime now, CancellationToken cancellationToken)

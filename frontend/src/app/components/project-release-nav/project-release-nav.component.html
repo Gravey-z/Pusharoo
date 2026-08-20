@@ -5,6 +5,6 @@
   <a [routerLink]="['/projects', projectId, 'console']" routerLinkActive="active">Console</a>
   <a [routerLink]="['/projects', projectId, 'webhooks']" routerLinkActive="active">Webhooks</a>
   <span class="wallet-context" [class.mainnet]="wallet.session()?.network === 'neo3:mainnet'">
-    {{ wallet.shortAddress() || 'Wallet not connected' }} · {{ wallet.session()?.network || 'No network' }}
+    {{ wallet.shortAddress() || 'Wallet not connected' }} · {{ wallet.networkLabel(wallet.session()?.network) }}
   </span>
 </nav>

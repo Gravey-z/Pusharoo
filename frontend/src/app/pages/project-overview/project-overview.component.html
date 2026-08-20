@@ -30,7 +30,7 @@
         <p>{{ overview.latestArtifact?.notes ?? 'No artifact uploaded yet.' }}</p>
         @if (overview.latestDeployment) {
           <p class="deployment-note">
-            Deployed {{ overview.latestDeployment.version }} on {{ overview.latestDeployment.network }}
+            Deployed {{ overview.latestDeployment.version }} on {{ wallet.networkLabel(overview.latestDeployment.network) }}
           </p>
         }
       </div>
@@ -63,7 +63,7 @@
           [class.deployed]="deployment"
           [class.network-unavailable]="isNetworkUnavailable(network)"
         >
-          <span class="eyebrow">{{ network === 'testnet' ? 'TestNet' : 'MainNet' }}</span>
+          <span class="eyebrow">{{ network === 'testnet' ? 'N3:Testnet' : 'N3:Mainnet' }}</span>
           @if (deployment) {
             <strong>{{ deployment.version }}</strong>
             <span class="release-state">Deployed</span>
@@ -113,7 +113,7 @@
             <span class="artifact-deployment-state">
               @if (artifactNetworks(overview, artifact).length) {
                 @for (network of artifactNetworks(overview, artifact); track network) {
-                  <span class="network-pill">{{ network }}</span>
+                  <span class="network-pill">{{ wallet.networkLabel(network) }}</span>
                 }
               }
             </span>
@@ -151,7 +151,7 @@
         @for (deployment of overview.deployments; track deployment.id) {
           <div>
             <span>{{ deployment.version }}</span>
-            <span class="network-pill">{{ deployment.network }}</span>
+            <span class="network-pill">{{ wallet.networkLabel(deployment.network) }}</span>
             <span class="deployment-status" [class.failed]="deployment.status === 'failed' || deployment.status === 'record_failed'">
               {{ deploymentStatusLabel(deployment) }}
             </span>

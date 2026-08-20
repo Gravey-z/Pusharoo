@@ -40,7 +40,7 @@ public sealed record SubscriptionResponse(
 
 public sealed record CreatePaymentIntentRequest(WalletSignatureRequest? Signature);
 public sealed record ConfirmPaymentRequest(string IntentId, string TransactionId, WalletSignatureRequest? Signature);
-public sealed record PaymentIntentResponse(string Id, string ProjectId, string Network, string RecipientAddress, string RecipientScriptHash, long RequiredGasDatoshis, string Status, DateTime CreatedAt, DateTime ExpiresAt, string? ConfirmedTransactionId);
+public sealed record PaymentIntentResponse(string Id, string ProjectId, string Network, string RecipientAddress, string RecipientScriptHash, long RequiredGasDatoshis, string Status, DateTime CreatedAt, DateTime ExpiresAt, string? ConfirmedTransactionId, string? SubmittedTransactionId);
 public sealed record PaymentResponse(string TransactionId, string IntentId, string Status, DateTime? EntitlementEndsAt, string? Message = null);
-public sealed record PaymentHistoryResponse(IReadOnlyList<PaymentResponse> Payments, IReadOnlyList<EntitlementHistoryResponse> Entitlements);
+public sealed record PaymentHistoryResponse(IReadOnlyList<PaymentResponse> Payments, IReadOnlyList<EntitlementHistoryResponse> Entitlements, IReadOnlyList<PaymentIntentResponse> PendingIntents);
 public sealed record EntitlementHistoryResponse(string Network, string Plan, DateTime PeriodStart, DateTime PeriodEndsAt, DateTime GraceEndsAt);

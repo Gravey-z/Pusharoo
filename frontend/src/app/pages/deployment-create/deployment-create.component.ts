@@ -137,7 +137,7 @@ export class DeploymentCreateComponent implements OnInit {
     }
 
     if (session.network === 'neo3:mainnet' && !this.mainnetConfirmed) {
-      this.errorMessage = 'Confirm the MainNet warning before opening the wallet.';
+      this.errorMessage = 'Confirm the N3:Mainnet warning before opening the wallet.';
       return;
     }
 

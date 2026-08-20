@@ -18,4 +18,14 @@ public sealed class RelayEntitlementDocument
     [BsonElement("graceEndsAt")] public DateTime? GraceEndsAt { get; init; }
     [BsonElement("lastPaymentId")] public string? LastPaymentId { get; init; }
     [BsonElement("updatedAt")] public DateTime UpdatedAt { get; init; }
+    [BsonElement("version")] public long Version { get; init; }
+    [BsonElement("paymentGrants")] public List<RelayEntitlementPaymentGrant> PaymentGrants { get; init; } = [];
+}
+
+public sealed class RelayEntitlementPaymentGrant
+{
+    [BsonElement("paymentId")] public string PaymentId { get; init; } = string.Empty;
+    [BsonElement("periodStart")] public DateTime PeriodStart { get; init; }
+    [BsonElement("periodEndsAt")] public DateTime PeriodEndsAt { get; init; }
+    [BsonElement("graceEndsAt")] public DateTime GraceEndsAt { get; init; }
 }

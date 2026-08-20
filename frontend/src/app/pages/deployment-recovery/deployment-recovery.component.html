@@ -26,7 +26,7 @@
         <label [class.mainnet-network]="walletNetwork() === 'neo3:mainnet'">
           <span class="field-label">
             Network
-            <small>{{ walletNetwork() === 'neo3:mainnet' ? 'MainNet: the transaction must be on MainNet' : 'Selected by the connected wallet' }}</small>
+            <small>{{ walletNetwork() === 'neo3:mainnet' ? 'N3:Mainnet: the transaction must be on N3:Mainnet' : 'Selected by the connected wallet' }}</small>
           </span>
           <input type="text" name="network" [value]="walletNetwork() || 'Connect wallet first'" readonly />
         </label>

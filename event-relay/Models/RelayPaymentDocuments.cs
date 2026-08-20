@@ -16,6 +16,8 @@ public sealed class RelayPaymentIntentDocument
     [BsonElement("createdAt")] public DateTime CreatedAt { get; init; }
     [BsonElement("expiresAt")] public DateTime ExpiresAt { get; init; }
     [BsonElement("confirmedTransactionId")] public string? ConfirmedTransactionId { get; init; }
+    [BsonElement("submittedTransactionId")] public string? SubmittedTransactionId { get; init; }
+    [BsonElement("submittedAt")] public DateTime? SubmittedAt { get; init; }
     [BsonElement("confirmedAt")] public DateTime? ConfirmedAt { get; init; }
     [BsonElement("rejectionReason")] public string? RejectionReason { get; init; }
 }

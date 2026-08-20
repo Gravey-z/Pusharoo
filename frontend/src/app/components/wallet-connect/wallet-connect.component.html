@@ -32,7 +32,7 @@
           [title]="account.address"
         >
           <span class="network-badge">
-            {{ wallet.session()?.network === 'neo3:mainnet' ? 'MainNet connected' : 'TestNet connected' }}
+            {{ wallet.session()?.network === 'neo3:mainnet' ? 'N3:Mainnet connected' : 'N3:Testnet connected' }}
           </span>
           <strong>{{ wallet.shortAddress() }}</strong>
         </div>
@@ -45,14 +45,14 @@
             [class.active]="wallet.selectedNetwork() === 'neo3:testnet'"
             (click)="wallet.selectNetwork('neo3:testnet')"
           >
-            TestNet
+            N3:Testnet
           </button>
           <button
             type="button"
             [class.active]="wallet.selectedNetwork() === 'neo3:mainnet'"
             (click)="wallet.selectNetwork('neo3:mainnet')"
           >
-            MainNet
+            N3:Mainnet
           </button>
         </div>
         <p class="network-guidance">

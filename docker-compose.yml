@@ -69,7 +69,6 @@ services:
       EventRelay__MaxScannerLagBlocks: ${PUSHAROO_RELAY_MAX_SCANNER_LAG_BLOCKS:-30}
       EventRelay__MaxQueueDepth: ${PUSHAROO_RELAY_MAX_QUEUE_DEPTH:-1000}
       EventRelay__PaymentRecipientAddress: ${EVENT_RELAY_PAYMENT_RECIPIENT_ADDRESS:-}
-      EventRelay__PaymentRecipientScriptHash: ${EVENT_RELAY_PAYMENT_RECIPIENT_SCRIPT_HASH:-}
       EventRelay__PaidPlanGasDatoshis: ${EVENT_RELAY_PAID_PLAN_GAS_DATOSHIS:-500000000}
       EventRelay__PaidPlanDays: ${EVENT_RELAY_PAID_PLAN_DAYS:-30}
       EventRelay__PaidGraceDays: ${EVENT_RELAY_PAID_GRACE_DAYS:-3}

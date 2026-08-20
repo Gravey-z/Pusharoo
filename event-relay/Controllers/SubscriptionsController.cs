@@ -21,7 +21,8 @@ public sealed class SubscriptionsController(
     WebhookDestinationValidator destinationValidator,
     WebhookSecretProtector secretProtector,
     RelayEntitlementService entitlements,
-    IOptions<NeoRpcOptions> neoRpcOptions) : ControllerBase
+    IOptions<NeoRpcOptions> neoRpcOptions,
+    IOptions<EventRelayOptions> eventRelayOptions) : ControllerBase
 {
     private static readonly Regex HeaderNamePattern = new("^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,64}$", RegexOptions.Compiled);
     private static readonly HashSet<string> ForbiddenHeaders = new(StringComparer.OrdinalIgnoreCase)
@@ -120,7 +121,9 @@ public sealed class SubscriptionsController(
             IsEnabled = request.IsEnabled,
             CreatedAt = now,
             UpdatedAt = now,
-            ExpiresAt = string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal) ? entitlement.PeriodEndsAt : null
+            ExpiresAt = string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal) && entitlement.Plan == "free_beta"
+                ? now.AddDays(Math.Max(1, eventRelayOptions.Value.TestnetSubscriptionRetentionDays))
+                : null
         };
 
         await subscriptions.InsertAsync(subscription, cancellationToken);
@@ -195,7 +198,9 @@ public sealed class SubscriptionsController(
             IsEnabled = request.IsEnabled,
             CreatedAt = existing.CreatedAt,
             UpdatedAt = DateTime.UtcNow,
-            ExpiresAt = existing.ExpiresAt
+            ExpiresAt = string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal) && entitlement.Plan == "free_beta"
+                ? existing.ExpiresAt ?? existing.CreatedAt.AddDays(Math.Max(1, eventRelayOptions.Value.TestnetSubscriptionRetentionDays))
+                : null
         };
 
         await subscriptions.ReplaceAsync(updated, cancellationToken);

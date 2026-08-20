@@ -21,7 +21,7 @@
         <label [class.mainnet-network]="walletNetwork() === 'neo3:mainnet'">
           <span class="field-label">
             Network
-            <small>{{ walletNetwork() === 'neo3:mainnet' ? 'MainNet: real GAS and permanent changes' : 'Selected by the connected wallet' }}</small>
+            <small>{{ walletNetwork() === 'neo3:mainnet' ? 'N3:Mainnet: real GAS and permanent changes' : 'Selected by the connected wallet' }}</small>
           </span>
           <input type="text" name="network" [value]="walletNetwork() || 'Connect wallet first'" readonly />
         </label>
@@ -86,11 +86,11 @@
 
           @if (walletNetwork() === 'neo3:mainnet') {
             <section class="mainnet-warning">
-              <strong>MainNet action</strong>
+              <strong>N3:Mainnet action</strong>
               <p>This creates a permanent on-chain {{ operation }} and may spend real GAS.</p>
               <label class="mainnet-confirmation">
                 <input type="checkbox" name="mainnetConfirmed" [(ngModel)]="mainnetConfirmed" />
-                <span>I reviewed the MainNet network, signer, contract action, and maximum fee.</span>
+                <span>I reviewed the N3:Mainnet network, signer, contract action, and maximum fee.</span>
               </label>
             </section>
           }

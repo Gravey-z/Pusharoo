@@ -146,7 +146,7 @@ export class ProjectOverviewComponent implements OnInit {
         occurredAt: deployment.createdAt,
         type: deployment.operation === 'update' ? 'update' : 'deployment',
         title: `${action} started`,
-        detail: `${deployment.version} • ${deployment.network}`,
+        detail: `${deployment.version} • ${this.wallet.networkLabel(deployment.network)}`,
         network: deployment.network,
         deployment
       }];
@@ -157,7 +157,7 @@ export class ProjectOverviewComponent implements OnInit {
           occurredAt: deployment.updatedAt || deployment.createdAt,
           type: deployment.operation === 'update' ? 'update' : 'deployment',
           title: `${action} submitted`,
-          detail: `${deployment.network} • ${this.shortTransactionId(deployment.transactionId)}`,
+          detail: `${this.wallet.networkLabel(deployment.network)} • ${this.shortTransactionId(deployment.transactionId)}`,
           network: deployment.network,
           deployment
         });
@@ -171,7 +171,7 @@ export class ProjectOverviewComponent implements OnInit {
           title: failed ? `${action} failed` : confirmed ? `${action} confirmed` : `${action} ${this.deploymentStatusLabel(deployment)}`,
           detail: failed
             ? (deployment.failureReason || 'The release did not complete.')
-            : `${deployment.version} • ${deployment.network}${deployment.contractHash ? ` • ${this.shortText(deployment.contractHash, 10, 4)}` : ''}`,
+            : `${deployment.version} • ${this.wallet.networkLabel(deployment.network)}${deployment.contractHash ? ` • ${this.shortText(deployment.contractHash, 10, 4)}` : ''}`,
           network: deployment.network,
           deployment
         });

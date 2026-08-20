@@ -6,7 +6,7 @@
   <section class="relay-statuses" aria-label="Relay network status">
     @for (network of ['neo3:testnet', 'neo3:mainnet']; track network) {
       <span [class.ok]="relayStatuses[network] === 'ok'" [class.degraded]="relayStatuses[network] !== 'ok'">
-        {{ network }} relay: {{ relayStatuses[network] || 'checking' }}
+        {{ networkLabel(network) }} relay: {{ relayStatuses[network] || 'checking' }}
       </span>
     }
   </section>
@@ -14,7 +14,7 @@
   <nav class="webhook-network-tabs" aria-label="Webhook network">
     @for (network of ['neo3:testnet', 'neo3:mainnet']; track network) {
       <button type="button" class="secondary-button" [class.active-network]="webhookNetwork === network" (click)="selectWebhookNetwork(network)">
-        {{ network === 'neo3:testnet' ? 'TestNet webhooks' : 'MainNet webhooks' }}
+        {{ network === 'neo3:testnet' ? 'N3:Testnet webhooks' : 'N3:Mainnet webhooks' }}
       </button>
     }
   </nav>
@@ -27,19 +27,26 @@
     </section>
   }
 
+  @if (webhookNetwork === 'neo3:mainnet') {
   @if (relayUsageByNetwork['neo3:mainnet']; as mainnetUsage) {
     <section class="relay-plan" aria-label="Pusharoo Relay plan">
       <div>
         <h2>Pusharoo Relay</h2>
         <p>
-          {{ mainnetUsage.plan === 'paid' ? 'Paid Relay includes MainNet and TestNet delivery.' : 'Upgrade to use MainNet delivery.' }}
+          {{ mainnetUsage.plan === 'paid' ? 'Paid Relay includes N3:Mainnet and N3:Testnet delivery.' : 'Upgrade to use N3:Mainnet delivery.' }}
           {{ mainnetUsage.maxActiveSubscriptions }} active webhooks and {{ mainnetUsage.maxEvents }} events per 30 days.
         </p>
         <p class="relay-plan-status">
           {{ mainnetUsage.status === 'active' ? 'Active until' : mainnetUsage.status === 'grace' ? 'Grace period ends after' : 'Access ended on' }}
           {{ (mainnetUsage.status === 'grace' ? mainnetUsage.graceEndsAt : mainnetUsage.periodEndsAt) | date: 'mediumDate' }}.
         </p>
+        <p class="relay-plan-warning">
+          @if (mainnetUsage.status === 'active') { Renew before expiry to avoid paused deliveries. }
+          @else if (mainnetUsage.status === 'grace') { Deliveries are paused during grace. Renew now to restore access. }
+          @else { Deliveries are paused until Relay is renewed. }
+        </p>
       </div>
+      <button class="secondary-button" type="button" (click)="showPaymentHistory()" [disabled]="!canManageProject">Payment history</button>
       <button class="primary-button" type="button" (click)="renewRelay()" [disabled]="renewingRelay || !canManageProject" title="Only the project owner can renew Relay">
         {{ renewingRelay ? 'Waiting for wallet…' : mainnetUsage.plan === 'paid' ? 'Renew: 5 GAS' : 'Unlock Relay: 5 GAS' }}
       </button>
@@ -48,11 +55,42 @@
     <section class="relay-plan" aria-label="Pusharoo Relay plan">
       <div>
         <h2>Pusharoo Relay</h2>
-        <p>Unlock MainNet and TestNet event delivery for 5 GAS every 30 days, including five active webhooks and 10,000 events.</p>
+        <p>Unlock N3:Mainnet and N3:Testnet event delivery for 5 GAS every 30 days, including five active webhooks and 10,000 events.</p>
       </div>
+      <button class="secondary-button" type="button" (click)="showPaymentHistory()" [disabled]="!canManageProject">Payment history</button>
       <button class="primary-button" type="button" (click)="renewRelay()" [disabled]="renewingRelay || !canManageProject" title="Only the project owner can renew Relay">
         {{ renewingRelay ? 'Waiting for wallet…' : 'Unlock Relay: 5 GAS' }}
       </button>
+    </section>
+  }
+
+  @if (formStatus) {
+    <p class="payment-status" aria-live="polite">{{ formStatus }}</p>
+  }
+  @if (errorMessage) {
+    <p class="payment-error" role="alert">{{ errorMessage }}</p>
+  }
+
+  @if (paymentHistory?.pendingIntents?.length) {
+    <section class="payment-history pending-payments" aria-label="Pending Relay payments">
+      <h2>Pending Relay payments</h2>
+      @for (intent of paymentHistory?.pendingIntents ?? []; track intent.id) {
+        <div>
+          <span>{{ gasAmount(intent.requiredGasDatoshis) }} GAS to {{ intent.recipientAddress }}</span>
+          <span>Expires {{ intent.expiresAt | date: 'short' }}</span>
+          @if (intent.submittedTransactionId) {
+            <span>Submitted: {{ shortHash(intent.submittedTransactionId) }} · awaiting N3:Mainnet finality</span>
+            <button class="primary-button" type="button" (click)="resumeRelayPayment(intent)" [disabled]="resumingIntentId === intent.id">
+              {{ resumingIntentId === intent.id ? 'Checking…' : 'Check confirmation' }}
+            </button>
+          } @else {
+            <span>Ready for wallet approval</span>
+            <button class="primary-button" type="button" (click)="payRelayIntent(intent)" [disabled]="payingIntentId === intent.id">
+              {{ payingIntentId === intent.id ? 'Waiting for wallet…' : 'Pay ' + gasAmount(intent.requiredGasDatoshis) + ' GAS' }}
+            </button>
+          }
+        </div>
+      }
     </section>
   }
 
@@ -66,6 +104,16 @@
           <span>Access through {{ payment.entitlementEndsAt | date: 'mediumDate' }}</span>
         </div>
       }
+    </section>
+  }
+
+  } @else {
+    <section class="relay-plan testnet-trial" aria-label="N3:Testnet Relay free trial">
+      <div>
+        <h2>N3:Testnet Relay free trial</h2>
+        <p>Use up to 5 active webhooks and 1,000 matched events every 7 days. This is a free N3:Testnet-only trial.</p>
+        <p class="relay-plan-warning">Each N3:Testnet webhook and its delivery history are automatically removed seven days after that webhook is created.</p>
+      </div>
     </section>
   }
 
@@ -219,8 +267,8 @@
       </section>
     } @else {
       <section class="empty-state">
-        <strong>No deployment on {{ relayNetwork || 'the relay network' }}</strong>
-        <p>Deploy this project to the network monitored by Pusharoo Relay before creating event webhooks.</p>
+        <strong>No {{ webhookNetwork === 'neo3:testnet' ? 'N3:Testnet' : 'N3:Mainnet' }} contract found</strong>
+        <p>Deploy this project to {{ webhookNetwork === 'neo3:testnet' ? 'N3:Testnet' : 'N3:Mainnet' }} before creating event webhooks for this relay.</p>
         <a class="primary-button" [routerLink]="['/projects', projectId, 'deployments', 'new']">
           Deploy Contract
         </a>
