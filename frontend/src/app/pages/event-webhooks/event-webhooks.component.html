@@ -28,7 +28,17 @@
   }
 
   @if (webhookNetwork === 'neo3:mainnet') {
-  @if (relayUsageByNetwork['neo3:mainnet']; as mainnetUsage) {
+  @if (!isRelayConnected) {
+    <section class="relay-plan" aria-label="N3:Mainnet Relay connection">
+      <div>
+        <h2>Pusharoo Relay</h2>
+        <p>Connect your project-owner wallet to view and manage N3:Mainnet Relay access.</p>
+      </div>
+      <button class="primary-button" type="button" (click)="connectRelay()" [disabled]="connectingRelay || !canManageProject" title="Only the project owner can connect to Relay">
+        {{ connectingRelay ? 'Waiting for wallet...' : 'Connect' }}
+      </button>
+    </section>
+  } @else if (relayUsageByNetwork['neo3:mainnet']; as mainnetUsage) {
     <section class="relay-plan" aria-label="Pusharoo Relay plan">
       <div>
         <h2>Pusharoo Relay</h2>
@@ -118,7 +128,12 @@
   }
 
   @if (overview) {
-    @if (deploymentOptions.length) {
+    @if (!isWalletConnected) {
+      <section class="empty-state">
+        <strong>Connect your wallet to manage webhooks</strong>
+        <p>Connect the project-owner wallet to create, view, or manage this project's event webhooks.</p>
+      </section>
+    } @else if (deploymentOptions.length) {
       <section class="webhook-layout">
         <form class="webhook-form" (ngSubmit)="save()">
           <h2>{{ editingSubscriptionId ? 'Edit webhook' : 'Create webhook' }}</h2>
@@ -188,7 +203,7 @@
           }
 
           <div class="form-actions">
-            <button class="primary-button" type="submit" [disabled]="isSaving || !canManageProject" title="Only the project owner can manage webhooks">
+            <button class="primary-button" type="submit" [disabled]="isSaving || !canManageProject || (webhookNetwork === 'neo3:mainnet' && !isRelayConnected)" title="Only the project owner can manage webhooks">
               {{ isSaving ? 'Saving...' : editingSubscriptionId ? 'Save changes' : 'Create Webhook' }}
             </button>
             @if (editingSubscriptionId) {

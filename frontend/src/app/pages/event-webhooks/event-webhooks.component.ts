@@ -49,6 +49,7 @@ export class EventWebhooksComponent implements OnInit {
   relayStatuses: Record<string, 'ok' | 'degraded' | 'offline'> = {};
   readonly relayUsageByNetwork: Record<string, RelayUsage> = {};
   paymentHistory: RelayPaymentHistory | null = null;
+  connectingRelay = false;
   renewingRelay = false;
   payingIntentId = '';
   resumingIntentId = '';
@@ -102,6 +103,14 @@ export class EventWebhooksComponent implements OnInit {
 
   get canManageProject(): boolean {
     return this.ownership.canManage(this.overview?.project, this.wallet.account()?.address ?? '');
+  }
+
+  get isWalletConnected(): boolean {
+    return this.wallet.account() !== null;
+  }
+
+  get isRelayConnected(): boolean {
+    return this.api.hasWebhookSession(this.projectId, 'neo3:mainnet');
   }
 
   constructor(
@@ -282,6 +291,33 @@ export class EventWebhooksComponent implements OnInit {
     }
   }
 
+  async connectRelay(): Promise<void> {
+    this.errorMessage = '';
+    this.formStatus = '';
+    if (!this.canManageProject) {
+      this.errorMessage = 'Only the project owner can connect to N3:Mainnet Relay.';
+      return;
+    }
+    if (this.wallet.session()?.network !== 'neo3:mainnet') {
+      this.errorMessage = 'Connect the project owner wallet on N3:Mainnet first.';
+      return;
+    }
+
+    this.connectingRelay = true;
+    try {
+      // Loading payment history establishes the signed MainNet Relay session.
+      await this.loadPaymentHistory();
+      await this.loadUsage('neo3:mainnet');
+      if (this.webhookNetwork === 'neo3:mainnet' && this.deploymentOptions.length) {
+        await this.loadSubscriptions('neo3:mainnet');
+      }
+    } catch (error) {
+      this.errorMessage = this.errors.format(error, 'Could not connect to N3:Mainnet Relay.');
+    } finally {
+      this.connectingRelay = false;
+    }
+  }
+
   async payRelayIntent(intent: RelayPaymentIntent): Promise<void> {
     const account = this.wallet.account();
     if (!account || this.wallet.session()?.network !== 'neo3:mainnet') {
@@ -378,13 +414,14 @@ export class EventWebhooksComponent implements OnInit {
         return;
       }
 
+      if (!this.isWalletConnected) {
+        return;
+      }
+
       await this.loadSubscriptions();
       await this.loadUsage(this.relayNetwork);
-      if (this.relayNetwork !== 'neo3:mainnet') {
-        await this.loadUsage('neo3:mainnet');
-      }
       if (this.api.hasWebhookSession(this.projectId, 'neo3:mainnet')) {
-        await this.loadPaymentHistory();
+        await Promise.all([this.loadUsage('neo3:mainnet'), this.loadPaymentHistory()]);
       }
     } catch (error) {
       this.errorMessage = this.errors.format(error, 'Could not load webhook subscriptions.');
@@ -502,7 +539,10 @@ export class EventWebhooksComponent implements OnInit {
       this.selectDeployment();
     }
     this.subscriptions = this.subscriptionsByNetwork[network] ?? [];
-    if (!this.subscriptionsByNetwork[network] && this.deploymentOptions.some((item) => item.network === network)) {
+    if (network === 'neo3:mainnet' && !this.isRelayConnected) {
+      return;
+    }
+    if (!this.subscriptionsByNetwork[network] && this.deploymentOptions.length) {
       await this.loadSubscriptions(network);
       await this.loadUsage(network);
     }
