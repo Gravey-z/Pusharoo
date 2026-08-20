@@ -1,5 +1,5 @@
-/backend/bin/
-/backend/obj/
+/*/bin/
+/*/obj/
 /event-relay/bin/
 /event-relay/obj/
 

@@ -27,6 +27,48 @@
     </section>
   }
 
+  @if (relayUsageByNetwork['neo3:mainnet']; as mainnetUsage) {
+    <section class="relay-plan" aria-label="Pusharoo Relay plan">
+      <div>
+        <h2>Pusharoo Relay</h2>
+        <p>
+          {{ mainnetUsage.plan === 'paid' ? 'Paid Relay includes MainNet and TestNet delivery.' : 'Upgrade to use MainNet delivery.' }}
+          {{ mainnetUsage.maxActiveSubscriptions }} active webhooks and {{ mainnetUsage.maxEvents }} events per 30 days.
+        </p>
+        <p class="relay-plan-status">
+          {{ mainnetUsage.status === 'active' ? 'Active until' : mainnetUsage.status === 'grace' ? 'Grace period ends after' : 'Access ended on' }}
+          {{ (mainnetUsage.status === 'grace' ? mainnetUsage.graceEndsAt : mainnetUsage.periodEndsAt) | date: 'mediumDate' }}.
+        </p>
+      </div>
+      <button class="primary-button" type="button" (click)="renewRelay()" [disabled]="renewingRelay || !canManageProject" title="Only the project owner can renew Relay">
+        {{ renewingRelay ? 'Waiting for wallet…' : mainnetUsage.plan === 'paid' ? 'Renew: 5 GAS' : 'Unlock Relay: 5 GAS' }}
+      </button>
+    </section>
+  } @else {
+    <section class="relay-plan" aria-label="Pusharoo Relay plan">
+      <div>
+        <h2>Pusharoo Relay</h2>
+        <p>Unlock MainNet and TestNet event delivery for 5 GAS every 30 days, including five active webhooks and 10,000 events.</p>
+      </div>
+      <button class="primary-button" type="button" (click)="renewRelay()" [disabled]="renewingRelay || !canManageProject" title="Only the project owner can renew Relay">
+        {{ renewingRelay ? 'Waiting for wallet…' : 'Unlock Relay: 5 GAS' }}
+      </button>
+    </section>
+  }
+
+  @if (paymentHistory?.payments?.length) {
+    <section class="payment-history" aria-label="Relay payment history">
+      <h2>Relay payment history</h2>
+      @for (payment of paymentHistory?.payments ?? []; track payment.transactionId) {
+        <div>
+          <span>{{ shortHash(payment.transactionId) }}</span>
+          <span>Confirmed</span>
+          <span>Access through {{ payment.entitlementEndsAt | date: 'mediumDate' }}</span>
+        </div>
+      }
+    </section>
+  }
+
   @if (overview) {
     @if (deploymentOptions.length) {
       <section class="webhook-layout">

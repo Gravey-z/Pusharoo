@@ -92,7 +92,10 @@ public sealed class ProjectManagementSignatureValidator(
         "subscriptions.delete",
         "deliveries.read",
         "deliveries.test",
-        "deliveries.redeliver"
+        "deliveries.redeliver",
+        "payments.create",
+        "payments.confirm",
+        "payments.read"
     };
 
     private ProjectManagementSignatureValidationResult ValidateSignedMessage(

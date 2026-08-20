@@ -21,6 +21,9 @@ public sealed class MongoDbContext
         WebhookDeliveries = database.GetCollection<BsonDocument>("webhookDeliveries");
         WebhookDeliveryAttempts = database.GetCollection<BsonDocument>("webhookDeliveryAttempts");
         RelayEntitlements = database.GetCollection<BsonDocument>("relayEntitlements");
+        RelayPaymentIntents = database.GetCollection<BsonDocument>("relayPaymentIntents");
+        RelayPayments = database.GetCollection<BsonDocument>("relayPayments");
+        RelayEntitlementHistory = database.GetCollection<BsonDocument>("relayEntitlementHistory");
         WebhookAuthorizationNonces = database.GetCollection<WebhookAuthorizationNonceDocument>("webhookAuthorizationNonces");
 
         WebhookAuthorizationNonces.Indexes.CreateOne(
@@ -58,6 +61,9 @@ public sealed class MongoDbContext
     public IMongoCollection<BsonDocument> WebhookDeliveryAttempts { get; }
 
     public IMongoCollection<BsonDocument> RelayEntitlements { get; }
+    public IMongoCollection<BsonDocument> RelayPaymentIntents { get; }
+    public IMongoCollection<BsonDocument> RelayPayments { get; }
+    public IMongoCollection<BsonDocument> RelayEntitlementHistory { get; }
 
     public IMongoCollection<WebhookAuthorizationNonceDocument> WebhookAuthorizationNonces { get; }
 }

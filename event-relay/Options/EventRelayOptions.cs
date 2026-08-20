@@ -18,4 +18,13 @@ public sealed class EventRelayOptions
     public int FreeBetaPeriodDays { get; init; } = 30;
     public int FreeTestnetMaxActiveSubscriptions { get; init; } = 5;
     public int FreeTestnetMaxEvents { get; init; } = 10000;
+    public string PaymentRecipientAddress { get; init; } = string.Empty;
+    public string PaymentRecipientScriptHash { get; init; } = string.Empty;
+    public long PaidPlanGasDatoshis { get; init; } = 500000000;
+    public int PaidPlanDays { get; init; } = 30;
+    public int PaidGraceDays { get; init; } = 3;
+    public int PaidMaxActiveSubscriptions { get; init; } = 5;
+    public int PaidMaxEvents { get; init; } = 10000;
+    public int PaymentIntentMinutes { get; init; } = 15;
+    public uint PaymentConfirmationBlocks { get; init; } = 2;
 }

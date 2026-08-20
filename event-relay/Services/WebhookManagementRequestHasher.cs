@@ -68,6 +68,20 @@ public static class WebhookManagementRequestHasher
             request.IsEnabled);
     }
 
+    public static string HashPaymentIntent(string projectId) => Sha256Hex(string.Join('\n', new[]
+    {
+        $"Project ID: {Normalize(projectId)}",
+        "Operation: payments.create"
+    }));
+
+    public static string HashPaymentConfirmation(string projectId, string intentId, string transactionId) => Sha256Hex(string.Join('\n', new[]
+    {
+        $"Project ID: {Normalize(projectId)}",
+        "Operation: payments.confirm",
+        $"Payment intent ID: {Normalize(intentId)}",
+        $"Transaction ID: {Normalize(transactionId).ToLowerInvariant()}"
+    }));
+
     private static string Normalize(string? value) => value?.Trim() ?? string.Empty;
 
     private static string NormalizeHeaders(IReadOnlyDictionary<string, string>? headers)

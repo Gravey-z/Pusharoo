@@ -22,6 +22,12 @@ public sealed class MongoDbContext
             Builders<WebhookDeliveryDocument>.IndexKeys.Ascending(delivery => delivery.IdempotencyKey),
             new CreateIndexOptions { Unique = true, Sparse = true }));
         Checkpoints = database.GetCollection<EventCheckpointDocument>("eventCheckpoints");
+        PaymentIntents = database.GetCollection<RelayPaymentIntentDocument>("relayPaymentIntents");
+        Payments = database.GetCollection<RelayPaymentDocument>("relayPayments");
+        EntitlementHistory = database.GetCollection<RelayEntitlementHistoryDocument>("relayEntitlementHistory");
+        PaymentIntents.Indexes.CreateOne(new CreateIndexModel<RelayPaymentIntentDocument>(Builders<RelayPaymentIntentDocument>.IndexKeys.Ascending(x => x.ProjectId).Descending(x => x.CreatedAt)));
+        Payments.Indexes.CreateOne(new CreateIndexModel<RelayPaymentDocument>(Builders<RelayPaymentDocument>.IndexKeys.Ascending(x => x.ProjectId).Descending(x => x.VerifiedAt)));
+        EntitlementHistory.Indexes.CreateOne(new CreateIndexModel<RelayEntitlementHistoryDocument>(Builders<RelayEntitlementHistoryDocument>.IndexKeys.Ascending(x => x.PaymentId).Ascending(x => x.Network), new CreateIndexOptions { Unique = true }));
     }
 
     public IMongoCollection<WebhookSubscriptionDocument> Subscriptions { get; }
@@ -29,6 +35,9 @@ public sealed class MongoDbContext
     public IMongoCollection<WebhookDeliveryDocument> Deliveries { get; }
     public IMongoCollection<WebhookDeliveryAttemptDocument> DeliveryAttempts { get; }
     public IMongoCollection<RelayEntitlementDocument> Entitlements { get; }
+    public IMongoCollection<RelayPaymentIntentDocument> PaymentIntents { get; }
+    public IMongoCollection<RelayPaymentDocument> Payments { get; }
+    public IMongoCollection<RelayEntitlementHistoryDocument> EntitlementHistory { get; }
 
     public IMongoCollection<EventCheckpointDocument> Checkpoints { get; }
 }

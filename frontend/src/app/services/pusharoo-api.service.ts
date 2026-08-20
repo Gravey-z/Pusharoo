@@ -22,8 +22,11 @@ import {
   WalletActionSignature,
   WebhookDelivery,
   WebhookManagementOperation,
-  WebhookSubscription
-  , RelayUsage
+  WebhookSubscription,
+  RelayUsage,
+  RelayPaymentIntent,
+  RelayPayment,
+  RelayPaymentHistory
 } from '../models/pusharoo.models';
 import { RuntimeConfigService } from './runtime-config.service';
 
@@ -198,6 +201,30 @@ export class PusharooApiService {
     return this.http.post<RelayUsage>(`${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions/usage`, { signature }, { headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }).pipe(map(response => this.readWebhookResponse(projectId, network, response)));
   }
 
+  createRelayPaymentIntent(projectId: string, signature: WalletActionSignature): Observable<RelayPaymentIntent> {
+    const network = 'neo3:mainnet';
+    return this.http.post<RelayPaymentIntent>(
+      `${this.eventRelayBaseUrl(network)}/projects/${projectId}/relay/payments/intents`,
+      { signature }, { headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }
+    ).pipe(map(response => this.readWebhookResponse(projectId, network, response)));
+  }
+
+  confirmRelayPayment(projectId: string, intentId: string, transactionId: string, signature?: WalletActionSignature): Observable<RelayPayment> {
+    const network = 'neo3:mainnet';
+    return this.http.post<RelayPayment>(
+      `${this.eventRelayBaseUrl(network)}/projects/${projectId}/relay/payments/confirm`,
+      { intentId, transactionId, signature }, { headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }
+    ).pipe(map(response => this.readWebhookResponse(projectId, network, response)));
+  }
+
+  getRelayPaymentHistory(projectId: string, signature?: WalletActionSignature): Observable<RelayPaymentHistory> {
+    const network = 'neo3:mainnet';
+    return this.http.post<RelayPaymentHistory>(
+      `${this.eventRelayBaseUrl(network)}/projects/${projectId}/relay/payments/history/query`,
+      { signature }, { headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }
+    ).pipe(map(response => this.readWebhookResponse(projectId, network, response)));
+  }
+
   createWebhookSubscription(
     projectId: string,
     network: string,
@@ -300,6 +327,19 @@ export class PusharooApiService {
     ].join('\n');
 
     return this.sha256Hex(payload);
+  }
+
+  async getPaymentIntentRequestHash(projectId: string): Promise<string> {
+    return this.sha256Hex([`Project ID: ${projectId.trim()}`, 'Operation: payments.create'].join('\n'));
+  }
+
+  async getPaymentConfirmationRequestHash(projectId: string, intentId: string, transactionId: string): Promise<string> {
+    return this.sha256Hex([
+      `Project ID: ${projectId.trim()}`,
+      'Operation: payments.confirm',
+      `Payment intent ID: ${intentId.trim()}`,
+      `Transaction ID: ${transactionId.trim().toLowerCase()}`
+    ].join('\n'));
   }
 
   private getArtifacts(projectId: string): Observable<Artifact[]> {

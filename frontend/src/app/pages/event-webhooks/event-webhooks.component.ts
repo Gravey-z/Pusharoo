@@ -13,7 +13,8 @@ import {
   WebhookManagementOperation,
   WalletActionSignature,
   WebhookSubscription,
-  RelayUsage
+  RelayUsage,
+  RelayPaymentHistory
 } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
@@ -46,6 +47,8 @@ export class EventWebhooksComponent implements OnInit {
   webhookNetwork = 'neo3:testnet';
   relayStatuses: Record<string, 'ok' | 'degraded' | 'offline'> = {};
   readonly relayUsageByNetwork: Record<string, RelayUsage> = {};
+  paymentHistory: RelayPaymentHistory | null = null;
+  renewingRelay = false;
   projectId = '';
   name = '';
   contractHash = '';
@@ -246,6 +249,47 @@ export class EventWebhooksComponent implements OnInit {
       (signature) => this.api.redeliverWebhook(this.projectId, subscription.network, subscription.id, delivery.id, signature));
   }
 
+  async renewRelay(): Promise<void> {
+    this.errorMessage = '';
+    this.formStatus = '';
+    if (!this.canManageProject) {
+      this.errorMessage = 'Only the project owner can renew Relay access.';
+      return;
+    }
+    const account = this.wallet.account();
+    if (!account) {
+      this.errorMessage = 'Connect the project owner wallet on Neo MainNet before renewing.';
+      return;
+    }
+    this.renewingRelay = true;
+    try {
+      const intentHash = await this.api.getPaymentIntentRequestHash(this.projectId);
+      const intentSignature = await this.wallet.signWebhookAdministration(this.projectId, 'payments.create', intentHash);
+      const intent = await firstValueFrom(this.api.createRelayPaymentIntent(this.projectId, intentSignature));
+      const transactionId = await this.wallet.invokeContract(
+        'neo3:mainnet',
+        '0xd2a4cff31913016155e38e474a2c06d08be276cf',
+        'transfer',
+        [
+          { type: 'Hash160', value: account.scriptHash },
+          { type: 'Hash160', value: intent.recipientScriptHash },
+          { type: 'Integer', value: String(intent.requiredGasDatoshis) },
+          { type: 'Any', value: null }
+        ],
+        'GAS'
+      );
+      const confirmation = await this.confirmPayment(intent.id, transactionId);
+      this.formStatus = confirmation.status === 'confirmed'
+        ? `Relay renewed until ${new Date(confirmation.entitlementEndsAt ?? '').toLocaleDateString()}.`
+        : confirmation.message ?? 'Payment submitted. Relay access will renew once MainNet finality is reached.';
+      await Promise.all([this.loadUsage('neo3:testnet'), this.loadUsage('neo3:mainnet'), this.loadPaymentHistory()]);
+    } catch (error) {
+      this.errorMessage = this.errors.format(error, 'Could not renew Relay access.');
+    } finally {
+      this.renewingRelay = false;
+    }
+  }
+
   eventLabel(subscription: WebhookSubscription): string {
     return subscription.eventName || 'All events';
   }
@@ -277,6 +321,9 @@ export class EventWebhooksComponent implements OnInit {
 
       await this.loadSubscriptions();
       await this.loadUsage(this.relayNetwork);
+      if (this.api.hasWebhookSession(this.projectId, 'neo3:mainnet')) {
+        await this.loadPaymentHistory();
+      }
     } catch (error) {
       this.errorMessage = this.errors.format(error, 'Could not load webhook subscriptions.');
     }
@@ -293,6 +340,23 @@ export class EventWebhooksComponent implements OnInit {
 
   private async loadUsage(network: string): Promise<void> {
     this.relayUsageByNetwork[network] = await this.executeWebhookRequest(network, 'subscriptions.read', {}, signature => this.api.getRelayUsage(this.projectId, network, signature));
+  }
+
+  private async loadPaymentHistory(): Promise<void> {
+    this.paymentHistory = await this.executeWebhookRequest('neo3:mainnet', 'payments.read', {}, signature => this.api.getRelayPaymentHistory(this.projectId, signature));
+  }
+
+  private async confirmPayment(intentId: string, transactionId: string) {
+    const network = 'neo3:mainnet';
+    try {
+      return await firstValueFrom(this.api.confirmRelayPayment(this.projectId, intentId, transactionId));
+    } catch (error) {
+      if (!this.api.isWebhookSessionExpired(error)) throw error;
+      this.api.clearWebhookSession(this.projectId, network);
+      const requestHash = await this.api.getPaymentConfirmationRequestHash(this.projectId, intentId, transactionId);
+      const signature = await this.wallet.signWebhookAdministration(this.projectId, 'payments.confirm', requestHash);
+      return await firstValueFrom(this.api.confirmRelayPayment(this.projectId, intentId, transactionId, signature));
+    }
   }
 
   private async updateSubscription(

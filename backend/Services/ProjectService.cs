@@ -85,6 +85,9 @@ public sealed class ProjectService(
         await db.RelayEntitlements.DeleteManyAsync(
             Builders<BsonDocument>.Filter.Eq("projectId", projectId),
             cancellationToken);
+        await db.RelayPaymentIntents.DeleteManyAsync(Builders<BsonDocument>.Filter.Eq("projectId", projectId), cancellationToken);
+        await db.RelayPayments.DeleteManyAsync(Builders<BsonDocument>.Filter.Eq("projectId", projectId), cancellationToken);
+        await db.RelayEntitlementHistory.DeleteManyAsync(Builders<BsonDocument>.Filter.Eq("projectId", projectId), cancellationToken);
         await db.Deployments.DeleteManyAsync(deployment => deployment.ProjectId == projectId, cancellationToken);
         await db.ContractArtifacts.DeleteManyAsync(artifact => artifact.ProjectId == projectId, cancellationToken);
         await db.Projects.DeleteOneAsync(project => project.Id == projectId, cancellationToken);

@@ -68,6 +68,15 @@ services:
       EventRelay__DeliveryWorkerStallSeconds: ${PUSHAROO_RELAY_WORKER_STALL_SECONDS:-120}
       EventRelay__MaxScannerLagBlocks: ${PUSHAROO_RELAY_MAX_SCANNER_LAG_BLOCKS:-30}
       EventRelay__MaxQueueDepth: ${PUSHAROO_RELAY_MAX_QUEUE_DEPTH:-1000}
+      EventRelay__PaymentRecipientAddress: ${EVENT_RELAY_PAYMENT_RECIPIENT_ADDRESS:-}
+      EventRelay__PaymentRecipientScriptHash: ${EVENT_RELAY_PAYMENT_RECIPIENT_SCRIPT_HASH:-}
+      EventRelay__PaidPlanGasDatoshis: ${EVENT_RELAY_PAID_PLAN_GAS_DATOSHIS:-500000000}
+      EventRelay__PaidPlanDays: ${EVENT_RELAY_PAID_PLAN_DAYS:-30}
+      EventRelay__PaidGraceDays: ${EVENT_RELAY_PAID_GRACE_DAYS:-3}
+      EventRelay__PaidMaxActiveSubscriptions: ${EVENT_RELAY_PAID_MAX_ACTIVE_SUBSCRIPTIONS:-5}
+      EventRelay__PaidMaxEvents: ${EVENT_RELAY_PAID_MAX_EVENTS:-10000}
+      EventRelay__PaymentIntentMinutes: ${EVENT_RELAY_PAYMENT_INTENT_MINUTES:-15}
+      EventRelay__PaymentConfirmationBlocks: ${EVENT_RELAY_PAYMENT_CONFIRMATION_BLOCKS:-2}
       PusharooApi__Endpoint: http://api:8080
       DataProtection__KeyRingPath: /var/lib/pusharoo/data-protection
     expose: ["8080"]

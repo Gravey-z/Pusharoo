@@ -58,6 +58,11 @@ public sealed class NeoRpcClient(
         return await SendAsync("getapplicationlog", [transactionHash], cancellationToken);
     }
 
+    public async Task<JsonElement> GetRawTransactionAsync(string transactionHash, CancellationToken cancellationToken)
+    {
+        return await SendAsync("getrawtransaction", [transactionHash, true], cancellationToken);
+    }
+
     private async Task<JsonElement> SendAsync(
         string method,
         object?[] parameters,

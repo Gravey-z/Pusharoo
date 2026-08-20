@@ -93,10 +93,10 @@ public sealed class SubscriptionsController(
             return BadRequest(new { error = "Relay access is not active for this network." });
         }
         var activeSubscriptions = (await subscriptions.GetByProjectIdAsync(projectId, cancellationToken))
-            .Count(item => item.Network == request.Network.Trim() && item.IsEnabled);
+            .Count(item => item.IsEnabled && (entitlement.Plan == "paid" || item.Network == request.Network.Trim()));
         if (request.IsEnabled && activeSubscriptions >= entitlement.MaxActiveSubscriptions)
         {
-            return BadRequest(new { error = "The free beta active-webhook limit has been reached." });
+            return BadRequest(new { error = "The Relay active-webhook limit has been reached." });
         }
 
         var validation = await ValidateSubscriptionAsync(request, cancellationToken);
@@ -134,8 +134,8 @@ public sealed class SubscriptionsController(
         var authorization = await AuthorizeAsync(projectId, "subscriptions.read", WebhookManagementRequestHasher.Hash(projectId, "subscriptions.read"), request.Signature, cancellationToken);
         if (authorization is not null) return authorization;
         var entitlement = await entitlements.GetAsync(projectId, neoRpcOptions.Value.Network, cancellationToken);
-        var active = (await subscriptions.GetByProjectIdAsync(projectId, cancellationToken)).Count(x => x.Network == neoRpcOptions.Value.Network && x.IsEnabled);
-        return Ok(new { entitlement.Plan, entitlement.Status, entitlement.PeriodStart, entitlement.PeriodEndsAt, entitlement.MaxActiveSubscriptions, activeSubscriptions = active, entitlement.MaxEvents, entitlement.EventsUsed, eventsRemaining = Math.Max(0, entitlement.MaxEvents - entitlement.EventsUsed) });
+        var active = (await subscriptions.GetByProjectIdAsync(projectId, cancellationToken)).Count(x => x.IsEnabled && (entitlement.Plan == "paid" || x.Network == neoRpcOptions.Value.Network));
+        return Ok(new { entitlement.Plan, entitlement.Status, entitlement.PeriodStart, entitlement.PeriodEndsAt, entitlement.GraceEndsAt, entitlement.MaxActiveSubscriptions, activeSubscriptions = active, entitlement.MaxEvents, entitlement.EventsUsed, eventsRemaining = Math.Max(0, entitlement.MaxEvents - entitlement.EventsUsed) });
     }
 
     [HttpPut("{subscriptionId}")]
@@ -166,7 +166,7 @@ public sealed class SubscriptionsController(
         if (request.IsEnabled && (!existing.IsEnabled || !string.Equals(existing.Network, request.Network.Trim(), StringComparison.Ordinal)))
         {
             var activeSubscriptions = (await subscriptions.GetByProjectIdAsync(projectId, cancellationToken))
-                .Count(item => item.Id != existing.Id && item.Network == request.Network.Trim() && item.IsEnabled);
+                .Count(item => item.Id != existing.Id && item.IsEnabled && (entitlement.Plan == "paid" || item.Network == request.Network.Trim()));
             if (entitlement.Status != "active" || entitlement.PeriodEndsAt <= DateTime.UtcNow || activeSubscriptions >= entitlement.MaxActiveSubscriptions)
             {
                 return BadRequest(new { error = "This network's relay allowance does not permit another active webhook." });
@@ -256,7 +256,8 @@ public sealed class SubscriptionsController(
         }
 
         var history = await deliveries.GetBySubscriptionAsync(subscriptionId, cancellationToken);
-        if (string.Equals(existing.Network, "neo3:testnet", StringComparison.Ordinal))
+        var entitlement = await entitlements.GetAsync(projectId, existing.Network, cancellationToken);
+        if (string.Equals(existing.Network, "neo3:testnet", StringComparison.Ordinal) || entitlement.Plan == "paid")
         {
             history = history.Where(item => item.DeliveredAt >= DateTime.UtcNow.AddDays(-7)).ToList();
         }

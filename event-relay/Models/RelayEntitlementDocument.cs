@@ -14,4 +14,8 @@ public sealed class RelayEntitlementDocument
     [BsonElement("maxActiveSubscriptions")] public int MaxActiveSubscriptions { get; init; }
     [BsonElement("maxEvents")] public int MaxEvents { get; init; }
     [BsonElement("eventsUsed")] public int EventsUsed { get; init; }
+    [BsonElement("paidUntil")] public DateTime? PaidUntil { get; init; }
+    [BsonElement("graceEndsAt")] public DateTime? GraceEndsAt { get; init; }
+    [BsonElement("lastPaymentId")] public string? LastPaymentId { get; init; }
+    [BsonElement("updatedAt")] public DateTime UpdatedAt { get; init; }
 }

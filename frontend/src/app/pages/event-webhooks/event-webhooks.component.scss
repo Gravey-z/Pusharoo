@@ -45,6 +45,45 @@
 
 .relay-statuses { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .webhook-network-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.relay-plan,
+.payment-history {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+
+.relay-plan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+}
+
+.relay-plan h2,
+.payment-history h2 {
+  margin: 0;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 16px;
+}
+
+.relay-plan p {
+  max-width: 660px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.relay-plan .relay-plan-status { color: var(--ink); }
+
+.payment-history { overflow: hidden; }
+.payment-history h2 { padding: 13px 16px; border-bottom: 1px solid var(--line); }
+.payment-history div { display: grid; grid-template-columns: minmax(150px, .8fr) 120px 1fr; gap: 12px; padding: 11px 16px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+.payment-history div:last-child { border-bottom: 0; }
 .active-network { border-color: var(--accent) !important; color: var(--accent) !important; }
 .relay-statuses span { border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; color: var(--muted); font-size: 12px; }
 .relay-statuses .ok { color: var(--sage); border-color: rgba(21, 244, 200, .32); }
@@ -267,4 +306,9 @@ select {
   .subscription-list article {
     grid-template-columns: 1fr;
   }
+}
+
+@media (max-width: 620px) {
+  .relay-plan { align-items: stretch; flex-direction: column; }
+  .payment-history div { grid-template-columns: 1fr; }
 }

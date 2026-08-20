@@ -179,7 +179,10 @@ export type WebhookManagementOperation =
   | 'subscriptions.delete'
   | 'deliveries.read'
   | 'deliveries.test'
-  | 'deliveries.redeliver';
+  | 'deliveries.redeliver'
+  | 'payments.create'
+  | 'payments.confirm'
+  | 'payments.read';
 
 export interface WebhookDelivery {
   id: string;
@@ -199,7 +202,38 @@ export interface EventRelayStatus {
   network: string;
 }
 
-export interface RelayUsage { plan: string; status: string; periodEndsAt: string; maxActiveSubscriptions: number; activeSubscriptions: number; maxEvents: number; eventsUsed: number; eventsRemaining: number; }
+export interface RelayUsage { plan: string; status: string; periodEndsAt: string; graceEndsAt?: string | null; maxActiveSubscriptions: number; activeSubscriptions: number; maxEvents: number; eventsUsed: number; eventsRemaining: number; }
+
+export interface RelayPaymentIntent {
+  id: string;
+  projectId: string;
+  network: string;
+  recipientAddress: string;
+  recipientScriptHash: string;
+  requiredGasDatoshis: number;
+  status: string;
+  createdAt: string;
+  expiresAt: string;
+  confirmedTransactionId?: string | null;
+}
+
+export interface RelayPayment {
+  transactionId: string;
+  intentId: string;
+  status: string;
+  entitlementEndsAt?: string | null;
+  message?: string | null;
+}
+
+export interface RelayEntitlementHistory {
+  network: string;
+  plan: string;
+  periodStart: string;
+  periodEndsAt: string;
+  graceEndsAt: string;
+}
+
+export interface RelayPaymentHistory { payments: RelayPayment[]; entitlements: RelayEntitlementHistory[]; }
 
 export interface ProjectCardViewModel {
   project: Project;
