@@ -74,6 +74,17 @@ select {
   font-weight: 650;
 }
 
+.load-error {
+  display: grid;
+  gap: 12px;
+  width: fit-content;
+}
+
+.load-error p {
+  margin: 0;
+  color: var(--danger);
+}
+
 .diff-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(120px, 1fr));

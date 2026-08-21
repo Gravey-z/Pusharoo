@@ -1,7 +1,14 @@
 <app-page-shell title="Delete Project">
   <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Cancel</a>
 
-  @if (project) {
+  @if (isLoading) {
+    <p class="missing" aria-live="polite">Loading project…</p>
+  } @else if (loadError) {
+    <section class="load-error" aria-live="assertive">
+      <p>{{ loadError }}</p>
+      <button class="secondary-button" type="button" (click)="retryLoad()">Try again</button>
+    </section>
+  } @else if (project) {
     <section class="delete-panel">
       <span class="eyebrow">Irreversible action</span>
       <h1>Delete {{ project.name }}?</h1>
@@ -40,6 +47,6 @@
       </button>
     </section>
   } @else {
-    <p class="missing">Project not found.</p>
+    <p class="missing" role="alert">Project not found.</p>
   }
 </app-page-shell>

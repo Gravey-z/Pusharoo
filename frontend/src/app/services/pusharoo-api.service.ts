@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { forkJoin, map, Observable, of, switchMap } from 'rxjs';
+import { forkJoin, map, Observable, switchMap } from 'rxjs';
 import {
   Artifact,
   ArtifactComparison,
@@ -17,6 +17,7 @@ import {
   NeoPermission,
   Project,
   ProjectCardViewModel,
+  ProjectListItem,
   ProjectCreationSignature,
   ProjectOverviewViewModel,
   WalletActionSignature,
@@ -49,16 +50,8 @@ export class PusharooApiService {
     return error instanceof HttpErrorResponse && error.status === 401;
   }
 
-  getProjectCards(): Observable<ProjectCardViewModel[]> {
-    return this.http.get<Project[]>(`${this.apiBaseUrl}/projects`).pipe(
-      switchMap((projects) => {
-        if (projects.length === 0) {
-          return of([]);
-        }
-
-        return forkJoin(projects.map((project) => this.getProjectCard(project)));
-      })
-    );
+  getProjectCards(): Observable<ProjectListItem[]> {
+    return this.http.get<ProjectListItem[]>(`${this.apiBaseUrl}/projects/cards`);
   }
 
   getProjectOverview(projectId: string): Observable<ProjectOverviewViewModel> {

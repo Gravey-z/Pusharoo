@@ -9,6 +9,7 @@ import {
   ProjectOverviewViewModel
 } from '../../models/pusharoo.models';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
+import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 
@@ -52,25 +53,48 @@ export class ArtifactCompareComponent implements OnInit {
   fromVersion = '';
   toVersion = '';
   isLoading = false;
+  isProjectLoading = true;
+  loadError = '';
   errorMessage = '';
   readonly projectId: string;
 
   constructor(
     private readonly route: ActivatedRoute,
-    private readonly api: PusharooApiService
+    private readonly api: PusharooApiService,
+    private readonly errors: ApiErrorFormatterService
   ) {
     this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
   }
 
   ngOnInit(): void {
-    this.api.getProjectOverview(this.projectId).subscribe((overview) => {
-      this.overview = overview;
-      this.artifacts = overview?.artifacts ?? [];
+    this.loadProject();
+  }
 
-      if (this.artifacts.length >= 2) {
-        this.toVersion = this.artifacts[0].version;
-        this.fromVersion = this.artifacts[1].version;
-        this.compare();
+  retryLoad(): void {
+    this.loadProject();
+  }
+
+  private loadProject(): void {
+    this.isProjectLoading = true;
+    this.loadError = '';
+    this.api.getProjectOverview(this.projectId).subscribe({
+      next: (overview) => {
+        this.overview = overview;
+        this.artifacts = overview?.artifacts ?? [];
+
+        if (this.artifacts.length >= 2) {
+          this.toVersion = this.artifacts[0].version;
+          this.fromVersion = this.artifacts[1].version;
+          this.compare();
+        }
+
+        this.isProjectLoading = false;
+      },
+      error: (error) => {
+        this.overview = null;
+        this.artifacts = [];
+        this.loadError = this.errors.format(error, 'Could not load this project.');
+        this.isProjectLoading = false;
       }
     });
   }

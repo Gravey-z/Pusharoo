@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { ProjectCardViewModel } from '../../models/pusharoo.models';
+import { ProjectListItem } from '../../models/pusharoo.models';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
@@ -15,7 +15,7 @@ import { PageShellComponent } from '../page-shell/page-shell.component';
   styleUrl: './projects.component.scss'
 })
 export class ProjectsComponent implements OnInit {
-  projects: ProjectCardViewModel[] = [];
+  projects: ProjectListItem[] = [];
   isLoading = true;
   loadError = '';
   isCreating = false;
@@ -78,13 +78,11 @@ export class ProjectsComponent implements OnInit {
     }
   }
 
-  deploymentNetworkSummary(item: ProjectCardViewModel): string {
-    const networks = [...new Set(item.deployments.map((deployment) => deployment.network))];
-
-    return networks.length > 0 ? networks.join(', ') : 'Not deployed';
+  deploymentNetworkSummary(item: ProjectListItem): string {
+    return item.deploymentNetworks.length > 0 ? item.deploymentNetworks.join(', ') : 'Not deployed';
   }
 
-  visibleProjects(projects: ProjectCardViewModel[]): ProjectCardViewModel[] {
+  visibleProjects(projects: ProjectListItem[]): ProjectListItem[] {
     const query = this.searchTerm.trim().toLowerCase();
     const filtered = projects.filter((item) => {
       const matchesQuery = !query || [item.project.name, item.project.description ?? '']
@@ -102,7 +100,7 @@ export class ProjectsComponent implements OnInit {
     return sorted.slice(lastIndex - this.pageSize, lastIndex);
   }
 
-  totalPages(projects: ProjectCardViewModel[]): number {
+  totalPages(projects: ProjectListItem[]): number {
     const query = this.searchTerm.trim().toLowerCase();
     const count = projects.filter((item) => {
       const matchesQuery = !query || [item.project.name, item.project.description ?? '']
@@ -116,11 +114,11 @@ export class ProjectsComponent implements OnInit {
     this.page = 1;
   }
 
-  changePage(projects: ProjectCardViewModel[], direction: number): void {
+  changePage(projects: ProjectListItem[], direction: number): void {
     this.page = Math.min(Math.max(1, this.page + direction), this.totalPages(projects));
   }
 
-  creatorSummary(item: ProjectCardViewModel): string {
+  creatorSummary(item: ProjectListItem): string {
     const address = item.project.createdByWalletAddress;
 
     return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Legacy';

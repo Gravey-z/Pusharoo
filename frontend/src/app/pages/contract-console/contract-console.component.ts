@@ -58,6 +58,8 @@ export class ContractConsoleComponent implements OnInit {
   parameterValues: Record<string, string> = {};
   mode: ConsoleMode = 'test';
   isRunning = false;
+  isLoading = true;
+  loadError = '';
   errorMessage = '';
   consoleEntries: ConsoleEntry[] = [];
   readonly projectId: string;
@@ -95,11 +97,30 @@ export class ContractConsoleComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.api.getProjectOverview(this.projectId).subscribe((overview) => {
-      this.overview = overview;
-      this.targets = this.toTargets(overview);
-      this.selectedTargetKey = this.targets[0] ? this.targetKey(this.targets[0]) : '';
-      this.selectTarget();
+    this.loadProject();
+  }
+
+  retryLoad(): void {
+    this.loadProject();
+  }
+
+  private loadProject(): void {
+    this.isLoading = true;
+    this.loadError = '';
+    this.api.getProjectOverview(this.projectId).subscribe({
+      next: (overview) => {
+        this.overview = overview;
+        this.targets = this.toTargets(overview);
+        this.selectedTargetKey = this.targets[0] ? this.targetKey(this.targets[0]) : '';
+        this.selectTarget();
+        this.isLoading = false;
+      },
+      error: (error) => {
+        this.overview = null;
+        this.targets = [];
+        this.loadError = this.errors.format(error, 'Could not load this project.');
+        this.isLoading = false;
+      }
     });
   }
 

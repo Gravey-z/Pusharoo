@@ -1,4 +1,15 @@
-@if (overview) {
+@if (isProjectLoading) {
+  <app-page-shell title="Compare Versions">
+    <p class="missing" aria-live="polite">Loading project…</p>
+  </app-page-shell>
+} @else if (loadError) {
+  <app-page-shell title="Compare Versions">
+    <section class="load-error" aria-live="assertive">
+      <p>{{ loadError }}</p>
+      <button class="secondary-button" type="button" (click)="retryLoad()">Try again</button>
+    </section>
+  </app-page-shell>
+} @else if (overview) {
   <app-page-shell [title]="'Compare: ' + overview.project.name">
     <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
 

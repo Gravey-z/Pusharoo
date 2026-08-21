@@ -29,6 +29,8 @@ export class DeploymentCreateComponent implements OnInit {
   errorMessage = '';
   deployStatus = '';
   isSaving = false;
+  isLoading = true;
+  loadError = '';
   isPreparingReview = false;
   isReviewing = false;
   mainnetConfirmed = false;
@@ -98,10 +100,29 @@ export class DeploymentCreateComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.api.getProjectOverview(this.projectId).subscribe((overview) => {
-      this.overview = overview;
-      this.artifacts = overview?.artifacts ?? [];
-      this.artifactId = this.artifacts[0]?.id ?? '';
+    this.loadProject();
+  }
+
+  retryLoad(): void {
+    this.loadProject();
+  }
+
+  private loadProject(): void {
+    this.isLoading = true;
+    this.loadError = '';
+    this.api.getProjectOverview(this.projectId).subscribe({
+      next: (overview) => {
+        this.overview = overview;
+        this.artifacts = overview?.artifacts ?? [];
+        this.artifactId = this.artifacts[0]?.id ?? '';
+        this.isLoading = false;
+      },
+      error: (error) => {
+        this.overview = null;
+        this.artifacts = [];
+        this.loadError = this.errors.format(error, 'Could not load this project.');
+        this.isLoading = false;
+      }
     });
   }
 

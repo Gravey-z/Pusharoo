@@ -99,9 +99,24 @@ textarea {
   line-height: 1.45;
 }
 
-.form-error {
+.form-error,
+.form-status {
   margin: 0;
-  color: var(--danger);
   font-size: 13px;
   font-weight: 650;
+}
+
+.form-error,
+.load-error p {
+  color: var(--danger);
+}
+
+.form-status {
+  color: var(--muted);
+}
+
+.load-error {
+  display: grid;
+  gap: 12px;
+  width: fit-content;
 }

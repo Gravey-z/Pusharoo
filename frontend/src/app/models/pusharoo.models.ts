@@ -245,6 +245,13 @@ export interface ProjectCardViewModel {
   deployed: boolean;
 }
 
+export interface ProjectListItem {
+  project: Project;
+  latestArtifact: { version: string; createdAt: string } | null;
+  deploymentNetworks: string[];
+  deployed: boolean;
+}
+
 export interface ProjectOverviewViewModel extends ProjectCardViewModel {
   latestArtifact: Artifact | null;
 }

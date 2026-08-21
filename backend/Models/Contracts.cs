@@ -31,6 +31,16 @@ public sealed record ProjectResponse(
     string? CreatorNetwork,
     DateTime CreatedAt);
 
+public sealed record ProjectListItemResponse(
+    ProjectResponse Project,
+    ProjectListArtifactResponse? LatestArtifact,
+    IReadOnlyList<string> DeploymentNetworks,
+    bool Deployed);
+
+public sealed record ProjectListArtifactResponse(
+    string Version,
+    DateTime CreatedAt);
+
 public sealed record ArtifactResponse(
     string Id,
     string ProjectId,

@@ -1,6 +1,14 @@
 <app-page-shell title="Upload Artifact">
   <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
 
+  @if (isLoading) {
+    <p class="form-status" aria-live="polite">Loading project…</p>
+  } @else if (loadError) {
+    <section class="load-error" aria-live="assertive">
+      <p>{{ loadError }}</p>
+      <button class="secondary-button" type="button" (click)="retryLoad()">Try again</button>
+    </section>
+  } @else if (overview) {
   <app-project-release-nav [projectId]="projectId" />
 
   <form class="upload-form" (ngSubmit)="upload()">
@@ -50,4 +58,7 @@
       Upload
     </button>
   </form>
+  } @else {
+    <p class="form-error" role="alert">Project not found.</p>
+  }
 </app-page-shell>

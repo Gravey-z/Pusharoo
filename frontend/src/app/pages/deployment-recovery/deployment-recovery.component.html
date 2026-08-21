@@ -1,9 +1,16 @@
 <app-page-shell [title]="pageTitle">
   <a actions class="secondary-button" [routerLink]="['/projects', projectId, 'deployments']">Back to Deployments</a>
 
+  @if (isLoading) {
+    <p class="missing" aria-live="polite">Loading project…</p>
+  } @else if (loadError) {
+    <section class="load-error" aria-live="assertive">
+      <p>{{ loadError }}</p>
+      <button class="secondary-button" type="button" (click)="retryLoad()">Try again</button>
+    </section>
+  } @else if (overview) {
   <app-project-release-nav [projectId]="projectId" />
 
-  @if (overview) {
     @if (artifacts.length) {
       <section class="recovery-intro">
         <h2>Record a contract that is already on-chain</h2>

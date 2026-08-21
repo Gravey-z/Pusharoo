@@ -43,9 +43,15 @@ public sealed class MongoDbContext
                 Builders<ArtifactDocument>.IndexKeys.Ascending(artifact => artifact.IdempotencyKey),
                 new CreateIndexOptions { Unique = true, Sparse = true })
         ]);
-        Deployments.Indexes.CreateOne(new CreateIndexModel<DeploymentDocument>(
-            Builders<DeploymentDocument>.IndexKeys.Ascending(deployment => deployment.TransactionId),
-            new CreateIndexOptions { Unique = true, Sparse = true }));
+        Deployments.Indexes.CreateMany([
+            new CreateIndexModel<DeploymentDocument>(
+                Builders<DeploymentDocument>.IndexKeys.Ascending(deployment => deployment.TransactionId),
+                new CreateIndexOptions { Unique = true, Sparse = true }),
+            new CreateIndexModel<DeploymentDocument>(
+                Builders<DeploymentDocument>.IndexKeys
+                    .Ascending(deployment => deployment.ProjectId)
+                    .Descending(deployment => deployment.CreatedAt))
+        ]);
     }
 
     public IMongoCollection<ProjectDocument> Projects { get; }

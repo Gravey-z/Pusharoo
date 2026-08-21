@@ -40,6 +40,63 @@ public sealed class ProjectService(
         return await projects.GetAllAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ProjectListItemResponse>> GetListItemsAsync(CancellationToken cancellationToken)
+    {
+        var projectList = await projects.GetAllAsync(cancellationToken);
+        if (projectList.Count == 0)
+        {
+            return [];
+        }
+
+        var projectIds = projectList.Select(project => project.Id).ToArray();
+        var projectFilter = Builders<ArtifactDocument>.Filter.In(artifact => artifact.ProjectId, projectIds);
+        var deploymentFilter = Builders<DeploymentDocument>.Filter.In(deployment => deployment.ProjectId, projectIds);
+        var artifactsTask = db.ContractArtifacts
+            .Find(projectFilter)
+            .Project(artifact => new ProjectListArtifact(
+                artifact.ProjectId,
+                artifact.Version,
+                artifact.CreatedAt))
+            .ToListAsync(cancellationToken);
+        var deploymentsTask = db.Deployments
+            .Find(deploymentFilter)
+            .Project(deployment => new ProjectListDeployment(
+                deployment.ProjectId,
+                deployment.Network,
+                deployment.ContractHash,
+                deployment.Status,
+                deployment.CreatedAt))
+            .ToListAsync(cancellationToken);
+
+        await Task.WhenAll(artifactsTask, deploymentsTask);
+        var artifactsByProject = artifactsTask.Result
+            .GroupBy(artifact => artifact.ProjectId)
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(artifact => artifact.CreatedAt).First());
+        var deploymentsByProject = deploymentsTask.Result
+            .GroupBy(deployment => deployment.ProjectId)
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(deployment => deployment.CreatedAt).ToArray());
+
+        return projectList.Select(project =>
+        {
+            artifactsByProject.TryGetValue(project.Id, out var latestArtifact);
+            deploymentsByProject.TryGetValue(project.Id, out var projectDeployments);
+            projectDeployments ??= [];
+            var deploymentNetworks = projectDeployments
+                .Select(deployment => deployment.Network)
+                .Distinct()
+                .ToArray();
+            var deployed = projectDeployments.Any(deployment =>
+                !string.IsNullOrWhiteSpace(deployment.ContractHash)
+                && (string.IsNullOrWhiteSpace(deployment.Status) || deployment.Status == "confirmed"));
+
+            return new ProjectListItemResponse(
+                project.ToResponse(),
+                latestArtifact is null ? null : new ProjectListArtifactResponse(latestArtifact.Version, latestArtifact.CreatedAt),
+                deploymentNetworks,
+                deployed);
+        }).ToArray();
+    }
+
     public async Task<ProjectDocument?> GetByIdAsync(string projectId, CancellationToken cancellationToken)
     {
         return await projects.GetByIdAsync(projectId, cancellationToken);
@@ -92,4 +149,13 @@ public sealed class ProjectService(
         await db.ContractArtifacts.DeleteManyAsync(artifact => artifact.ProjectId == projectId, cancellationToken);
         await db.Projects.DeleteOneAsync(project => project.Id == projectId, cancellationToken);
     }
+
+    private sealed record ProjectListArtifact(string ProjectId, string Version, DateTime CreatedAt);
+
+    private sealed record ProjectListDeployment(
+        string ProjectId,
+        string Network,
+        string? ContractHash,
+        string Status,
+        DateTime CreatedAt);
 }

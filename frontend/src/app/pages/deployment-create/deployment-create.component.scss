@@ -262,6 +262,17 @@ textarea {
   font-weight: 650;
 }
 
+.load-error {
+  display: grid;
+  gap: 12px;
+  width: fit-content;
+}
+
+.load-error p {
+  margin: 0;
+  color: var(--danger);
+}
+
 .form-status {
   color: var(--accent);
 }

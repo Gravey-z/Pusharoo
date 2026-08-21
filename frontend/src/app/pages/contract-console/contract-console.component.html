@@ -1,9 +1,16 @@
 <app-page-shell [title]="pageTitle">
   <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
 
+  @if (isLoading) {
+    <p class="missing" aria-live="polite">Loading project…</p>
+  } @else if (loadError) {
+    <section class="load-error" aria-live="assertive">
+      <p>{{ loadError }}</p>
+      <button class="secondary-button" type="button" (click)="retryLoad()">Try again</button>
+    </section>
+  } @else if (overview) {
   <app-project-release-nav [projectId]="projectId" />
 
-  @if (overview) {
     @if (targets.length && methods.length) {
       <section class="console-layout">
         <form class="call-panel" (ngSubmit)="run()">

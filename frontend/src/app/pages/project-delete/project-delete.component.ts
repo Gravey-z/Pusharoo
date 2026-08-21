@@ -20,6 +20,8 @@ export class ProjectDeleteComponent implements OnInit {
   confirmationName = '';
   errorMessage = '';
   isDeleting = false;
+  isLoading = true;
+  loadError = '';
   readonly projectId: string;
   readonly walletAddress = computed(() => this.wallet.account()?.address ?? '');
 
@@ -35,8 +37,26 @@ export class ProjectDeleteComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.api.getProjectOverview(this.projectId).subscribe((overview) => {
-      this.project = overview?.project ?? null;
+    this.loadProject();
+  }
+
+  retryLoad(): void {
+    this.loadProject();
+  }
+
+  private loadProject(): void {
+    this.isLoading = true;
+    this.loadError = '';
+    this.api.getProjectOverview(this.projectId).subscribe({
+      next: (overview) => {
+        this.project = overview?.project ?? null;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        this.project = null;
+        this.loadError = this.errors.format(error, 'Could not load this project.');
+        this.isLoading = false;
+      }
     });
   }
 

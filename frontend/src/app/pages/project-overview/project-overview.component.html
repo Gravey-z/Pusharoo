@@ -12,12 +12,20 @@
 } @else if (overview) {
   <app-page-shell [title]="'Project: ' + overview.project.name">
     <div actions class="actions">
-      <a class="primary-button" [class.disabled-action]="!canManageProject(overview)" [routerLink]="['/projects', overview.project.id, 'upload']" [attr.aria-disabled]="!canManageProject(overview)" title="Only the project owner can upload artifacts">
+      @if (canManageProject(overview)) {
+      <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
         Upload Artifact
       </a>
-      <a class="delete-project-button" [class.disabled-action]="!canManageProject(overview)" [routerLink]="['/projects', overview.project.id, 'delete']" [attr.aria-disabled]="!canManageProject(overview)" title="Only the project owner can delete this project">
+      } @else {
+        <span class="primary-button disabled-action" aria-disabled="true" title="Only the project owner can upload artifacts">Upload Artifact</span>
+      }
+      @if (canManageProject(overview)) {
+      <a class="delete-project-button" [routerLink]="['/projects', overview.project.id, 'delete']">
         Delete Project
       </a>
+      } @else {
+        <span class="delete-project-button disabled-action" aria-disabled="true" title="Only the project owner can delete this project">Delete Project</span>
+      }
     </div>
 
     <app-project-release-nav [projectId]="overview.project.id" />
@@ -77,14 +85,17 @@
               <span class="deploy-network-button disabled" title="Switch your connected wallet to this network to deploy.">
                 Switch wallet to deploy
               </span>
-            } @else {
+            } @else if (canManageProject(overview)) {
               <a
                 class="deploy-network-button"
-                [class.disabled-action]="!canManageProject(overview)"
                 [routerLink]="['/projects', overview.project.id, 'deployments', 'new']"
               >
                 Deploy contract
               </a>
+            } @else {
+              <span class="deploy-network-button disabled-action" aria-disabled="true" title="Only the project owner can deploy contracts.">
+                Deploy contract
+              </span>
             }
           }
         </article>
@@ -96,9 +107,13 @@
     <section class="artifact-list" aria-label="Artifacts">
       <header class="artifact-list-header">
         <h2>Artifacts</h2>
-        <a class="primary-button" [class.disabled-action]="!canManageProject(overview)" [routerLink]="['/projects', overview.project.id, 'upload']" [attr.aria-disabled]="!canManageProject(overview)">
+        @if (canManageProject(overview)) {
+        <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
           Upload Artifact
         </a>
+        } @else {
+          <span class="primary-button disabled-action" aria-disabled="true" title="Only the project owner can upload artifacts">Upload Artifact</span>
+        }
       </header>
 
       @if (overview.artifacts.length) {
@@ -138,12 +153,17 @@
         <h2>Deployments</h2>
         @if (overview.artifacts.length) {
           <div class="deployment-list-actions">
-            <a class="secondary-button" [class.disabled-action]="!canManageProject(overview)" [routerLink]="['/projects', overview.project.id, 'deployments', 'recovery']" [attr.aria-disabled]="!canManageProject(overview)">
+            @if (canManageProject(overview)) {
+            <a class="secondary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'recovery']">
               Recover Existing Deployment
             </a>
-            <a class="primary-button" [class.disabled-action]="!canManageProject(overview)" [routerLink]="['/projects', overview.project.id, 'deployments', 'new']" [attr.aria-disabled]="!canManageProject(overview)">
+            <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'new']">
               Deploy Contract
             </a>
+            } @else {
+              <span class="secondary-button disabled-action" aria-disabled="true" title="Only the project owner can recover deployments">Recover Existing Deployment</span>
+              <span class="primary-button disabled-action" aria-disabled="true" title="Only the project owner can deploy contracts">Deploy Contract</span>
+            }
           </div>
         }
       </header>

@@ -73,6 +73,13 @@ public sealed class ProjectsController(
         return Ok(response);
     }
 
+    [HttpGet("cards")]
+    public async Task<ActionResult<IReadOnlyList<ProjectListItemResponse>>> GetCardsAsync(CancellationToken cancellationToken)
+    {
+        var response = await projectService.GetListItemsAsync(cancellationToken);
+        return Ok(response);
+    }
+
     [HttpGet("{projectId}")]
     public async Task<ActionResult<ProjectResponse>> GetByIdAsync(
         string projectId,

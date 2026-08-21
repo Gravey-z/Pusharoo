@@ -24,6 +24,8 @@ export class ArtifactUploadComponent implements OnInit {
   nefFile: File | null = null;
   manifestFile: File | null = null;
   isUploading = false;
+  isLoading = true;
+  loadError = '';
   errorMessage = '';
   manifestWarning = '';
   latestVersion = '';
@@ -44,15 +46,33 @@ export class ArtifactUploadComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.api.getProjectOverview(this.projectId).subscribe((overview) => {
-      this.overview = overview;
-      const artifacts = overview?.artifacts ?? [];
-      this.existingVersions = artifacts.map((artifact) => artifact.version);
-      this.latestVersion = artifacts[0]?.version ?? '';
-      this.suggestedVersion = this.latestVersion
-        ? this.getNextVersion(this.latestVersion)
-        : this.version;
-      this.version = this.suggestedVersion;
+    this.loadProject();
+  }
+
+  retryLoad(): void {
+    this.loadProject();
+  }
+
+  private loadProject(): void {
+    this.isLoading = true;
+    this.loadError = '';
+    this.api.getProjectOverview(this.projectId).subscribe({
+      next: (overview) => {
+        this.overview = overview;
+        const artifacts = overview?.artifacts ?? [];
+        this.existingVersions = artifacts.map((artifact) => artifact.version);
+        this.latestVersion = artifacts[0]?.version ?? '';
+        this.suggestedVersion = this.latestVersion
+          ? this.getNextVersion(this.latestVersion)
+          : this.version;
+        this.version = this.suggestedVersion;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        this.overview = null;
+        this.loadError = this.errors.format(error, 'Could not load this project.');
+        this.isLoading = false;
+      }
     });
   }
 
