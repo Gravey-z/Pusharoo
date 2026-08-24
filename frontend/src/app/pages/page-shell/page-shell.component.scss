@@ -11,7 +11,7 @@
   align-items: center;
   justify-content: space-between;
   min-height: 64px;
-  padding: 0 32px;
+  padding: 0 var(--space-8);
   border-bottom: 1px solid var(--line);
   background: rgba(8, 11, 18, 0.82);
   backdrop-filter: blur(12px);
@@ -27,7 +27,7 @@ nav a {
 
 .brand {
   font-family: var(--font-display);
-  font-weight: 750;
+  font-weight: var(--font-weight-bold);
 }
 
 .brand img {
@@ -39,12 +39,12 @@ nav a {
 
 nav a {
   min-height: 36px;
-  padding: 0 12px;
-  border-radius: 8px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-control);
   font-family: var(--font-display);
   color: var(--muted);
   font-size: 14px;
-  font-weight: 650;
+  font-weight: var(--font-weight-semibold);
 }
 
 nav a:hover {
@@ -55,20 +55,20 @@ nav a:hover {
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .page {
   width: min(1120px, calc(100% - 40px));
   margin: 0 auto;
-  padding: 34px 0 54px;
+  padding: var(--space-8) 0 54px;
 }
 
 .page-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: var(--space-5);
   margin-bottom: 22px;
 }
 
@@ -77,8 +77,8 @@ h1 {
   color: var(--ink);
   font-family: var(--font-display);
   text-shadow: 0 0 18px rgba(0, 214, 255, 0.12);
-  font-size: 28px;
-  font-weight: 760;
+  font-size: var(--font-size-page-title);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0;
 }
 
@@ -86,7 +86,7 @@ h1 {
   .topbar {
     align-items: flex-start;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--space-3);
     padding: 14px 18px;
   }
 
@@ -95,7 +95,7 @@ h1 {
     justify-content: space-between;
     align-items: center;
     flex-direction: row;
-    gap: 10px;
+    gap: var(--space-2);
   }
 
   .page {

@@ -1,18 +1,18 @@
 .release-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-1);
   margin: -8px 0 20px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--line);
 }
 
 a {
-  padding: 8px 10px;
-  border-radius: 7px;
+  padding: var(--space-2) 10px;
+  border-radius: var(--radius-control);
   color: var(--muted);
-  font-size: 13px;
-  font-weight: 740;
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-bold);
   text-decoration: none;
 }
 
@@ -31,10 +31,10 @@ a.active {
   margin-left: auto;
   padding: 6px 9px;
   border: 1px solid rgba(21, 244, 200, 0.25);
-  border-radius: 8px;
+  border-radius: var(--radius-pill);
   color: var(--sage);
-  font-size: 11px;
-  font-weight: 740;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
 }
 
 .wallet-context.mainnet {

@@ -1,6 +1,6 @@
 .landing {
   min-height: 100vh;
-  padding: 34px;
+  padding: var(--space-8);
   position: relative;
   overflow: hidden;
 }
@@ -44,7 +44,7 @@
   align-content: center;
   min-height: min(620px, calc(100vh - 68px));
   width: min(820px, 100%);
-  gap: 20px;
+  gap: var(--space-5);
 }
 
 .brand-lockup {
@@ -85,13 +85,13 @@ a {
   justify-content: center;
   min-height: 42px;
   margin-top: 4px;
-  padding: 0 16px;
-  border-radius: 8px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-control);
   background: linear-gradient(135deg, var(--accent-strong), var(--accent));
   color: #061017;
   font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 780;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-bold);
   text-decoration: none;
   box-shadow: var(--glow-accent);
 }
@@ -101,24 +101,24 @@ a {
   z-index: 1;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--space-3);
   width: min(1100px, 100%);
   padding-bottom: 34px;
 }
 
 .workflow div {
   display: grid;
-  gap: 7px;
-  padding: 16px;
+  gap: var(--space-2);
+  padding: var(--space-4);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: rgba(8, 19, 28, 0.7);
 }
 
 .workflow span {
   color: var(--accent);
-  font-size: 12px;
-  font-weight: 800;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-extrabold);
 }
 
 .workflow strong {
@@ -140,7 +140,7 @@ a {
 
 @media (max-width: 680px) {
   .landing {
-    padding: 24px;
+    padding: var(--space-6);
   }
 
   .hero {

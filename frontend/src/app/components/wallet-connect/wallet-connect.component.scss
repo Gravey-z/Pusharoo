@@ -7,18 +7,18 @@
 .icon-button {
   min-height: 34px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--card);
   color: var(--ink);
   font: inherit;
-  font-weight: 720;
+  font-weight: var(--font-weight-bold);
   cursor: pointer;
 }
 
 .wallet-trigger {
   min-width: 92px;
-  padding: 0 12px;
-  font-size: 13px;
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-label);
 }
 
 .wallet-trigger:hover,
@@ -56,9 +56,9 @@
   display: grid;
   gap: 14px;
   width: min(310px, 86vw);
-  padding: 16px;
+  padding: var(--space-4);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: #0b1019;
   box-shadow: var(--shadow-overlay);
 }
@@ -67,15 +67,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 h2 {
   margin: 0;
   color: var(--accent);
   font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 760;
+  font-size: var(--font-size-section);
+  font-weight: var(--font-weight-bold);
 }
 
 .icon-button {
@@ -92,29 +92,29 @@ h2 {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px;
+  padding: var(--space-2);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--field);
 }
 
 .network-choice span {
   margin-right: auto;
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 720;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
 }
 
 .network-choice button {
   min-height: 28px;
   border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 0 8px;
+  border-radius: var(--radius-small);
+  padding: 0 var(--space-2);
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 12px;
-  font-weight: 740;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
   cursor: pointer;
 }
 
@@ -127,42 +127,42 @@ h2 {
 .network-guidance {
   margin: -4px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-size-caption);
   line-height: 1.4;
 }
 
 .key-safety {
   margin: 0;
-  padding: 8px 9px;
+  padding: var(--space-2) 9px;
   border: 1px solid rgba(21, 244, 200, 0.22);
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   color: var(--sage);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   line-height: 1.4;
 }
 
 .wallet-option {
   display: grid;
-  gap: 3px;
+  gap: var(--space-1);
   justify-items: start;
   min-height: 58px;
-  padding: 10px 12px;
+  padding: 10px var(--space-3);
   text-align: left;
 }
 
 .wallet-option span,
 .wallet-account span {
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 720;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
 }
 
 .wallet-option strong,
 .wallet-account strong {
   color: var(--ink);
   font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 720;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-bold);
 }
 
 .wallet-option.danger {
@@ -172,20 +172,20 @@ h2 {
 
 .wallet-account {
   display: grid;
-  gap: 4px;
-  padding: 11px 12px;
+  gap: var(--space-1);
+  padding: 11px var(--space-3);
   border: 1px solid rgba(21, 244, 200, 0.28);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: rgba(21, 244, 200, 0.1);
 }
 
 .network-badge {
   width: fit-content;
-  border-radius: 8px;
+  border-radius: var(--radius-pill);
   padding: 3px 7px;
   background: rgba(141, 255, 176, 0.14);
   color: var(--sage) !important;
-  font-size: 11px !important;
+  font-size: var(--font-size-caption) !important;
   font-weight: 800 !important;
 }
 
@@ -206,7 +206,7 @@ h2 {
 .walletconnect-panel {
   position: relative;
   display: grid;
-  gap: 10px;
+  gap: var(--space-2);
   padding-top: 2px;
 }
 
@@ -219,19 +219,19 @@ h2 {
   color: var(--accent);
   font-family: var(--font-display);
   font-size: 14px;
-  font-weight: 760;
+  font-weight: var(--font-weight-bold);
 }
 
 .neon-heading span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--font-size-label);
 }
 
 .panel-label,
 label span {
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 720;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
 }
 
 .walletconnect-panel img {
@@ -239,7 +239,7 @@ label span {
   height: 180px;
   justify-self: center;
   border: 8px solid #f7fffb;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: #f7fffb;
 }
 
@@ -248,11 +248,11 @@ label span {
   align-items: center;
   justify-content: center;
   min-height: 36px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: linear-gradient(135deg, var(--accent-strong), var(--accent));
   color: #061017;
-  font-size: 13px;
-  font-weight: 780;
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-bold);
   text-decoration: none;
 }
 
@@ -265,12 +265,12 @@ textarea {
   width: 100%;
   resize: vertical;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   padding: 8px;
   background: var(--field);
   color: var(--ink);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--font-size-caption);
   overflow-wrap: anywhere;
   cursor: copy;
 }
@@ -284,13 +284,13 @@ textarea:focus {
   right: 0;
   bottom: 0;
   margin: 0;
-  padding: 7px 10px;
+  padding: 7px var(--space-2);
   border: 1px solid rgba(141, 255, 176, 0.32);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: rgba(141, 255, 176, 0.12);
   color: var(--sage);
   font-size: 13px;
-  font-weight: 760;
+  font-weight: var(--font-weight-bold);
 }
 
 .wallet-error {
@@ -300,9 +300,9 @@ textarea:focus {
   z-index: 20;
   width: min(320px, 80vw);
   margin: 0;
-  padding: 10px 12px;
+  padding: 10px var(--space-3);
   border: 1px solid rgba(255, 107, 138, 0.3);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: #120a12;
   color: var(--danger);
   font-size: 13px;
