@@ -5,8 +5,6 @@
   align-items: start;
 }
 
-.relay-statuses { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-.webhook-network-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .relay-plan,
 .payment-history {
   margin-bottom: 16px;
@@ -49,12 +47,6 @@
 .payment-history div { display: grid; grid-template-columns: minmax(150px, .8fr) 120px 1fr; gap: 12px; padding: 11px 16px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 .payment-history div:last-child { border-bottom: 0; }
 .pending-payments div { grid-template-columns: minmax(190px, 1fr) 170px minmax(220px, 1fr) auto; align-items: center; }
-.active-network { border-color: var(--testnet) !important; background: var(--testnet-soft); color: var(--testnet) !important; }
-.mainnet-network.active-network { border-color: var(--warning) !important; background: var(--warning-soft); color: var(--warning) !important; }
-.relay-statuses span { border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; color: var(--muted); font-size: 12px; }
-.relay-statuses .testnet-network { border-color: var(--testnet-border); background: var(--testnet-soft); color: var(--testnet); }
-.relay-statuses .mainnet-network { border-color: var(--warning-border); background: var(--warning-soft); color: var(--warning); }
-.relay-statuses .degraded { color: var(--danger); border-color: rgba(255, 94, 117, .32); }
 .testnet-trial { border-color: var(--testnet-border); background: var(--testnet-soft); }
 .testnet-trial h2 { color: var(--testnet); }
 

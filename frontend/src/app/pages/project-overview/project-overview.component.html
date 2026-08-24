@@ -16,9 +16,6 @@
   >
     <div actions class="actions">
       @if (canManageProject(overview)) {
-        <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
-          Upload Artifact
-        </a>
         <details class="project-menu">
           <summary class="secondary-button">Project options</summary>
           <div class="project-menu-panel surface-panel">
@@ -109,7 +106,12 @@
     @if (releaseTab !== 'deployments') {
     <section class="artifact-list" aria-label="Artifacts">
       <header class="artifact-list-header">
-        <h2>Artifacts</h2>
+        <h2>{{ releaseTab === 'overview' ? 'Live artifacts' : 'Artifacts' }}</h2>
+        @if (releaseTab === 'artifacts' && canManageProject(overview)) {
+          <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
+            Upload Artifact
+          </a>
+        }
       </header>
 
       <div class="list-columns artifact-columns" aria-hidden="true">
@@ -119,10 +121,11 @@
         <span>Networks</span>
       </div>
 
-      @if (overview.artifacts.length) {
-        @for (artifact of overview.artifacts; track artifact.id) {
+      @let displayedArtifacts = releaseTab === 'overview' ? liveArtifacts(overview) : overview.artifacts;
+      @if (displayedArtifacts.length) {
+        @for (artifact of displayedArtifacts; track artifact.id) {
           <a
-            [class.deployed-artifact]="isArtifactDeployed(overview, artifact)"
+            [class.deployed-artifact]="releaseTab === 'artifacts' && isArtifactDeployed(overview, artifact)"
             [routerLink]="['/artifacts', artifact.id, 'manifest']"
           >
             <span data-label="Version">{{ artifact.version }}</span>
@@ -143,12 +146,12 @@
         }
       } @else {
         <div class="artifact-empty-state">
-          <strong>No artifacts uploaded</strong>
-          <p>Upload a NEF and manifest before creating a deployment.</p>
+          <strong>{{ releaseTab === 'overview' ? 'No live artifacts' : 'No artifacts uploaded' }}</strong>
+          <p>{{ releaseTab === 'overview' ? 'Deploy an artifact to Testnet or Mainnet to show it here.' : 'Upload a NEF and manifest before creating a deployment.' }}</p>
         </div>
       }
 
-      @if (overview.artifacts.length && !overview.deployments.length) {
+      @if (releaseTab !== 'overview' && overview.artifacts.length && !overview.deployments.length) {
         <p class="artifact-deployment-empty">No artifacts deployed yet. Choose an artifact and network to begin a release.</p>
       }
     </section>
@@ -157,7 +160,7 @@
     @if (releaseTab !== 'artifacts') {
     <section class="deployment-list" aria-label="Deployments">
       <header class="deployment-list-header">
-        <h2>Deployments</h2>
+        <h2>{{ releaseTab === 'overview' ? 'Live deployments' : 'Deployments' }}</h2>
         @if (overview.artifacts.length && canManageProject(overview)) {
           <div class="deployment-list-actions">
             <a class="secondary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'recovery']">
@@ -180,8 +183,9 @@
         <span>Deployer</span>
         <span>Action</span>
       </div>
-      @if (overview.deployments.length) {
-        @for (deployment of overview.deployments; track deployment.id) {
+      @let displayedDeployments = releaseTab === 'overview' ? liveDeployments(overview) : overview.deployments;
+      @if (displayedDeployments.length) {
+        @for (deployment of displayedDeployments; track deployment.id) {
           <div>
             <span data-label="Version">{{ deployment.version }}</span>
             <span
@@ -249,7 +253,7 @@
         }
       } @else {
         <div class="deployment-empty-state">
-          <p>No deployments recorded yet.</p>
+          <p>{{ releaseTab === 'overview' ? 'No live deployments on Testnet or Mainnet yet.' : 'No deployments recorded yet.' }}</p>
         </div>
       }
     </section>

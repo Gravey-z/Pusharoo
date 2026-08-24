@@ -1,7 +1,7 @@
 <main class="landing">
   <header class="landing-topbar">
     <a class="landing-brand" routerLink="/home" aria-label="Pusharoo home">
-      <img src="pusharoo-logo.png?v=20260528-transparent" alt="" />
+      <img src="pusharoo-logo.png?v=20260824-192" alt="" />
       <span>Pusharoo</span>
     </a>
     <app-wallet-connect />
@@ -18,7 +18,7 @@
       </p>
       <div class="hero-actions">
         <a class="primary-button" routerLink="/projects">Open workspace</a>
-        <a class="secondary-button" href="#workflow">See how it works</a>
+        <button class="secondary-button" type="button" (click)="scrollToWorkflow()">See how it works</button>
       </div>
     </div>
 

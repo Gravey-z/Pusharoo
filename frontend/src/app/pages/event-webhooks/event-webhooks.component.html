@@ -6,41 +6,59 @@
 
   <app-project-release-nav [projectId]="projectId" />
 
-  <section class="relay-statuses" aria-label="Relay network status">
-    @for (network of ['neo3:testnet', 'neo3:mainnet']; track network) {
-      <span
-        [class.ok]="relayStatuses[network] === 'ok'"
-        [class.degraded]="relayStatuses[network] !== 'ok'"
-        [class.testnet-network]="network === 'neo3:testnet'"
-        [class.mainnet-network]="network === 'neo3:mainnet'"
-      >
-        {{ networkLabel(network) }} relay: {{ relayStatuses[network] || 'checking' }}
-      </span>
-    }
+  <section class="webhook-workspace-header surface-panel" aria-label="Webhook workspace">
+    <div class="webhook-workspace-intro">
+      <span class="eyebrow">Event delivery</span>
+      <h2>Event webhooks</h2>
+      <p>Monitor contract events and send matching activity to your endpoint.</p>
+    </div>
+
+    <div class="webhook-workspace-controls">
+      <div class="webhook-network-tabs" role="group" aria-label="Webhook network">
+        @for (network of ['neo3:testnet', 'neo3:mainnet']; track network) {
+          <button
+            type="button"
+            class="webhook-network-tab"
+            [class.active-network]="webhookNetwork === network"
+            [class.testnet-network]="network === 'neo3:testnet'"
+            [class.mainnet-network]="network === 'neo3:mainnet'"
+            [attr.aria-pressed]="webhookNetwork === network"
+            (click)="selectWebhookNetwork(network)"
+          >
+            {{ network === 'neo3:testnet' ? 'N3:Testnet' : 'N3:Mainnet' }}
+          </button>
+        }
+      </div>
+
+      <div class="relay-summary" aria-live="polite">
+        <span
+          class="relay-health"
+          [class.available]="relayStatuses[webhookNetwork] === 'ok'"
+          [class.unavailable]="relayStatuses[webhookNetwork] && relayStatuses[webhookNetwork] !== 'ok'"
+        >
+          <i aria-hidden="true"></i>
+          {{ networkLabel(webhookNetwork) }} Relay: {{ relayStatuses[webhookNetwork] || 'checking' }}
+        </span>
+
+        @if (relayUsageByNetwork[webhookNetwork]; as usage) {
+          <dl class="relay-usage">
+            <div>
+              <dt>Active</dt>
+              <dd>{{ usage.activeSubscriptions }}/{{ usage.maxActiveSubscriptions }}</dd>
+            </div>
+            <div>
+              <dt>Events left</dt>
+              <dd>{{ usage.eventsRemaining }}/{{ usage.maxEvents }}</dd>
+            </div>
+            <div>
+              <dt>Access</dt>
+              <dd>{{ usage.status }}</dd>
+            </div>
+          </dl>
+        }
+      </div>
+    </div>
   </section>
-
-  <nav class="webhook-network-tabs" aria-label="Webhook network">
-    @for (network of ['neo3:testnet', 'neo3:mainnet']; track network) {
-      <button
-        type="button"
-        class="secondary-button"
-        [class.active-network]="webhookNetwork === network"
-        [class.testnet-network]="network === 'neo3:testnet'"
-        [class.mainnet-network]="network === 'neo3:mainnet'"
-        (click)="selectWebhookNetwork(network)"
-      >
-        {{ network === 'neo3:testnet' ? 'N3:Testnet webhooks' : 'N3:Mainnet webhooks' }}
-      </button>
-    }
-  </nav>
-
-  @if (relayUsageByNetwork[webhookNetwork]; as usage) {
-    <section class="relay-statuses" aria-label="Relay usage">
-      <span>{{ usage.plan }}: {{ usage.activeSubscriptions }}/{{ usage.maxActiveSubscriptions }} active webhooks</span>
-      <span>{{ usage.eventsRemaining }} of {{ usage.maxEvents }} events remaining</span>
-      <span>Access: {{ usage.status }}</span>
-    </section>
-  }
 
   @if (webhookNetwork === 'neo3:mainnet') {
   @if (!isRelayConnected) {

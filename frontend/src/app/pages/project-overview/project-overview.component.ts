@@ -64,6 +64,27 @@ export class ProjectOverviewComponent implements OnInit {
     return this.deploymentHistory.latestForNetwork(overview.deployments, `neo3:${network}`);
   }
 
+  liveDeployments(overview: ProjectOverviewViewModel): Deployment[] {
+    return this.deploymentHistory.latestConfirmedByNetwork(overview.deployments)
+      .filter((deployment) => ['neo3:testnet', 'neo3:mainnet'].includes(deployment.network));
+  }
+
+  liveArtifacts(overview: ProjectOverviewViewModel): Artifact[] {
+    const artifactsById = new Map(overview.artifacts.map((artifact) => [artifact.id, artifact]));
+    const includedArtifactIds = new Set<string>();
+    const liveArtifacts: Artifact[] = [];
+
+    for (const deployment of this.liveDeployments(overview)) {
+      const artifact = artifactsById.get(deployment.artifactId);
+      if (artifact && !includedArtifactIds.has(artifact.id)) {
+        includedArtifactIds.add(artifact.id);
+        liveArtifacts.push(artifact);
+      }
+    }
+
+    return liveArtifacts;
+  }
+
   isNetworkUnavailable(network: string): boolean {
     const walletNetwork = this.wallet.session()?.network;
 

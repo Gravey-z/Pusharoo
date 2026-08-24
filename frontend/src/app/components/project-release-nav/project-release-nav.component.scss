@@ -37,7 +37,7 @@ a:focus-visible {
 a.active {
   background: rgba(21, 244, 200, 0.11);
   color: var(--sage);
-  box-shadow: inset 0 -2px 0 var(--accent);
+  box-shadow: inset 0 -1px 0 var(--accent);
 }
 
 .wallet-context {
