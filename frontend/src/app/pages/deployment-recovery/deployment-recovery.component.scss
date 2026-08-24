@@ -111,13 +111,16 @@ textarea {
 }
 
 label.mainnet-network input[readonly] {
-  border-color: rgba(255, 107, 138, 0.52);
-  background: rgba(255, 107, 138, 0.1);
-  color: var(--danger);
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning);
 }
 
 label.mainnet-network .field-label,
-label.mainnet-network .field-label small,
+label.mainnet-network .field-label small {
+  color: var(--warning);
+}
+
 .form-error,
 .missing {
   color: var(--danger);

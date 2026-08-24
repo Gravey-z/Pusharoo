@@ -148,8 +148,8 @@
 }
 
 .release-state.pending {
-  background: rgba(255, 202, 92, 0.12);
-  color: #ffca5c;
+  background: var(--warning-soft);
+  color: var(--warning);
 }
 
 .latest-panel,

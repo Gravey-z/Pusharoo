@@ -38,8 +38,8 @@ a.active {
 }
 
 .wallet-context.mainnet {
-  border-color: rgba(255, 107, 138, 0.45);
-  color: var(--danger);
+  border-color: var(--warning-border);
+  color: var(--warning);
 }
 
 @media (max-width: 620px) {

@@ -29,14 +29,14 @@
 }
 
 .wallet-trigger.mainnet {
-  border-color: rgba(255, 107, 138, 0.46);
-  background: rgba(255, 107, 138, 0.13);
-  color: var(--danger);
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning);
 }
 
 .wallet-trigger.mainnet:hover {
-  border-color: var(--danger);
-  color: var(--danger);
+  border-color: var(--warning);
+  color: var(--warning);
 }
 
 .dialog-backdrop {
@@ -190,13 +190,13 @@ h2 {
 }
 
 .wallet-account.mainnet {
-  border-color: rgba(255, 107, 138, 0.4);
-  background: rgba(255, 107, 138, 0.1);
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
 }
 
 .wallet-account.mainnet .network-badge {
-  background: rgba(255, 107, 138, 0.16);
-  color: var(--danger) !important;
+  background: var(--warning-soft);
+  color: var(--warning) !important;
 }
 
 .wallet-account strong {

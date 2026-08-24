@@ -130,13 +130,13 @@
 }
 
 .mainnet-warning {
-  border-color: rgba(255, 107, 138, 0.55);
-  background: rgba(255, 107, 138, 0.09);
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
 }
 
 .mainnet-warning strong,
 .mainnet-release .confirmation-heading h2 {
-  color: var(--danger);
+  color: var(--warning);
 }
 
 .mainnet-confirmation {
@@ -152,7 +152,7 @@
   width: auto;
   min-height: auto;
   margin-top: 2px;
-  accent-color: var(--danger);
+  accent-color: var(--warning);
 }
 
 .confirmation-actions {
@@ -220,17 +220,17 @@ input[readonly] {
 }
 
 label.mainnet-network input[readonly] {
-  border-color: rgba(255, 107, 138, 0.52);
-  background: rgba(255, 107, 138, 0.1);
-  color: var(--danger);
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning);
 }
 
 label.mainnet-network .field-label {
-  color: var(--danger);
+  color: var(--warning);
 }
 
 label.mainnet-network .field-label small {
-  color: var(--danger);
+  color: var(--warning);
 }
 
 textarea {
