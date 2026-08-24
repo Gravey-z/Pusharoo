@@ -5,6 +5,7 @@
   --field: #0c111a;
   --soft: #192235;
   --line: #26334a;
+  --line-strong: #354661;
 
   --text: #e7edf5;
   --text-muted: #91a3b7;
@@ -214,6 +215,123 @@ textarea:read-only {
   color: var(--accent);
 }
 
+.surface-panel,
+.empty-state {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--card);
+  box-shadow: var(--shadow-panel);
+}
+
+.surface-panel {
+  padding: var(--space-5);
+}
+
+.surface-panel--prominent {
+  border-color: var(--line-strong);
+  background: var(--card-soft);
+  box-shadow: var(--shadow-overlay);
+}
+
+.empty-state,
+.loading-state,
+.page-error {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 650px;
+  padding: var(--space-5);
+}
+
+.empty-state,
+.loading-state {
+  color: var(--text-muted);
+}
+
+.empty-state > strong,
+.loading-state > strong {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: var(--font-size-section);
+  font-weight: var(--font-weight-bold);
+}
+
+.page-error {
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-panel);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.inline-error,
+.form-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-semibold);
+}
+
+.status-badge,
+.network-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  padding: 3px var(--space-2);
+  background: var(--card-soft);
+  color: var(--text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
+}
+
+.status-badge--success,
+.network-badge--testnet {
+  border-color: var(--success-border);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.status-badge--warning,
+.network-badge--mainnet {
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.status-badge--danger {
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.data-table {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--card);
+}
+
+.data-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  color: var(--text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
+  text-align: left;
+}
+
+.skeleton {
+  border-radius: var(--radius-control);
+  background: linear-gradient(90deg, var(--card-soft), var(--soft), var(--card-soft));
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+
 .primary-button,
 .secondary-button,
 .danger-button,
@@ -264,5 +382,12 @@ textarea:read-only {
   *::after {
     scroll-behavior: auto !important;
     transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
+}
+
+@keyframes skeleton-shimmer {
+  to {
+    background-position: -200% 0;
   }
 }

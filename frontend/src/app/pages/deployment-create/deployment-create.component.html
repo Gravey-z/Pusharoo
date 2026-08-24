@@ -4,7 +4,7 @@
   @if (isLoading) {
     <p class="missing" aria-live="polite">Loading project…</p>
   } @else if (loadError) {
-    <section class="load-error" aria-live="assertive">
+    <section class="load-error page-error" aria-live="assertive">
       <p>{{ loadError }}</p>
       <button class="secondary-button" type="button" (click)="retryLoad()">Try again</button>
     </section>

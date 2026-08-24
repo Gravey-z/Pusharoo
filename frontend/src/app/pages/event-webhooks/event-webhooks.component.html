@@ -225,9 +225,11 @@
                 <span>{{ shortHash(subscription.contractHash) }}</span>
                 <span class="url">{{ subscription.webhookUrl }}</span>
                 <span
-                  class="status-pill"
+                  class="status-pill status-badge"
                   [class.success]="delivery?.succeeded"
                   [class.failed]="delivery && !delivery.succeeded"
+                  [class.status-badge--success]="delivery?.succeeded"
+                  [class.status-badge--danger]="delivery && !delivery.succeeded"
                 >
                   @if (delivery) {
                     {{ delivery.succeeded ? 'Delivered' : 'Failed' }}
