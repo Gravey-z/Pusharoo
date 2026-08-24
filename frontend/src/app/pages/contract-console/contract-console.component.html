@@ -1,87 +1,146 @@
 <app-page-shell
   [title]="pageTitle"
-  [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: overview?.project?.name ?? 'Project', link: overview ? ['/projects', projectId] : undefined }, { label: pageTitle }]"
+  [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: overview?.project?.name ?? 'Project' }]"
 >
   <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
 
   @if (isLoading) {
-    <p class="missing" aria-live="polite">Loading project…</p>
+    <p class="missing" aria-live="polite">Loading project...</p>
   } @else if (loadError) {
     <section class="load-error page-error" aria-live="assertive">
       <p>{{ loadError }}</p>
       <button class="secondary-button" type="button" (click)="retryLoad()">Try again</button>
     </section>
   } @else if (overview) {
-  <app-project-release-nav [projectId]="projectId" />
+    <app-project-release-nav [projectId]="projectId" />
 
     @if (targets.length && methods.length) {
       <section class="console-layout">
         <form class="call-panel surface-panel" (ngSubmit)="run()">
-          <label>
-            <span>Contract</span>
-            <select name="target" [(ngModel)]="selectedTargetKey" (change)="selectTarget()">
-              @for (target of targets; track targetKey(target)) {
-                <option [value]="targetKey(target)">
-                  {{ target.label }} - {{ shortHash(target.contractHash) }}
-                </option>
-              }
-            </select>
-          </label>
+          <header class="call-panel-header">
+            <span class="eyebrow">Contract call</span>
+            <h2>Run a method</h2>
+            <p>Preview is read-only. Wallet actions are clearly labelled before you approve them.</p>
+          </header>
 
-          <label>
-            <span>Method</span>
-            <select name="method" [(ngModel)]="selectedMethodName" (change)="selectMethod()">
-              @for (method of methods; track method.name) {
-                <option [value]="method.name">
-                  {{ method.name }}{{ method.safe ? ' (safe)' : '' }}
-                </option>
-              }
-            </select>
-          </label>
+          <section class="call-section">
+            <header>
+              <span>1</span>
+              <div>
+                <h3>Choose a contract</h3>
+                <p>Select the deployed contract and ABI method to call.</p>
+              </div>
+            </header>
+            <label>
+              <span>Contract</span>
+              <select name="target" [(ngModel)]="selectedTargetKey" (change)="selectTarget()">
+                @for (target of targets; track targetKey(target)) {
+                  <option [value]="targetKey(target)">
+                    {{ target.label }} - {{ shortHash(target.contractHash) }}
+                  </option>
+                }
+              </select>
+            </label>
+
+            @if (selectedTarget; as target) {
+              <div class="target-details">
+                <span>{{ wallet.networkLabel(target.network) }}</span>
+                <code>{{ target.contractHash }}</code>
+              </div>
+            }
+
+            <label>
+              <span>Method</span>
+              <select name="method" [(ngModel)]="selectedMethodName" (change)="selectMethod()">
+                @for (method of methods; track method.name) {
+                  <option [value]="method.name">
+                    {{ method.name }}{{ method.safe ? ' (safe)' : '' }}
+                  </option>
+                }
+              </select>
+            </label>
+
+            @if (selectedMethod; as method) {
+              <div class="method-meta">
+                <span>Returns <code>{{ methodReturnType(method) }}</code></span>
+                <span [class.safe]="method.safe" [class.unsafe]="!method.safe">
+                  {{ method.safe ? 'Read-only method' : 'May change contract state' }}
+                </span>
+              </div>
+            }
+          </section>
 
           @if (selectedMethod; as method) {
-            <div class="method-meta">
-              <span>Returns {{ methodReturnType(method) }}</span>
-              <span [class.safe]="method.safe" [class.unsafe]="!method.safe">
-                {{ method.safe ? 'Read-only method' : 'Requires wallet approval' }}
-              </span>
-            </div>
-
-            @if (method.parameters.length) {
-              <div class="parameters">
-                @for (parameter of method.parameters; track parameterKey(parameter, $index)) {
-                  <label>
-                    <span>{{ parameter.name || 'Parameter ' + ($index + 1) }} · {{ parameter.type }}</span>
-                    <input
-                      type="text"
-                      [name]="parameterKey(parameter, $index)"
-                      [(ngModel)]="parameterValues[parameterKey(parameter, $index)]"
-                      [placeholder]="parameterPlaceholder(parameter)"
-                    />
-                  </label>
-                }
-              </div>
-            } @else {
-              <p class="hint">This method has no parameters.</p>
-            }
+            <section class="call-section parameter-section">
+              <header>
+                <span>2</span>
+                <div>
+                  <h3>Set parameters</h3>
+                  <p>Values are sent exactly as entered. Technical types use their expected format.</p>
+                </div>
+              </header>
+              @if (method.parameters.length) {
+                <div class="parameters">
+                  @for (parameter of method.parameters; track parameterKey(parameter, $index)) {
+                    <label>
+                      <span>{{ parameter.name || 'Parameter ' + ($index + 1) }} <code>{{ parameter.type }}</code></span>
+                      <input
+                        class="parameter-input"
+                        type="text"
+                        [name]="parameterKey(parameter, $index)"
+                        [(ngModel)]="parameterValues[parameterKey(parameter, $index)]"
+                        [placeholder]="parameterPlaceholder(parameter)"
+                      />
+                    </label>
+                  }
+                </div>
+              } @else {
+                <p class="hint">This method has no parameters.</p>
+              }
+            </section>
           }
 
-          <div class="mode-toggle" role="group" aria-label="Call mode">
-            <label>
-              <input type="radio" name="mode" value="test" [(ngModel)]="mode" />
-              <span>Preview Result</span>
-            </label>
-            <label>
-              <input type="radio" name="mode" value="transaction" [(ngModel)]="mode" />
-              <span>Send with Wallet</span>
-            </label>
-          </div>
+          <section class="call-section execution-section">
+            <header>
+              <span>3</span>
+              <div>
+                <h3>Choose execution</h3>
+                <p>Start with a preview whenever you only need to inspect the result.</p>
+              </div>
+            </header>
+            <div class="mode-toggle" role="group" aria-label="Call mode">
+              <label [class.selected]="mode === 'test'">
+                <input type="radio" name="mode" value="test" [(ngModel)]="mode" />
+                <span>Preview Result</span>
+                <small>Read-only RPC simulation</small>
+              </label>
+              <label class="transaction-mode" [class.selected]="mode === 'transaction'">
+                <input type="radio" name="mode" value="transaction" [(ngModel)]="mode" />
+                <span>Send with Wallet</span>
+                <small>Creates a wallet approval request</small>
+              </label>
+            </div>
+
+            @if (mode === 'transaction' && selectedTarget; as target) {
+              <aside class="wallet-action-notice" [class.mainnet-action]="isMainnet(target.network)">
+                <strong>{{ isMainnet(target.network) ? 'Mainnet wallet action' : 'Wallet action' }}</strong>
+                <span>
+                  {{ wallet.networkLabel(target.network) }}: your wallet will ask you to approve this {{ selectedMethod?.name }} call.
+                </span>
+              </aside>
+            }
+          </section>
 
           @if (errorMessage) {
             <p class="form-error">{{ errorMessage }}</p>
           }
 
-          <button class="primary-button" type="submit" [disabled]="!canRun">
+          <button
+            type="submit"
+            [class.primary-button]="mode === 'test'"
+            [class.wallet-action-button]="mode === 'transaction'"
+            [disabled]="!canRun"
+          >
             {{ isRunning ? 'Running...' : mode === 'test' ? 'Preview Result' : 'Send with Wallet' }}
           </button>
         </form>
@@ -98,11 +157,14 @@
                 </header>
                 @if (readableResult(entry); as readable) {
                   <div class="decoded-result">
-                    <span>Decoded {{ entry.returnType }}</span>
+                    <span>{{ entry.mode === 'test' ? 'Decoded ' + entry.returnType : 'Transaction ID' }}</span>
                     <strong>{{ readable }}</strong>
                   </div>
                 }
-                <pre>{{ formatResult(entry.result) }}</pre>
+                <details class="raw-result">
+                  <summary>Raw VM output</summary>
+                  <pre>{{ formatResult(entry.result) }}</pre>
+                </details>
               </article>
             }
           } @else {

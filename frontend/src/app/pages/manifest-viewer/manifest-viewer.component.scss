@@ -4,7 +4,7 @@
 
 .tabs {
   display: flex;
-  gap: 2px;
+  gap: var(--space-1);
   overflow-x: auto;
   padding: 10px;
   border-bottom: 1px solid var(--line);
@@ -12,24 +12,57 @@
 }
 
 .tabs button {
-  min-height: 38px;
-  border: 1px solid transparent;
   border-radius: 8px;
-  padding: 0 12px;
+  padding: var(--space-2) 10px;
+  border: 0;
   background: transparent;
   color: var(--muted);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 720;
+  font-family: var(--font-body);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-bold);
   white-space: nowrap;
   cursor: pointer;
 }
 
 .tabs button.active {
-  border-color: rgba(21, 244, 200, 0.45);
-  background: var(--card);
-  color: var(--accent);
-  box-shadow: var(--glow-accent-subtle);
+  background: rgba(21, 244, 200, 0.11);
+  color: var(--sage);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.manifest-summary {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) repeat(4, minmax(90px, 1fr));
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.manifest-summary div {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border-right: 1px solid var(--line);
+}
+
+.manifest-summary div:last-child {
+  border-right: 0;
+}
+
+.manifest-summary dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.manifest-summary dd {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .overview-grid {
@@ -63,7 +96,8 @@ dd {
 }
 
 .table-wrap {
-  overflow-x: auto;
+  max-height: 560px;
+  overflow: auto;
 }
 
 table {
@@ -82,6 +116,10 @@ td {
 }
 
 th {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  background: var(--card-soft);
   color: var(--muted);
   font-size: 12px;
   font-weight: 780;
@@ -89,6 +127,7 @@ th {
 }
 
 td:first-child {
+  font-family: var(--font-mono);
   font-weight: 760;
 }
 
@@ -111,9 +150,9 @@ td:first-child {
 }
 
 .safe-chip.unsafe {
-  border: 1px solid rgba(255, 107, 138, 0.34);
-  background: rgba(255, 107, 138, 0.12);
-  color: var(--danger);
+  border: 1px solid var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning);
 }
 
 .permission-list {
@@ -124,23 +163,36 @@ td:first-child {
 
 pre {
   margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
   border-radius: 8px;
   border: 1px solid rgba(0, 214, 255, 0.16);
   background: #070a10;
-  color: #bfffee;
+  color: var(--text);
+  font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.55;
 }
 
 .permission-list pre {
+  overflow: auto;
   padding: 14px;
+  white-space: pre;
 }
 
 .raw-json {
   min-height: 360px;
   padding: 18px;
+  white-space: pre;
+}
+
+.raw-json-wrap {
+  overflow: auto;
+  max-height: 620px;
+  background: #070a10;
+}
+
+.raw-json-wrap:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .missing {
@@ -159,5 +211,17 @@ pre {
 
   .overview-grid div:last-child {
     border-bottom: 0;
+  }
+
+  .manifest-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .manifest-summary div:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .manifest-summary div:nth-child(-n + 3) {
+    border-bottom: 1px solid var(--line);
   }
 }

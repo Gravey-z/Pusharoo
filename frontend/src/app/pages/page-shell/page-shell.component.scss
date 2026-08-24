@@ -93,6 +93,7 @@ nav a:hover {
 .breadcrumbs span {
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 14px;
 }
 
 .breadcrumbs a {
@@ -110,7 +111,7 @@ nav a:hover {
 }
 
 .breadcrumbs [aria-current="page"] {
-  color: var(--text);
+  color: var(--text-muted);
 }
 
 h1 {

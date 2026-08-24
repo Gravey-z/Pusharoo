@@ -33,6 +33,37 @@
   margin-bottom: 18px;
 }
 
+.comparison-context {
+  display: grid;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+.comparison-context > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.comparison-context strong {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.comparison-context code {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.comparison-context p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--font-size-label);
+}
+
 .diff-summary div {
   display: grid;
   gap: 8px;
@@ -46,11 +77,39 @@
 }
 
 .diff-summary strong {
-  color: var(--accent);
+  color: var(--text);
   font-family: var(--font-display);
   font-size: 28px;
   font-weight: 760;
   text-shadow: 0 0 18px rgba(21, 244, 200, 0.18);
+}
+
+.diff-summary .summary-added {
+  border-color: var(--success-border);
+}
+
+.diff-summary .summary-added strong {
+  color: var(--success);
+}
+
+.diff-summary .summary-removed {
+  border-color: var(--danger-border);
+}
+
+.diff-summary .summary-removed strong {
+  color: var(--danger);
+}
+
+.diff-summary .summary-changed {
+  border-color: var(--testnet-border);
+}
+
+.diff-summary .summary-changed strong {
+  color: var(--testnet);
+}
+
+.diff-summary .summary-other strong {
+  color: var(--text-muted);
 }
 
 .diff-grid {
@@ -112,8 +171,8 @@ p {
 }
 
 .method-change-header strong {
-  color: var(--neon-pink);
-  font-family: var(--font-display);
+  color: var(--text);
+  font-family: var(--font-mono);
 }
 
 .method-change-header span {
@@ -168,7 +227,11 @@ p {
 }
 
 .column-label.changed {
-  color: var(--neon-amber);
+  color: var(--testnet);
+}
+
+.column-label.unchanged {
+  color: var(--text-muted);
 }
 
 .chip-list,
@@ -206,9 +269,9 @@ p {
 }
 
 .type-list span {
-  border: 1px solid rgba(255, 209, 102, 0.26);
-  background: rgba(255, 209, 102, 0.1);
-  color: var(--neon-amber);
+  border: 1px solid var(--testnet-border);
+  background: var(--testnet-soft);
+  color: var(--testnet);
 }
 
 del {

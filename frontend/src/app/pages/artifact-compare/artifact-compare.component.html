@@ -48,22 +48,27 @@
       }
 
       @if (comparison) {
+        <section class="comparison-context surface-panel">
+          <span>Manifest comparison</span>
+          <strong><code>v{{ fromVersion }}</code> to <code>v{{ toVersion }}</code></strong>
+          <p>Review the summary first, then inspect each method-level change below.</p>
+        </section>
         <section class="diff-summary">
-          <div class="surface-panel">
+          <div class="surface-panel summary-added">
             <span>Added</span>
             <strong>{{ comparison.addedMethods.length }}</strong>
           </div>
-          <div class="surface-panel">
+          <div class="surface-panel summary-removed">
             <span>Removed</span>
             <strong>{{ comparison.removedMethods.length }}</strong>
           </div>
-          <div class="surface-panel">
+          <div class="surface-panel summary-changed">
             <span>Changed</span>
             <strong>{{ comparison.changedMethods.length }}</strong>
           </div>
-          <div class="surface-panel">
-            <span>Events</span>
-            <strong>{{ comparison.addedEvents.length }}</strong>
+          <div class="surface-panel summary-other">
+            <span>Other updates</span>
+            <strong>{{ comparison.addedEvents.length + comparison.permissionChanges.length }}</strong>
           </div>
         </section>
 

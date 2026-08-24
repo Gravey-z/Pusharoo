@@ -24,44 +24,57 @@
       </section>
 
       <form class="recovery-form surface-panel" (ngSubmit)="recover()">
-        <label>
-          <span>Artifact version used</span>
-          <select name="artifactId" [(ngModel)]="artifactId" [disabled]="isRecovering">
-            @for (artifact of artifacts; track artifact.id) {
-              <option [value]="artifact.id">{{ artifact.version }} - {{ artifact.contractName }}</option>
-            }
-          </select>
-        </label>
+        <header class="recovery-form-header">
+          <span>Deployment recovery</span>
+          <h2>Verify an on-chain transaction</h2>
+          <p>Pusharoo checks the transaction with Neo and records it. It never sends another deployment transaction from this form.</p>
+        </header>
 
-        <label [class.mainnet-network]="walletNetwork() === 'neo3:mainnet'">
-          <span class="field-label">
-            Network
-            <small>{{ walletNetwork() === 'neo3:mainnet' ? 'N3:Mainnet: the transaction must be on N3:Mainnet' : 'Selected by the connected wallet' }}</small>
-          </span>
-          <input type="text" name="network" [value]="walletNetwork() || 'Connect wallet first'" readonly />
-        </label>
+        <section class="recovery-form-section">
+          <h3>1. Identify the deployment</h3>
+          <label>
+            <span>Artifact version used</span>
+            <select name="artifactId" [(ngModel)]="artifactId" [disabled]="isRecovering">
+              @for (artifact of artifacts; track artifact.id) {
+                <option [value]="artifact.id">{{ artifact.version }} - {{ artifact.contractName }}</option>
+              }
+            </select>
+          </label>
 
-        <label>
-          <span>Transaction ID</span>
-          <input
-            type="text"
-            name="transactionId"
-            [(ngModel)]="transactionId"
-            placeholder="0x..."
-            autocomplete="off"
-            [disabled]="isRecovering"
-          />
-        </label>
+          <label [class.mainnet-network]="walletNetwork() === 'neo3:mainnet'">
+            <span class="field-label">
+              Network
+              <small>{{ walletNetwork() === 'neo3:mainnet' ? 'N3:Mainnet: the transaction must be on N3:Mainnet' : 'Selected by the connected wallet' }}</small>
+            </span>
+            <input type="text" name="network" [value]="walletNetwork() || 'Connect wallet first'" readonly />
+          </label>
 
-        <label>
-          <span>Project owner wallet</span>
-          <input type="text" name="projectOwner" [value]="overview.project.createdByWalletAddress || 'Legacy project owner unavailable'" readonly />
-        </label>
+          <label>
+            <span>Transaction ID</span>
+            <input
+              type="text"
+              name="transactionId"
+              [(ngModel)]="transactionId"
+              placeholder="0x..."
+              autocomplete="off"
+              [disabled]="isRecovering"
+            />
+          </label>
+          <p class="field-help">Use the transaction ID from the wallet or Neo explorer. Pusharoo verifies that it belongs to this artifact and network.</p>
+        </section>
 
-        <label>
-          <span>Notes</span>
-          <textarea name="notes" rows="4" [(ngModel)]="notes" [disabled]="isRecovering"></textarea>
-        </label>
+        <section class="recovery-form-section">
+          <h3>2. Confirm ownership</h3>
+          <label>
+            <span>Project owner wallet</span>
+            <input type="text" name="projectOwner" [value]="overview.project.createdByWalletAddress || 'Legacy project owner unavailable'" readonly />
+          </label>
+
+          <label>
+            <span>Notes</span>
+            <textarea name="notes" rows="4" [(ngModel)]="notes" [disabled]="isRecovering" placeholder="Why is this deployment being recovered?"></textarea>
+          </label>
+        </section>
 
         @if (statusMessage) {
           <p class="form-status">{{ statusMessage }}</p>

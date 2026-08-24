@@ -44,7 +44,7 @@
     </section>
   } @else if (projects.length) {
     <section class="project-tools" aria-label="Project search and filters">
-      <input type="search" name="projectSearch" [(ngModel)]="searchTerm" (ngModelChange)="updateFilters()" placeholder="Search projects" aria-label="Search projects" />
+      <input class="project-search" type="search" name="projectSearch" [(ngModel)]="searchTerm" (ngModelChange)="updateFilters()" placeholder="Search projects" aria-label="Search projects" />
       <select name="projectStatus" [(ngModel)]="statusFilter" (ngModelChange)="updateFilters()" aria-label="Filter projects by deployment status">
         <option value="all">All projects</option>
         <option value="deployed">Deployed</option>
@@ -70,7 +70,7 @@
           </div>
           <div>
             <dt>Status</dt>
-            <dd>{{ item.deployed ? 'Deployed' : 'Not deployed' }}</dd>
+            <dd><span class="status-badge" [class.status-badge--success]="item.deployed" [class.status-badge--warning]="!item.deployed">{{ item.deployed ? 'Deployed' : 'Not deployed' }}</span></dd>
           </div>
           <div>
             <dt>Creator</dt>
@@ -78,9 +78,16 @@
           </div>
           <div>
             <dt>Networks</dt>
-            <dd>{{ deploymentNetworkSummary(item) }}</dd>
+            <dd class="network-list">
+              @for (network of item.deploymentNetworks; track network) {
+                <span class="network-badge" [class.network-badge--testnet]="network === 'neo3:testnet'" [class.network-badge--mainnet]="network === 'neo3:mainnet'">{{ networkLabel(network) }}</span>
+              } @empty {
+                <span class="metadata-empty">None</span>
+              }
+            </dd>
           </div>
         </dl>
+        <span class="card-affordance" aria-hidden="true">→</span>
       </a>
     } @empty {
       <p class="no-results empty-state">No projects match those filters.</p>

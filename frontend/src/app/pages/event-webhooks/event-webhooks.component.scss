@@ -65,11 +65,93 @@
   padding: 22px;
 }
 
+.relay-connect-gate {
+  display: grid;
+  gap: var(--space-2);
+  width: min(680px, 100%);
+  padding: 22px;
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+}
+
+.relay-connect-gate strong {
+  color: var(--warning);
+  font-family: var(--font-display);
+  font-size: 16px;
+}
+
+.relay-connect-gate p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: var(--line-height-body);
+}
+
 .webhook-form h2 {
   margin: 0;
   color: var(--accent);
   font-family: var(--font-display);
   font-size: 18px;
+}
+
+.webhook-form-header {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.webhook-form-header .eyebrow {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.webhook-form-header p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-label);
+  line-height: var(--line-height-body);
+}
+
+.webhook-form-section {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.webhook-form-section h3 {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 14px;
+}
+
+.webhook-form .field-help {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--line-strong);
+  background: var(--field);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.relay-payment-button {
+  min-height: 40px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-control);
+  padding: 0 var(--space-4);
+  background: linear-gradient(135deg, #ffd166, #f6a84f);
+  box-shadow: 0 0 20px rgba(255, 209, 102, 0.16);
+  color: #1a1203;
+  font: var(--font-weight-bold) var(--font-size-body) var(--font-body);
+  cursor: pointer;
+}
+
+.relay-payment-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .form-actions,
@@ -80,7 +162,9 @@
 }
 
 .subscription-actions {
-  grid-column: 1 / -1;
+  align-items: center;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--line);
 }
 
 .subscription-actions .secondary-button,
@@ -92,16 +176,44 @@
 
 .delivery-history {
   display: grid;
-  grid-column: 1 / -1;
-  gap: 7px;
+  gap: var(--space-3);
+  padding: var(--space-3) 16px 16px;
   border-top: 1px solid var(--line);
-  padding-top: 10px;
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .delivery-history > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--field);
+}
+
+.delivery-history-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.delivery-history-header > div {
   display: grid;
-  grid-template-columns: 86px 110px 145px minmax(0, 1fr);
-  gap: 8px;
+  gap: 2px;
+}
+
+.delivery-history-header strong {
+  color: var(--text);
+  font-size: var(--font-size-label);
+}
+
+.delivery-history-header span {
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .delivery-history p,
@@ -109,6 +221,70 @@
   margin: 0;
   color: var(--muted);
   font-size: 12px;
+}
+
+.delivery-history > div > span:not(.delivery-error) {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.delivery-history > div > .delivery-result {
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius-pill);
+  padding: 3px 8px;
+  background: var(--success-soft);
+  color: var(--success) !important;
+  font-weight: 700;
+}
+
+.delivery-history > div > .delivery-result.failed-text {
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
+  color: var(--danger) !important;
+}
+
+.delivery-response {
+  font-family: var(--font-mono);
+}
+
+.delivery-time {
+  margin-left: auto;
+}
+
+.delivery-history > div .delivery-error {
+  flex-basis: 100%;
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--line);
+}
+
+.delivery-history > div .secondary-button {
+  margin-left: auto;
+}
+
+.delivery-history-empty {
+  padding: var(--space-3);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-small);
+  background: var(--field);
+}
+
+.history-paused,
+.subscription-state {
+  width: fit-content;
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius-pill);
+  padding: 3px 8px;
+  background: var(--success-soft);
+  color: var(--success) !important;
+  font-size: 11px !important;
+  font-weight: 700;
+}
+
+.history-paused,
+.subscription-state.subscription-paused {
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning) !important;
 }
 
 .failed-text { color: var(--danger); }
@@ -176,12 +352,8 @@
 }
 
 .subscription-list article {
-  display: grid;
-  grid-template-columns: minmax(160px, 1.1fr) 130px minmax(180px, 1fr) 120px 130px;
-  gap: 14px;
-  align-items: center;
-  min-height: 58px;
-  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
   border-bottom: 1px solid var(--line);
   color: var(--ink);
   font-size: 13px;
@@ -191,7 +363,13 @@
   border-bottom: 0;
 }
 
-.subscription-list article div {
+.subscription-summary {
+  display: grid;
+  gap: var(--space-3);
+  padding: 14px 16px;
+}
+
+.subscription-identity {
   display: grid;
   gap: 4px;
 }
@@ -205,8 +383,47 @@
   overflow-wrap: anywhere;
 }
 
+.subscription-metadata {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(180px, 1.4fr) minmax(180px, 1fr);
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.subscription-metadata div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.subscription-metadata dt {
+  color: var(--text-subtle);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.subscription-metadata dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
 .url {
   color: var(--muted);
+}
+
+.delivery-date {
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 12px;
 }
 
 .status-pill {
@@ -215,7 +432,7 @@
 
 @media (max-width: 980px) {
   .webhook-layout,
-  .subscription-list article {
+  .subscription-metadata {
     grid-template-columns: 1fr;
   }
 }

@@ -48,6 +48,12 @@
   flex: 1 1 230px;
 }
 
+.project-tools .project-search {
+  flex-basis: 360px;
+  border-color: var(--line-strong);
+  background: var(--card-soft);
+}
+
 .project-tools select {
   flex: 0 1 160px;
 }
@@ -94,6 +100,7 @@
 }
 
 .project-card {
+  position: relative;
   display: grid;
   gap: 22px;
   min-height: 178px;
@@ -146,9 +153,29 @@ dt {
 dd {
   font-size: 13px;
   font-weight: 760;
-  color: var(--accent);
+  color: var(--text);
   text-align: right;
   overflow-wrap: anywhere;
+}
+
+.network-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.metadata-empty {
+  color: var(--text-subtle);
+}
+
+.card-affordance {
+  position: absolute;
+  right: var(--space-4);
+  top: var(--space-3);
+  color: var(--testnet);
+  font-size: 20px;
+  opacity: 0.72;
 }
 
 @media (max-width: 680px) {

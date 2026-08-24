@@ -7,6 +7,50 @@
   padding: 22px;
 }
 
+.form-flow-header {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.form-flow-header h2,
+.form-flow-section h3 {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-display);
+}
+
+.form-flow-header h2 {
+  font-size: 18px;
+}
+
+.form-flow-header p,
+.field-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--font-size-label);
+  line-height: var(--line-height-body);
+}
+
+.form-flow-section {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.form-flow-section h3 {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.field-help {
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--line-strong);
+  background: var(--field);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
 .confirmation-heading h2,
 .fee-estimate h3 {
   margin: 0;
@@ -87,6 +131,11 @@
   color: var(--danger) !important;
 }
 
+.fee-estimate-error {
+  color: var(--danger) !important;
+  font-size: 12px;
+}
+
 .mainnet-warning {
   border-color: var(--warning-border);
   background: var(--warning-soft);
@@ -118,6 +167,23 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.mainnet-action-button {
+  min-height: 40px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-control);
+  padding: 0 var(--space-4);
+  background: linear-gradient(135deg, #ffd166, #f6a84f);
+  box-shadow: 0 0 20px rgba(255, 209, 102, 0.16);
+  color: #1a1203;
+  font: var(--font-weight-bold) var(--font-size-body) var(--font-body);
+  cursor: pointer;
+}
+
+.mainnet-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 @media (max-width: 620px) {

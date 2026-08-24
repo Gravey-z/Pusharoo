@@ -129,12 +129,18 @@
   cursor: not-allowed;
 }
 
-.latest-panel {
+.project-summary {
   display: grid;
   align-content: start;
   gap: 8px;
   min-height: 178px;
   padding: 22px;
+}
+
+.project-summary p {
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.5;
 }
 
 .eyebrow {
@@ -180,9 +186,9 @@ dt {
 
 dd {
   margin: 0;
-  color: var(--accent);
-  font-size: 24px;
-  font-weight: 780;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 700;
 }
 
 .artifact-list {
@@ -253,10 +259,6 @@ dd {
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 14px;
-}
-
-.deployment-note {
-  color: var(--sage);
 }
 
 .deployment-list {
@@ -377,6 +379,7 @@ dd {
 }
 
 .release-timeline li {
+  position: relative;
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) auto;
   gap: 9px;
@@ -389,9 +392,13 @@ dd {
 }
 
 .timeline-marker {
+  position: relative;
+  z-index: 1;
   align-self: center;
   width: 7px;
   height: 7px;
+  border: 2px solid var(--card);
+  border-radius: 50%;
   background: var(--accent);
 }
 

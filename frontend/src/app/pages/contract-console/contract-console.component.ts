@@ -207,13 +207,26 @@ export class ContractConsoleComponent implements OnInit {
   }
 
   readableResult(entry: ConsoleEntry): string | null {
-    return entry.mode === 'test' && entry.status === 'success' && entry.returnType
+    if (entry.status !== 'success') {
+      return null;
+    }
+
+    if (entry.mode === 'transaction') {
+      const transactionId = (entry.result as { transactionId?: string }).transactionId;
+      return transactionId ?? null;
+    }
+
+    return entry.returnType
       ? this.resultFormatter.readableResult(entry.result, entry.returnType)
       : null;
   }
 
   shortHash(value: string): string {
     return value.length > 17 ? `${value.slice(0, 10)}...${value.slice(-4)}` : value;
+  }
+
+  isMainnet(network: string): boolean {
+    return network.toLowerCase().includes('mainnet');
   }
 
   targetKey(target: ContractTarget): string {

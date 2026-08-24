@@ -20,6 +20,29 @@
         }
       </div>
 
+      <dl class="manifest-summary" aria-label="Manifest summary">
+        <div>
+          <dt>Contract</dt>
+          <dd>{{ artifact.manifest.name }}</dd>
+        </div>
+        <div>
+          <dt>Version</dt>
+          <dd>v{{ artifact.version }}</dd>
+        </div>
+        <div>
+          <dt>Methods</dt>
+          <dd>{{ artifact.summary.methodCount }}</dd>
+        </div>
+        <div>
+          <dt>Events</dt>
+          <dd>{{ artifact.summary.eventCount }}</dd>
+        </div>
+        <div>
+          <dt>Permissions</dt>
+          <dd>{{ artifact.manifest.permissions.length }}</dd>
+        </div>
+      </dl>
+
       @if (activeTab === 'overview') {
         <dl class="overview-grid">
           <div>
@@ -100,7 +123,9 @@
       }
 
       @if (activeTab === 'raw') {
-        <pre class="raw-json">{{ rawJson(artifact) }}</pre>
+        <div class="raw-json-wrap" tabindex="0" aria-label="Raw manifest JSON">
+          <pre class="raw-json">{{ rawJson(artifact) }}</pre>
+        </div>
       }
     </section>
   </app-page-shell>

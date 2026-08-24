@@ -82,6 +82,10 @@ export class ProjectsComponent implements OnInit {
     return item.deploymentNetworks.length > 0 ? item.deploymentNetworks.join(', ') : 'Not deployed';
   }
 
+  networkLabel(network: string): string {
+    return network === 'neo3:mainnet' ? 'N3:Mainnet' : network === 'neo3:testnet' ? 'N3:Testnet' : network;
+  }
+
   visibleProjects(projects: ProjectListItem[]): ProjectListItem[] {
     const query = this.searchTerm.trim().toLowerCase();
     const filtered = projects.filter((item) => {

@@ -1,6 +1,6 @@
 <app-page-shell
   [title]="pageTitle"
-  [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: overview?.project?.name ?? 'Project', link: overview ? ['/projects', projectId] : undefined }, { label: pageTitle }]"
+  [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: overview?.project?.name ?? 'Project' }]"
 >
   <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
 
@@ -72,7 +72,7 @@
         </p>
       </div>
       <button class="secondary-button" type="button" (click)="showPaymentHistory()" [disabled]="!canManageProject">Payment history</button>
-      <button class="primary-button" type="button" (click)="renewRelay()" [disabled]="renewingRelay || !canManageProject" title="Only the project owner can renew Relay">
+      <button class="relay-payment-button" type="button" (click)="renewRelay()" [disabled]="renewingRelay || !canManageProject" title="Only the project owner can renew Relay">
         {{ renewingRelay ? 'Waiting for wallet…' : mainnetUsage.plan === 'paid' ? 'Renew: 5 GAS' : 'Unlock Relay: 5 GAS' }}
       </button>
     </section>
@@ -83,7 +83,7 @@
         <p>Unlock N3:Mainnet and N3:Testnet event delivery for 5 GAS every 30 days, including five active webhooks and 10,000 events.</p>
       </div>
       <button class="secondary-button" type="button" (click)="showPaymentHistory()" [disabled]="!canManageProject">Payment history</button>
-      <button class="primary-button" type="button" (click)="renewRelay()" [disabled]="renewingRelay || !canManageProject" title="Only the project owner can renew Relay">
+      <button class="relay-payment-button" type="button" (click)="renewRelay()" [disabled]="renewingRelay || !canManageProject" title="Only the project owner can renew Relay">
         {{ renewingRelay ? 'Waiting for wallet…' : 'Unlock Relay: 5 GAS' }}
       </button>
     </section>
@@ -110,7 +110,7 @@
             </button>
           } @else {
             <span>Ready for wallet approval</span>
-            <button class="primary-button" type="button" (click)="payRelayIntent(intent)" [disabled]="payingIntentId === intent.id">
+            <button class="relay-payment-button" type="button" (click)="payRelayIntent(intent)" [disabled]="payingIntentId === intent.id">
               {{ payingIntentId === intent.id ? 'Waiting for wallet…' : 'Pay ' + gasAmount(intent.requiredGasDatoshis) + ' GAS' }}
             </button>
           }
@@ -143,6 +143,7 @@
   }
 
   @if (overview) {
+    @if (webhookNetwork !== 'neo3:mainnet' || isRelayConnected) {
     @if (!isWalletConnected) {
       <section class="empty-state">
         <strong>Connect your wallet to manage webhooks</strong>
@@ -151,63 +152,72 @@
     } @else if (deploymentOptions.length) {
       <section class="webhook-layout">
         <form class="webhook-form surface-panel" (ngSubmit)="save()">
-          <h2>{{ editingSubscriptionId ? 'Edit webhook' : 'Create webhook' }}</h2>
-          <label>
-            <span>Name</span>
-            <input
-              type="text"
-              name="name"
-              [(ngModel)]="name"
-              placeholder="Transfer notifications"
-            />
-          </label>
+          <header class="webhook-form-header">
+            <span class="eyebrow">{{ editingSubscriptionId ? 'Webhook settings' : 'New webhook' }}</span>
+            <h2>{{ editingSubscriptionId ? 'Edit webhook' : 'Create webhook' }}</h2>
+            <p>Choose what to watch, then set the endpoint that should receive matching events.</p>
+          </header>
 
-          <label>
-            <span>Contract</span>
-            <select name="contractHash" [(ngModel)]="contractHash" (change)="selectDeployment()">
-              @for (deployment of deploymentOptions; track deployment.contractHash) {
-                <option [value]="deployment.contractHash">
-                  {{ deployment.label }} - {{ shortHash(deployment.contractHash) }}
-                </option>
-              }
-            </select>
-          </label>
+          <section class="webhook-form-section">
+            <h3>1. Event source</h3>
+            <label>
+              <span>Name</span>
+              <input
+                type="text"
+                name="name"
+                [(ngModel)]="name"
+                placeholder="Transfer notifications"
+              />
+            </label>
 
-          <label>
-            <span>Event</span>
-            <select name="eventName" [(ngModel)]="eventName">
-              <option value="">All events</option>
-              @for (event of eventOptions; track event) {
-                <option [value]="event">{{ event }}</option>
-              }
-            </select>
-          </label>
+            <label>
+              <span>Contract</span>
+              <select name="contractHash" [(ngModel)]="contractHash" (change)="selectDeployment()">
+                @for (deployment of deploymentOptions; track deployment.contractHash) {
+                  <option [value]="deployment.contractHash">
+                    {{ deployment.label }} - {{ shortHash(deployment.contractHash) }}
+                  </option>
+                }
+              </select>
+            </label>
 
-          <label>
-            <span>Endpoint URL</span>
-            <input
-              type="url"
-              name="webhookUrl"
-              [(ngModel)]="webhookUrl"
-              placeholder="https://example.com/neo-events"
-            />
-          </label>
+            <label>
+              <span>Event</span>
+              <select name="eventName" [(ngModel)]="eventName">
+                <option value="">All events</option>
+                @for (event of eventOptions; track event) {
+                  <option [value]="event">{{ event }}</option>
+                }
+              </select>
+            </label>
+            <p class="field-help">Relay is monitoring {{ relayNetwork }}. Choose “All events” only when every event is relevant to this endpoint.</p>
+          </section>
 
-          <label>
-            <span>Signing secret</span>
-            <input
-              type="password"
-              name="secret"
-              [(ngModel)]="secret"
-              placeholder="Optional"
-              autocomplete="new-password"
-            />
-          </label>
+          <section class="webhook-form-section">
+            <h3>2. Delivery and security</h3>
+            <label>
+              <span>Endpoint URL</span>
+              <input
+                type="url"
+                name="webhookUrl"
+                [(ngModel)]="webhookUrl"
+                placeholder="https://example.com/neo-events"
+              />
+            </label>
+            <p class="field-help">Pusharoo Relay sends matching Neo events to this URL with an HTTP POST request.</p>
 
-          <p class="hint">
-            Pusharoo Relay is monitoring {{ relayNetwork }}. It will POST matching Neo events to
-            this endpoint. A signing secret adds an HMAC signature header.
-          </p>
+            <label>
+              <span>Signing secret</span>
+              <input
+                type="password"
+                name="secret"
+                [(ngModel)]="secret"
+                placeholder="Optional"
+                autocomplete="new-password"
+              />
+            </label>
+            <p class="field-help">Optional. When set, Relay includes an HMAC signature header so your endpoint can verify each request.</p>
+          </section>
 
           @if (formStatus) {
             <p class="form-status">{{ formStatus }}</p>
@@ -233,32 +243,48 @@
             @for (subscription of subscriptions; track subscription.id) {
               @let delivery = latestDelivery(subscription.id);
               <article>
-                <div>
-                  <strong>{{ subscription.name }}</strong>
-                  <span>{{ eventLabel(subscription) }}</span>
+                <div class="subscription-summary">
+                  <div class="subscription-identity">
+                    <strong>{{ subscription.name }}</strong>
+                    <span>{{ eventLabel(subscription) }}</span>
+                    <span class="subscription-state" [class.subscription-paused]="!subscription.isEnabled">
+                      {{ subscription.isEnabled ? 'Active' : 'Paused' }}
+                    </span>
+                  </div>
+                  <dl class="subscription-metadata">
+                    <div>
+                      <dt>Contract</dt>
+                      <dd>{{ shortHash(subscription.contractHash) }}</dd>
+                    </div>
+                    <div>
+                      <dt>Endpoint</dt>
+                      <dd class="url">{{ subscription.webhookUrl }}</dd>
+                    </div>
+                    <div>
+                      <dt>Latest delivery</dt>
+                      <dd>
+                        <span
+                          class="status-pill status-badge"
+                          [class.success]="delivery?.succeeded"
+                          [class.failed]="delivery && !delivery.succeeded"
+                          [class.status-badge--success]="delivery?.succeeded"
+                          [class.status-badge--danger]="delivery && !delivery.succeeded"
+                        >
+                          @if (delivery) {
+                            {{ delivery.succeeded ? 'Delivered' : 'Failed' }}
+                          } @else {
+                            No deliveries
+                          }
+                        </span>
+                        <span class="delivery-date">{{ delivery?.deliveredAt ? (delivery?.deliveredAt | date: 'short') : 'No attempts yet' }}</span>
+                      </dd>
+                    </div>
+                  </dl>
                 </div>
-                <span>{{ shortHash(subscription.contractHash) }}</span>
-                <span class="url">{{ subscription.webhookUrl }}</span>
-                <span
-                  class="status-pill status-badge"
-                  [class.success]="delivery?.succeeded"
-                  [class.failed]="delivery && !delivery.succeeded"
-                  [class.status-badge--success]="delivery?.succeeded"
-                  [class.status-badge--danger]="delivery && !delivery.succeeded"
-                >
-                  @if (delivery) {
-                    {{ delivery.succeeded ? 'Delivered' : 'Failed' }}
-                  } @else {
-                    No deliveries
-                  }
-                </span>
-                <span>
-                  {{ delivery?.deliveredAt ? (delivery?.deliveredAt | date: 'short') : '-' }}
-                </span>
                 <div class="subscription-actions">
                   <button class="secondary-button" type="button" (click)="edit(subscription)" [disabled]="!canManageProject">Edit</button>
                   <button class="secondary-button" type="button" (click)="toggle(subscription)" [disabled]="!canManageProject">
-                    {{ subscription.isEnabled ? 'Disable' : 'Enable' }}
+                    {{ subscription.isEnabled ? 'Pause delivery' : 'Resume delivery' }}
                   </button>
                   <button class="secondary-button" type="button" (click)="showDeliveryHistory(subscription)" [disabled]="loadingDeliveryHistoryFor === subscription.id || !canManageProject">
                     {{ loadingDeliveryHistoryFor === subscription.id ? 'Loading…' : 'History' }}
@@ -270,12 +296,21 @@
                 </div>
                 @if (deliveryHistoryFor === subscription.id && loadingDeliveryHistoryFor !== subscription.id) {
                   <div class="delivery-history">
-                    <strong>Recent delivery attempts</strong>
+                    <header class="delivery-history-header">
+                      <div>
+                        <strong>Recent delivery attempts</strong>
+                        <span>Delivery outcomes for this webhook only.</span>
+                      </div>
+                      @if (!subscription.isEnabled) {
+                        <span class="history-paused">Delivery is paused</span>
+                      }
+                    </header>
+                    @if (deliveryHistory.length) {
                     @for (attempt of deliveryHistory; track attempt.id) {
                       <div>
-                        <span [class.failed-text]="!attempt.succeeded">{{ attempt.succeeded ? 'Delivered' : 'Failed' }}</span>
-                        <span>{{ attempt.statusCode ? 'HTTP ' + attempt.statusCode : 'No response' }}</span>
-                        <span>{{ attempt.deliveredAt | date: 'short' }}</span>
+                        <span class="delivery-result" [class.failed-text]="!attempt.succeeded">{{ attempt.succeeded ? 'Delivered' : 'Failed' }}</span>
+                        <span class="delivery-response">{{ attempt.statusCode ? 'HTTP ' + attempt.statusCode : 'No response' }}</span>
+                        <span class="delivery-time">{{ attempt.deliveredAt | date: 'short' }}</span>
                         @if (attempt.error) { <span class="delivery-error">{{ attempt.error }}</span> }
                         @if (!attempt.succeeded) {
                           <button class="secondary-button" type="button" (click)="redeliver(subscription, attempt)" [disabled]="sendingFor === subscription.id + ':' + attempt.id || !canManageProject">
@@ -283,6 +318,9 @@
                           </button>
                         }
                       </div>
+                    }
+                    } @else {
+                      <p class="delivery-history-empty">No delivery attempts have been recorded for this webhook yet.</p>
                     }
                     <p>Secrets, request headers, and event payload values are never displayed here.</p>
                   </div>
@@ -304,6 +342,12 @@
         <a class="primary-button" [routerLink]="['/projects', projectId, 'deployments', 'new']">
           Deploy Contract
         </a>
+      </section>
+    }
+    } @else {
+      <section class="relay-connect-gate surface-panel" aria-label="N3:Mainnet webhook access">
+        <strong>Connect Pusharoo Relay to manage N3:Mainnet webhooks</strong>
+        <p>Use the Connect button above to view, create, or edit N3:Mainnet webhook subscriptions.</p>
       </section>
     }
   } @else {
