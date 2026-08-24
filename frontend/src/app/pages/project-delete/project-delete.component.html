@@ -1,4 +1,7 @@
-<app-page-shell title="Delete Project">
+<app-page-shell
+  title="Delete Project"
+  [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: project?.name ?? 'Project', link: project ? ['/projects', projectId] : undefined }, { label: 'Delete Project' }]"
+>
   <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Cancel</a>
 
   @if (isLoading) {

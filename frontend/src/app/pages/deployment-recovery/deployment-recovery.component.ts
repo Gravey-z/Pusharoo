@@ -32,7 +32,7 @@ export class DeploymentRecoveryComponent implements OnInit {
   readonly walletNetwork = computed(() => this.wallet.session()?.network ?? '');
 
   get pageTitle(): string {
-    return this.overview ? `${this.overview.project.name}: Recover Deployment` : 'Recover Deployment';
+    return 'Recover Deployment';
   }
 
   get canManageProject(): boolean {

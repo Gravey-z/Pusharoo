@@ -1,5 +1,8 @@
 @if (artifact$ | async; as artifact) {
-  <app-page-shell [title]="artifact.contractName + ' Manifest'">
+  <app-page-shell
+    title="Manifest"
+    [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: projectName || 'Project', link: ['/projects', artifact.projectId] }, { label: 'v' + artifact.version, link: ['/projects', artifact.projectId, 'artifacts'] }, { label: 'Manifest' }]"
+  >
     <a actions class="secondary-button" [routerLink]="['/projects', artifact.projectId]">Back</a>
 
     <section class="viewer surface-panel surface-panel--flush">

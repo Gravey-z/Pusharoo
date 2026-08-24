@@ -1,4 +1,7 @@
-<app-page-shell [title]="pageTitle">
+<app-page-shell
+  [title]="pageTitle"
+  [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: overview?.project?.name ?? 'Project', link: overview ? ['/projects', projectId] : undefined }, { label: pageTitle }]"
+>
   <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
 
   @if (isLoading) {

@@ -90,7 +90,7 @@ export class EventWebhooksComponent implements OnInit {
   set errorMessage(value: string) { this.errorMessageByNetwork[this.webhookNetwork] = value; }
 
   get pageTitle(): string {
-    return this.overview ? `${this.overview.project.name}: Event Webhooks` : 'Event Webhooks';
+    return 'Event Webhooks';
   }
 
   get selectedDeployment(): DeploymentOption | null {

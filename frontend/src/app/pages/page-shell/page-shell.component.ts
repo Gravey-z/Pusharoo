@@ -2,6 +2,11 @@ import { Component, Input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { WalletConnectComponent } from '../../components/wallet-connect/wallet-connect.component';
 
+export interface PageBreadcrumb {
+  label: string;
+  link?: string | string[];
+}
+
 @Component({
   selector: 'app-page-shell',
   imports: [RouterLink, WalletConnectComponent],
@@ -10,4 +15,5 @@ import { WalletConnectComponent } from '../../components/wallet-connect/wallet-c
 })
 export class PageShellComponent {
   @Input({ required: true }) title = '';
+  @Input() breadcrumbs: PageBreadcrumb[] = [];
 }

@@ -65,7 +65,7 @@ export class ContractConsoleComponent implements OnInit {
   readonly projectId: string;
 
   get pageTitle(): string {
-    return this.overview ? `${this.overview.project.name}: Contract Console` : 'Contract Console';
+    return 'Contract Console';
   }
 
   get selectedTarget(): ContractTarget | null {

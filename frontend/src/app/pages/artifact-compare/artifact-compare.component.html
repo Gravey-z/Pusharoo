@@ -10,7 +10,10 @@
     </section>
   </app-page-shell>
 } @else if (overview) {
-  <app-page-shell [title]="'Compare: ' + overview.project.name">
+  <app-page-shell
+    title="Compare Versions"
+    [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: overview.project.name, link: ['/projects', projectId] }, { label: 'Compare Versions' }]"
+  >
     <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
 
     <app-project-release-nav [projectId]="projectId" />

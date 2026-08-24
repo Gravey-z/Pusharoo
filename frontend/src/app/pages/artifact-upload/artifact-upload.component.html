@@ -1,4 +1,7 @@
-<app-page-shell title="Upload Artifact">
+<app-page-shell
+  title="Upload Artifact"
+  [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: overview?.project?.name ?? 'Project', link: overview ? ['/projects', projectId] : undefined }, { label: 'Upload Artifact' }]"
+>
   <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
 
   @if (isLoading) {

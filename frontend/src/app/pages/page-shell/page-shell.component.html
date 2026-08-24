@@ -13,7 +13,23 @@
 
   <main class="page">
     <div class="page-heading">
-      <h1>{{ title }}</h1>
+      <div class="page-heading-content">
+        @if (breadcrumbs.length) {
+          <nav class="breadcrumbs" aria-label="Breadcrumb">
+            @for (breadcrumb of breadcrumbs; track $index) {
+              @if ($index) {
+                <span class="breadcrumb-separator" aria-hidden="true">/</span>
+              }
+              @if (breadcrumb.link) {
+                <a [routerLink]="breadcrumb.link">{{ breadcrumb.label }}</a>
+              } @else {
+                <span aria-current="page">{{ breadcrumb.label }}</span>
+              }
+            }
+          </nav>
+        }
+        <h1>{{ title }}</h1>
+      </div>
       <ng-content select="[actions]" />
     </div>
     <ng-content />

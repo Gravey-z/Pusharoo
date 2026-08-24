@@ -72,6 +72,46 @@ nav a:hover {
   margin-bottom: 22px;
 }
 
+.page-heading-content {
+  min-width: 0;
+}
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  margin-bottom: var(--space-2);
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-size-caption);
+  white-space: nowrap;
+}
+
+.breadcrumbs a,
+.breadcrumbs span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.breadcrumbs a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.breadcrumbs a:hover {
+  color: var(--accent);
+}
+
+.breadcrumb-separator {
+  flex: 0 0 auto;
+  color: var(--line-strong);
+}
+
+.breadcrumbs [aria-current="page"] {
+  color: var(--text);
+}
+
 h1 {
   margin: 0;
   color: var(--ink);
@@ -106,5 +146,9 @@ h1 {
   .page-heading {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .breadcrumbs {
+    max-width: 100%;
   }
 }

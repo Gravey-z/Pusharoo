@@ -10,7 +10,10 @@
     </div>
   </app-page-shell>
 } @else if (overview) {
-  <app-page-shell [title]="'Project: ' + overview.project.name">
+  <app-page-shell
+    [title]="overview.project.name"
+    [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: overview.project.name }]"
+  >
     <div actions class="actions">
       @if (canManageProject(overview)) {
       <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">

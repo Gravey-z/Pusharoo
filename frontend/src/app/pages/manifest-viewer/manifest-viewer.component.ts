@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { AsyncPipe, JsonPipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Observable, map, switchMap } from 'rxjs';
+import { Observable, catchError, map, of, switchMap, tap } from 'rxjs';
 import { Artifact, NeoEvent, NeoMethod, NeoParameter } from '../../models/pusharoo.models';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
@@ -17,6 +17,7 @@ type ManifestTab = 'overview' | 'methods' | 'events' | 'permissions' | 'raw';
 export class ManifestViewerComponent implements OnInit {
   artifact$!: Observable<Artifact | null>;
   activeTab: ManifestTab = 'overview';
+  projectName = '';
   readonly tabs: { id: ManifestTab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'methods', label: 'Methods' },
@@ -33,7 +34,12 @@ export class ManifestViewerComponent implements OnInit {
   ngOnInit(): void {
     this.artifact$ = this.route.paramMap.pipe(
       map((params) => params.get('artifactId') ?? ''),
-      switchMap((artifactId) => this.api.getArtifact(artifactId))
+      switchMap((artifactId) => this.api.getArtifact(artifactId)),
+      switchMap((artifact) => this.api.getProjectOverview(artifact.projectId).pipe(
+        tap((overview) => this.projectName = overview.project.name),
+        map(() => artifact),
+        catchError(() => of(artifact))
+      ))
     );
   }
 
