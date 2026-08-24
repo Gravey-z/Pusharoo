@@ -93,7 +93,7 @@ a {
   font-size: 14px;
   font-weight: 780;
   text-decoration: none;
-  box-shadow: 0 0 22px rgba(0, 214, 255, 0.18);
+  box-shadow: var(--glow-accent);
 }
 
 .workflow {

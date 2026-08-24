@@ -60,7 +60,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #0b1019;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-overlay);
 }
 
 .dialog-header {
@@ -307,7 +307,7 @@ textarea:focus {
   color: var(--danger);
   font-size: 13px;
   font-weight: 650;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-overlay);
 }
 
 @media (max-width: 760px) {

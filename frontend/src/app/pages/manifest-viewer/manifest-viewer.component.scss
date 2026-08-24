@@ -24,7 +24,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--card);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-panel);
 }
 
 .tabs {
@@ -54,7 +54,7 @@
   border-color: rgba(21, 244, 200, 0.45);
   background: var(--card);
   color: var(--accent);
-  box-shadow: 0 0 18px rgba(21, 244, 200, 0.12);
+  box-shadow: var(--glow-accent-subtle);
 }
 
 .overview-grid {

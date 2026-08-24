@@ -17,7 +17,7 @@
 .primary-button {
   background: linear-gradient(135deg, var(--accent-strong), var(--accent));
   color: #061017;
-  box-shadow: 0 0 22px rgba(0, 214, 255, 0.18);
+  box-shadow: var(--glow-accent);
 }
 
 .primary-button:disabled {
@@ -42,7 +42,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--card);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-panel);
 }
 
 .field-grid {
@@ -141,7 +141,7 @@ input {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--card);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-panel);
 }
 
 .getting-started {
@@ -182,13 +182,13 @@ input {
   background: var(--card);
   color: var(--ink);
   text-decoration: none;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-panel);
 }
 
 .project-card:hover {
   border-color: var(--accent);
   transform: translateY(-1px);
-  box-shadow: var(--shadow), 0 0 0 1px rgba(21, 244, 200, 0.18);
+  box-shadow: var(--shadow-panel), 0 0 0 1px rgba(21, 244, 200, 0.18);
 }
 
 h2,

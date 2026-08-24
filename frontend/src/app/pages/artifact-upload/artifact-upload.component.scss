@@ -28,7 +28,7 @@
   width: fit-content;
   background: linear-gradient(135deg, var(--accent-strong), var(--accent));
   color: #061017;
-  box-shadow: 0 0 22px rgba(0, 214, 255, 0.18);
+  box-shadow: var(--glow-accent);
 }
 
 .primary-button:disabled {
@@ -44,7 +44,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--card);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-panel);
 }
 
 label {
