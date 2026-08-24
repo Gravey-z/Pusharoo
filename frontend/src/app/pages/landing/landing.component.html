@@ -1,21 +1,67 @@
 <main class="landing">
   <header class="landing-topbar">
+    <a class="landing-brand" routerLink="/home" aria-label="Pusharoo home">
+      <img src="pusharoo-logo.png?v=20260528-transparent" alt="" />
+      <span>Pusharoo</span>
+    </a>
     <app-wallet-connect />
   </header>
 
   <section class="hero" aria-labelledby="landing-title">
-    <div class="brand-lockup">
-      <img class="logo" src="pusharoo-logo.png?v=20260528-transparent" alt="" />
-      <h1 id="landing-title">Pusharoo</h1>
+    <div class="hero-copy">
+      <p class="eyebrow">Neo smart-contract workspace</p>
+      <div class="brand-lockup">
+        <h1 id="landing-title">Pusharoo</h1>
+      </div>
+      <p class="hero-description">
+        Build, review, deploy, and monitor Neo smart contracts - all from one secure workspace.
+      </p>
+      <div class="hero-actions">
+        <a class="primary-button" routerLink="/projects">Open workspace</a>
+        <a class="secondary-button" href="#workflow">See how it works</a>
+      </div>
     </div>
-    <p>Build, review, deploy, and monitor Neo smart contracts—all from one secure workspace.</p>
-    <a routerLink="/projects">Go to app</a>
+
+    <div class="hero-visual" aria-label="Example Pusharoo release workspace">
+      <section class="product-preview">
+        <header>
+          <div>
+            <span class="preview-kicker">Project release</span>
+            <strong>OrbitPay</strong>
+          </div>
+          <span class="network-badge network-badge--testnet">N3:Testnet</span>
+        </header>
+
+        <div class="preview-release">
+          <div>
+            <span>Latest artifact</span>
+            <strong>v1.4.0</strong>
+          </div>
+          <span class="status-badge status-badge--success">Deployed</span>
+        </div>
+
+        <section class="preview-audit" aria-label="Release activity">
+          <span class="preview-kicker">Release activity</span>
+          <ol>
+            <li><i class="success-dot" aria-hidden="true"></i><span>Deployment confirmed</span><time>Just now</time></li>
+            <li><i aria-hidden="true"></i><span>Wallet signature approved</span><time>1 min ago</time></li>
+            <li><i aria-hidden="true"></i><span>Manifest reviewed</span><time>3 min ago</time></li>
+          </ol>
+        </section>
+      </section>
+    </div>
   </section>
 
-  <section class="workflow" aria-label="Pusharoo workflow">
-    <div><span>1</span><strong>Create a project</strong><p>Connect your wallet and establish project ownership.</p></div>
-    <div><span>2</span><strong>Upload artifacts</strong><p>Add the matching compiled NEF and contract manifest.</p></div>
-    <div><span>3</span><strong>Review & deploy</strong><p>Confirm the release, then sign with your wallet.</p></div>
-    <div><span>4</span><strong>Interact & monitor</strong><p>Use the console, timeline, and webhooks to follow the release.</p></div>
+  <section class="workflow" id="workflow" aria-labelledby="workflow-title">
+    <header>
+      <p class="eyebrow">Release workflow</p>
+      <h2 id="workflow-title">From artifact to on-chain confidence</h2>
+    </header>
+    <ol>
+      <li><span>1</span><strong>Create a project</strong><p>Connect your wallet and establish project ownership.</p></li>
+      <li><span>2</span><strong>Upload artifacts</strong><p>Add the matching compiled NEF and contract manifest.</p></li>
+      <li><span>3</span><strong>Review and deploy</strong><p>Confirm the release, then sign with your wallet.</p></li>
+      <li><span>4</span><strong>Interact and monitor</strong><p>Use the console, timeline, and webhooks to follow the release.</p></li>
+    </ol>
   </section>
 </main>
