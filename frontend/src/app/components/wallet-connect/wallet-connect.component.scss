@@ -3,8 +3,7 @@
 }
 
 .wallet-trigger,
-.wallet-option,
-.icon-button {
+.wallet-option {
   min-height: 34px;
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
@@ -22,8 +21,7 @@
 }
 
 .wallet-trigger:hover,
-.wallet-option:hover,
-.icon-button:hover {
+.wallet-option:hover {
   border-color: var(--accent);
   color: var(--accent);
 }

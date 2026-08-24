@@ -4,38 +4,6 @@
   gap: 10px;
 }
 
-.primary-button,
-.secondary-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  border-radius: 8px;
-  padding: 0 13px;
-  border: 1px solid transparent;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 720;
-  text-decoration: none;
-}
-
-.primary-button {
-  background: linear-gradient(135deg, var(--accent-strong), var(--accent));
-  color: #061017;
-  box-shadow: var(--glow-accent);
-}
-
-.secondary-button {
-  border-color: var(--line);
-  background: var(--card);
-  color: var(--ink);
-}
-
-.secondary-button:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
 .secondary-button:disabled,
 .secondary-button.disabled {
   pointer-events: none;

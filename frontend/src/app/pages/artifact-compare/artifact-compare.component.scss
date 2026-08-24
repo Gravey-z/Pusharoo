@@ -1,39 +1,3 @@
-.secondary-button,
-.primary-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  border-radius: 8px;
-  padding: 0 14px;
-  border: 1px solid transparent;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 720;
-  text-decoration: none;
-}
-
-.secondary-button {
-  border-color: var(--line);
-  background: var(--card);
-  color: var(--ink);
-}
-
-.secondary-button:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.primary-button {
-  background: linear-gradient(135deg, var(--accent-strong), var(--accent));
-  color: #061017;
-  box-shadow: var(--glow-accent);
-}
-
-.primary-button:disabled {
-  opacity: 0.62;
-}
-
 .compare-controls {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;

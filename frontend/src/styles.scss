@@ -134,8 +134,100 @@ textarea:disabled {
 .primary-button,
 .secondary-button,
 .danger-button,
+.delete-button,
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  gap: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  padding: 0 14px;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  text-decoration: none;
+}
+
+.primary-button {
+  background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+  color: #061017;
+  box-shadow: var(--glow-accent);
+}
+
+.secondary-button,
+.icon-button {
+  border-color: var(--line);
+  background: var(--card);
+}
+
+.danger-button {
+  border-color: var(--danger-border);
+  background: transparent;
+  color: var(--danger);
+}
+
 .delete-button {
+  border-color: var(--danger-border);
+  background: var(--danger);
+  color: #24060d;
+}
+
+.icon-button {
+  min-width: 40px;
+  padding: 0;
+}
+
+label {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-semibold);
+}
+
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 10px var(--space-3);
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+input:read-only,
+textarea:read-only {
+  color: var(--accent);
+}
+
+.primary-button,
+.secondary-button,
+.danger-button,
+.delete-button,
+.icon-button {
   cursor: pointer;
+}
+
+.primary-button:disabled,
+.secondary-button:disabled,
+.danger-button:disabled,
+.delete-button:disabled,
+.icon-button:disabled {
+  opacity: 0.58;
 }
 
 .primary-button:not(:disabled):hover {
@@ -150,9 +242,15 @@ textarea:disabled {
   transform: translateY(-1px);
 }
 
+.icon-button:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
 .danger-button:not(:disabled):hover {
   border-color: var(--danger);
-  background: rgba(255, 107, 138, 0.1);
+  background: var(--danger-soft);
 }
 
 .delete-button:not(:disabled):hover {

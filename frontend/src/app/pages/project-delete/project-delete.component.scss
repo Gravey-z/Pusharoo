@@ -1,24 +1,3 @@
-.secondary-button,
-.delete-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  width: fit-content;
-  border-radius: 8px;
-  padding: 0 14px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 720;
-}
-
-.secondary-button {
-  border: 1px solid var(--line);
-  background: var(--card);
-  color: var(--ink);
-  text-decoration: none;
-}
-
 .delete-panel {
   display: grid;
   gap: 18px;
@@ -73,18 +52,6 @@ input {
 
 input[readonly] {
   color: var(--accent);
-}
-
-.delete-button {
-  border: 1px solid rgba(255, 107, 138, 0.7);
-  background: var(--danger);
-  color: #24060d;
-  cursor: pointer;
-}
-
-.delete-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
 }
 
 .form-error,
