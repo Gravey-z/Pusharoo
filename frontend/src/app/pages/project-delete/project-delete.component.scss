@@ -29,29 +29,8 @@ p {
   line-height: 1.5;
 }
 
-label {
-  display: grid;
-  gap: 8px;
-}
-
 label strong {
   color: var(--ink);
-}
-
-input {
-  width: 100%;
-  min-height: 42px;
-  box-sizing: border-box;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: var(--field);
-  color: var(--ink);
-  font: inherit;
-}
-
-input[readonly] {
-  color: var(--accent);
 }
 
 .form-error,

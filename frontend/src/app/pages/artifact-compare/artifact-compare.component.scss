@@ -5,29 +5,6 @@
   align-items: end;
   margin-bottom: 18px;
   padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--card);
-  box-shadow: var(--shadow-panel);
-}
-
-label {
-  display: grid;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 720;
-}
-
-select {
-  min-height: 42px;
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 0 12px;
-  background: var(--field);
-  color: var(--ink);
-  font: inherit;
 }
 
 .form-error,
@@ -54,15 +31,6 @@ select {
   grid-template-columns: repeat(4, minmax(120px, 1fr));
   gap: 12px;
   margin-bottom: 18px;
-}
-
-.diff-summary div,
-.diff-panel,
-.empty-state {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--card);
-  box-shadow: var(--shadow-panel);
 }
 
 .diff-summary div {
@@ -260,12 +228,6 @@ b {
   background: rgba(12, 17, 26, 0.72);
   color: var(--ink);
   overflow-wrap: anywhere;
-}
-
-.empty-state {
-  display: grid;
-  gap: 8px;
-  padding: 22px;
 }
 
 .empty-state strong {

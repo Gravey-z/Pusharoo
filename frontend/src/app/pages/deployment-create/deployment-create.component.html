@@ -13,7 +13,7 @@
 
     @if (artifacts.length) {
       @if (!isReviewing) {
-      <form class="deployment-form" (ngSubmit)="reviewRelease()">
+      <form class="deployment-form surface-panel" (ngSubmit)="reviewRelease()">
         <label>
           <span>Artifact version</span>
           <select name="artifactId" [(ngModel)]="artifactId">
@@ -58,7 +58,7 @@
         </button>
       </form>
       } @else {
-        <section class="release-confirmation" [class.mainnet-release]="walletNetwork() === 'neo3:mainnet'">
+        <section class="release-confirmation surface-panel" [class.mainnet-release]="walletNetwork() === 'neo3:mainnet'">
           <div class="confirmation-heading">
             <p class="eyebrow">Release confirmation</p>
             <h2>{{ operation === 'update' ? 'Review contract update' : 'Review new contract deployment' }}</h2>

@@ -210,6 +210,12 @@ textarea {
   resize: vertical;
 }
 
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  box-sizing: border-box;
+}
+
 input:read-only,
 textarea:read-only {
   color: var(--accent);
@@ -225,6 +231,10 @@ textarea:read-only {
 
 .surface-panel {
   padding: var(--space-5);
+}
+
+.surface-panel--flush {
+  padding: 0;
 }
 
 .surface-panel--prominent {

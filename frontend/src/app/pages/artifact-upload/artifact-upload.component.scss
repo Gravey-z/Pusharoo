@@ -3,38 +3,6 @@
   gap: 18px;
   width: min(620px, 100%);
   padding: 22px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--card);
-  box-shadow: var(--shadow-panel);
-}
-
-label {
-  display: grid;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 720;
-}
-
-input,
-textarea {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: var(--field);
-  color: var(--ink);
-  font: inherit;
-  box-sizing: border-box;
-}
-
-input {
-  min-height: 42px;
-}
-
-textarea {
-  resize: vertical;
 }
 
 .version-hint,

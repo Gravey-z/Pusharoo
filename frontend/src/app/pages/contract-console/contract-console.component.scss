@@ -6,15 +6,6 @@
 }
 
 .call-panel,
-.result-panel,
-.empty-state {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--card);
-  box-shadow: var(--shadow-panel);
-}
-
-.call-panel,
 .empty-state {
   display: grid;
   gap: 18px;
@@ -25,25 +16,6 @@ label,
 .parameters {
   display: grid;
   gap: 8px;
-}
-
-label {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 720;
-}
-
-input,
-select {
-  width: 100%;
-  min-height: 42px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: var(--field);
-  color: var(--ink);
-  font: inherit;
-  box-sizing: border-box;
 }
 
 .method-meta,

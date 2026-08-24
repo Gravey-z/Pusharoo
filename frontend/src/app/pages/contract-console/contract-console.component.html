@@ -13,7 +13,7 @@
 
     @if (targets.length && methods.length) {
       <section class="console-layout">
-        <form class="call-panel" (ngSubmit)="run()">
+        <form class="call-panel surface-panel" (ngSubmit)="run()">
           <label>
             <span>Contract</span>
             <select name="target" [(ngModel)]="selectedTargetKey" (change)="selectTarget()">
@@ -83,7 +83,7 @@
           </button>
         </form>
 
-        <section class="result-panel" aria-label="Contract call results">
+        <section class="result-panel surface-panel surface-panel--flush" aria-label="Contract call results">
           <h2>Console</h2>
           @if (consoleEntries.length) {
             @for (entry of consoleEntries; track entry.id) {

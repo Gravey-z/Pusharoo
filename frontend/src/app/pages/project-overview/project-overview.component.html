@@ -32,7 +32,7 @@
 
     @if (releaseTab === 'overview') {
     <section class="overview-layout">
-      <div class="latest-panel">
+      <div class="latest-panel surface-panel">
         <span class="eyebrow">Latest artifact</span>
         <strong>{{ overview.latestArtifact?.version ?? 'None' }}</strong>
         <p>{{ overview.latestArtifact?.notes ?? 'No artifact uploaded yet.' }}</p>
@@ -43,7 +43,7 @@
         }
       </div>
 
-      <dl class="metric-grid">
+      <dl class="metric-grid surface-panel surface-panel--flush">
         <div>
           <dt>Contract</dt>
           <dd>{{ overview.latestArtifact?.contractName ?? '-' }}</dd>
@@ -67,7 +67,7 @@
       @for (network of ['testnet', 'mainnet']; track network) {
         @let deployment = latestDeploymentForNetwork(overview, network);
         <article
-          class="network-card"
+          class="network-card surface-panel"
           [class.deployed]="deployment"
           [class.network-unavailable]="isNetworkUnavailable(network)"
         >

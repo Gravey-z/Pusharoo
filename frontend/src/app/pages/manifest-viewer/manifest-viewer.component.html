@@ -2,7 +2,7 @@
   <app-page-shell [title]="artifact.contractName + ' Manifest'">
     <a actions class="secondary-button" [routerLink]="['/projects', artifact.projectId]">Back</a>
 
-    <section class="viewer">
+    <section class="viewer surface-panel surface-panel--flush">
       <div class="tabs" role="tablist" aria-label="Manifest sections">
         @for (tab of tabs; track tab.id) {
           <button

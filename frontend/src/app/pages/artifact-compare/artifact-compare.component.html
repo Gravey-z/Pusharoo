@@ -16,7 +16,7 @@
     <app-project-release-nav [projectId]="projectId" />
 
     @if (artifacts.length >= 2) {
-      <form class="compare-controls" (ngSubmit)="compare()">
+      <form class="compare-controls surface-panel" (ngSubmit)="compare()">
         <label>
           <span>From</span>
           <select name="fromVersion" [(ngModel)]="fromVersion">
@@ -46,19 +46,19 @@
 
       @if (comparison) {
         <section class="diff-summary">
-          <div>
+          <div class="surface-panel">
             <span>Added</span>
             <strong>{{ comparison.addedMethods.length }}</strong>
           </div>
-          <div>
+          <div class="surface-panel">
             <span>Removed</span>
             <strong>{{ comparison.removedMethods.length }}</strong>
           </div>
-          <div>
+          <div class="surface-panel">
             <span>Changed</span>
             <strong>{{ comparison.changedMethods.length }}</strong>
           </div>
-          <div>
+          <div class="surface-panel">
             <span>Events</span>
             <strong>{{ comparison.addedEvents.length }}</strong>
           </div>
@@ -66,7 +66,7 @@
 
         @if (hasChanges(comparison)) {
           <section class="diff-grid">
-            <article class="diff-panel">
+            <article class="diff-panel surface-panel">
               <h2>Added Methods</h2>
               @if (comparison.addedMethods.length) {
                 <div class="changed-list">
@@ -101,7 +101,7 @@
               }
             </article>
 
-            <article class="diff-panel">
+            <article class="diff-panel surface-panel">
               <h2>Removed Methods</h2>
               @if (comparison.removedMethods.length) {
                 <div class="changed-list">
@@ -136,7 +136,7 @@
               }
             </article>
 
-            <article class="diff-panel wide">
+            <article class="diff-panel wide surface-panel">
               <h2>Changed Methods</h2>
               @if (comparison.changedMethods.length) {
                 <div class="changed-list">
@@ -220,7 +220,7 @@
               }
             </article>
 
-            <article class="diff-panel">
+            <article class="diff-panel surface-panel">
               <h2>Added Events</h2>
               @if (comparison.addedEvents.length) {
                 <ul>
@@ -233,7 +233,7 @@
               }
             </article>
 
-            <article class="diff-panel">
+            <article class="diff-panel surface-panel">
               <h2>Permissions</h2>
               @if (comparison.permissionChanges.length) {
                 <ul>

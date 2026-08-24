@@ -1,34 +1,12 @@
 .create-panel {
   margin-bottom: 18px;
   padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--card);
-  box-shadow: var(--shadow-panel);
 }
 
 .field-grid {
   display: grid;
   grid-template-columns: 1fr 1.4fr;
   gap: 14px;
-}
-
-label {
-  display: grid;
-  gap: 7px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 680;
-}
-
-input {
-  min-height: 40px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--field);
-  padding: 0 12px;
-  color: var(--ink);
-  font: inherit;
 }
 
 .form-error {
@@ -66,17 +44,6 @@ input {
   margin-bottom: 16px;
 }
 
-.project-tools input,
-.project-tools select {
-  min-height: 40px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 0 12px;
-  background: var(--field);
-  color: var(--ink);
-  font: inherit;
-}
-
 .project-tools input {
   flex: 1 1 230px;
 }
@@ -96,14 +63,6 @@ input {
 .pagination .secondary-button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
-}
-
-.getting-started,
-.no-results {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--card);
-  box-shadow: var(--shadow-panel);
 }
 
 .getting-started {
@@ -139,12 +98,8 @@ input {
   gap: 22px;
   min-height: 178px;
   padding: 20px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--card);
   color: var(--ink);
   text-decoration: none;
-  box-shadow: var(--shadow-panel);
 }
 
 .project-card:hover {

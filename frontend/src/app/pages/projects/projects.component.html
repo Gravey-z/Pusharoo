@@ -5,7 +5,7 @@
   </button>
 
   @if (isCreating) {
-    <section class="create-panel" aria-label="New project">
+    <section class="create-panel surface-panel" aria-label="New project">
       <div class="field-grid">
         <label>
           <span>Name</span>
@@ -32,12 +32,12 @@
   }
 
   @if (isLoading) {
-    <section class="getting-started" aria-live="polite">
+    <section class="getting-started surface-panel" aria-live="polite">
       <h2>Loading projects</h2>
       <p>Retrieving project workspace…</p>
     </section>
   } @else if (loadError) {
-    <section class="getting-started" aria-live="assertive">
+    <section class="getting-started surface-panel" aria-live="assertive">
       <h2>Could not load projects</h2>
       <p>{{ loadError }}</p>
       <button class="secondary-button" type="button" (click)="loadProjects()">Try again</button>
@@ -58,7 +58,7 @@
 
   <section class="project-grid">
     @for (item of visibleProjects(projects); track item.project.id) {
-      <a class="project-card" [routerLink]="['/projects', item.project.id]">
+      <a class="project-card surface-panel" [routerLink]="['/projects', item.project.id]">
         <div>
           <h2>{{ item.project.name }}</h2>
           <p>{{ item.project.description || 'No project description yet.' }}</p>
@@ -83,7 +83,7 @@
         </dl>
       </a>
     } @empty {
-      <p class="no-results">No projects match those filters.</p>
+      <p class="no-results empty-state">No projects match those filters.</p>
     }
   </section>
   @if (totalPages(projects) > 1) {
@@ -94,7 +94,7 @@
     </nav>
   }
   } @else {
-    <section class="getting-started">
+    <section class="getting-started surface-panel">
       <h2>Start your first Neo release</h2>
       <ol>
         <li>Create a project and sign the readable ownership message.</li>

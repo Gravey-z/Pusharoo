@@ -12,7 +12,7 @@
   <app-project-release-nav [projectId]="projectId" />
 
     @if (artifacts.length) {
-      <section class="recovery-intro">
+      <section class="recovery-intro surface-panel surface-panel--prominent">
         <h2>Record a contract that is already on-chain</h2>
         <p>
           Use this if your wallet successfully deployed or updated a contract but Pusharoo did not save it.
@@ -20,7 +20,7 @@
         </p>
       </section>
 
-      <form class="recovery-form" (ngSubmit)="recover()">
+      <form class="recovery-form surface-panel" (ngSubmit)="recover()">
         <label>
           <span>Artifact version used</span>
           <select name="artifactId" [(ngModel)]="artifactId" [disabled]="isRecovering">

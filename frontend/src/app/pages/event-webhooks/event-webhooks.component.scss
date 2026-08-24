@@ -9,10 +9,6 @@
 .webhook-network-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .relay-plan,
 .payment-history {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--card);
-  box-shadow: var(--shadow-panel);
   margin-bottom: 16px;
 }
 
@@ -57,15 +53,6 @@
 .relay-statuses span { border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; color: var(--muted); font-size: 12px; }
 .relay-statuses .ok { color: var(--sage); border-color: rgba(21, 244, 200, .32); }
 .relay-statuses .degraded { color: var(--danger); border-color: rgba(255, 94, 117, .32); }
-
-.webhook-form,
-.subscription-list,
-.empty-state {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--card);
-  box-shadow: var(--shadow-panel);
-}
 
 .webhook-form,
 .empty-state {
@@ -121,27 +108,6 @@
 }
 
 .failed-text { color: var(--danger); }
-
-label {
-  display: grid;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 720;
-}
-
-input,
-select {
-  width: 100%;
-  min-height: 42px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: var(--field);
-  color: var(--ink);
-  font: inherit;
-  box-sizing: border-box;
-}
 
 .hint,
 .form-status,

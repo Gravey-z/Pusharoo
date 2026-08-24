@@ -53,9 +53,6 @@
   gap: 8px;
   min-height: 166px;
   padding: 20px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--card);
 }
 
 .network-card.deployed {
@@ -118,14 +115,6 @@
 .release-state.pending {
   background: var(--warning-soft);
   color: var(--warning);
-}
-
-.latest-panel,
-.metric-grid {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--card);
-  box-shadow: var(--shadow-panel);
 }
 
 .latest-panel {

@@ -29,7 +29,7 @@
 
   @if (webhookNetwork === 'neo3:mainnet') {
   @if (!isRelayConnected) {
-    <section class="relay-plan" aria-label="N3:Mainnet Relay connection">
+    <section class="relay-plan surface-panel" aria-label="N3:Mainnet Relay connection">
       <div>
         <h2>Pusharoo Relay</h2>
         <p>Connect your project-owner wallet to view and manage N3:Mainnet Relay access.</p>
@@ -39,7 +39,7 @@
       </button>
     </section>
   } @else if (relayUsageByNetwork['neo3:mainnet']; as mainnetUsage) {
-    <section class="relay-plan" aria-label="Pusharoo Relay plan">
+    <section class="relay-plan surface-panel" aria-label="Pusharoo Relay plan">
       <div>
         <h2>Pusharoo Relay</h2>
         <p>
@@ -62,7 +62,7 @@
       </button>
     </section>
   } @else {
-    <section class="relay-plan" aria-label="Pusharoo Relay plan">
+    <section class="relay-plan surface-panel" aria-label="Pusharoo Relay plan">
       <div>
         <h2>Pusharoo Relay</h2>
         <p>Unlock N3:Mainnet and N3:Testnet event delivery for 5 GAS every 30 days, including five active webhooks and 10,000 events.</p>
@@ -82,7 +82,7 @@
   }
 
   @if (paymentHistory?.pendingIntents?.length) {
-    <section class="payment-history pending-payments" aria-label="Pending Relay payments">
+    <section class="payment-history pending-payments surface-panel surface-panel--flush" aria-label="Pending Relay payments">
       <h2>Pending Relay payments</h2>
       @for (intent of paymentHistory?.pendingIntents ?? []; track intent.id) {
         <div>
@@ -105,7 +105,7 @@
   }
 
   @if (paymentHistory?.payments?.length) {
-    <section class="payment-history" aria-label="Relay payment history">
+    <section class="payment-history surface-panel surface-panel--flush" aria-label="Relay payment history">
       <h2>Relay payment history</h2>
       @for (payment of paymentHistory?.payments ?? []; track payment.transactionId) {
         <div>
@@ -118,7 +118,7 @@
   }
 
   } @else {
-    <section class="relay-plan testnet-trial" aria-label="N3:Testnet Relay free trial">
+    <section class="relay-plan testnet-trial surface-panel" aria-label="N3:Testnet Relay free trial">
       <div>
         <h2>N3:Testnet Relay free trial</h2>
         <p>Use up to 5 active webhooks and 1,000 matched events every 7 days. This is a free N3:Testnet-only trial.</p>
@@ -135,7 +135,7 @@
       </section>
     } @else if (deploymentOptions.length) {
       <section class="webhook-layout">
-        <form class="webhook-form" (ngSubmit)="save()">
+        <form class="webhook-form surface-panel" (ngSubmit)="save()">
           <h2>{{ editingSubscriptionId ? 'Edit webhook' : 'Create webhook' }}</h2>
           <label>
             <span>Name</span>
@@ -212,7 +212,7 @@
           </div>
         </form>
 
-        <section class="subscription-list" aria-label="Event webhook subscriptions">
+        <section class="subscription-list surface-panel surface-panel--flush" aria-label="Event webhook subscriptions">
           <h2>Project webhooks</h2>
           @if (subscriptions.length) {
             @for (subscription of subscriptions; track subscription.id) {
