@@ -10,29 +10,48 @@
   opacity: 0.52;
 }
 
-.disabled-action {
-  pointer-events: none;
-  cursor: not-allowed;
-  opacity: 0.48;
-  filter: grayscale(0.3);
+.project-menu {
+  position: relative;
 }
 
-.delete-project-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  border: 1px solid rgba(255, 107, 138, 0.55);
-  border-radius: 8px;
-  padding: 0 13px;
-  color: var(--danger);
-  font-size: 14px;
-  font-weight: 720;
-  text-decoration: none;
+.project-menu summary {
+  list-style: none;
+  cursor: pointer;
 }
 
-.delete-project-button:hover {
-  background: rgba(255, 107, 138, 0.11);
+.project-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.project-menu-panel {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  min-width: 168px;
+  padding: var(--space-2);
+  box-shadow: var(--shadow-overlay);
+}
+
+.project-menu-panel .danger-button {
+  width: 100%;
+}
+
+.read-only-notice {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-4) 0;
+  border-left: 3px solid var(--accent);
+  padding: var(--space-3) var(--space-4);
+  background: var(--accent-soft);
+  color: var(--text-muted);
+  font-size: var(--font-size-label);
+}
+
+.read-only-notice strong {
+  color: var(--text);
+  font-size: var(--font-size-label);
+  text-shadow: none;
 }
 
 .overview-layout {
@@ -58,6 +77,14 @@
 .network-card.deployed {
   border-color: rgba(21, 244, 200, 0.35);
   background: linear-gradient(130deg, rgba(21, 244, 200, 0.1), var(--card));
+}
+
+.network-card.network-testnet .eyebrow {
+  color: var(--testnet);
+}
+
+.network-card.network-mainnet .eyebrow {
+  color: var(--warning);
 }
 
 .network-card.network-unavailable {
@@ -100,21 +127,6 @@
   box-shadow: none;
   color: var(--muted);
   cursor: not-allowed;
-}
-
-.release-state {
-  width: fit-content;
-  border-radius: 8px;
-  padding: 4px 8px;
-  background: rgba(21, 244, 200, 0.13);
-  color: var(--sage);
-  font-size: 12px;
-  font-weight: 780;
-}
-
-.release-state.pending {
-  background: var(--warning-soft);
-  color: var(--warning);
 }
 
 .latest-panel {
@@ -270,13 +282,6 @@ dd {
 }
 
 .deployment-status {
-  width: fit-content;
-  border-radius: 8px;
-  padding: 4px 8px;
-  background: rgba(0, 214, 255, 0.1);
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 760;
   text-transform: capitalize;
 }
 
@@ -320,17 +325,6 @@ dd {
 .deployment-list span:first-child {
   color: var(--accent);
   font-weight: 760;
-}
-
-.network-pill {
-  width: fit-content;
-  border: 1px solid rgba(21, 244, 200, 0.28);
-  border-radius: 8px;
-  padding: 4px 9px;
-  background: rgba(21, 244, 200, 0.08);
-  color: var(--sage);
-  font-size: 12px;
-  font-weight: 780;
 }
 
 .explorer-chip {

@@ -1,5 +1,6 @@
 .app-shell {
   min-height: 100vh;
+  --topbar-height: 64px;
   background: transparent;
 }
 
@@ -123,6 +124,10 @@ h1 {
 }
 
 @media (max-width: 720px) {
+  .app-shell {
+    --topbar-height: 112px;
+  }
+
   .topbar {
     align-items: flex-start;
     flex-direction: column;

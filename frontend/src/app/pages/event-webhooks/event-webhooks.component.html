@@ -8,7 +8,12 @@
 
   <section class="relay-statuses" aria-label="Relay network status">
     @for (network of ['neo3:testnet', 'neo3:mainnet']; track network) {
-      <span [class.ok]="relayStatuses[network] === 'ok'" [class.degraded]="relayStatuses[network] !== 'ok'">
+      <span
+        [class.ok]="relayStatuses[network] === 'ok'"
+        [class.degraded]="relayStatuses[network] !== 'ok'"
+        [class.testnet-network]="network === 'neo3:testnet'"
+        [class.mainnet-network]="network === 'neo3:mainnet'"
+      >
         {{ networkLabel(network) }} relay: {{ relayStatuses[network] || 'checking' }}
       </span>
     }
@@ -16,7 +21,14 @@
 
   <nav class="webhook-network-tabs" aria-label="Webhook network">
     @for (network of ['neo3:testnet', 'neo3:mainnet']; track network) {
-      <button type="button" class="secondary-button" [class.active-network]="webhookNetwork === network" (click)="selectWebhookNetwork(network)">
+      <button
+        type="button"
+        class="secondary-button"
+        [class.active-network]="webhookNetwork === network"
+        [class.testnet-network]="network === 'neo3:testnet'"
+        [class.mainnet-network]="network === 'neo3:mainnet'"
+        (click)="selectWebhookNetwork(network)"
+      >
         {{ network === 'neo3:testnet' ? 'N3:Testnet webhooks' : 'N3:Mainnet webhooks' }}
       </button>
     }

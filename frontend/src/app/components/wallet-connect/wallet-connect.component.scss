@@ -179,10 +179,11 @@ h2 {
 
 .network-badge {
   width: fit-content;
+  border: 1px solid var(--testnet-border);
   border-radius: var(--radius-pill);
   padding: 3px 7px;
-  background: rgba(141, 255, 176, 0.14);
-  color: var(--sage) !important;
+  background: var(--testnet-soft);
+  color: var(--testnet) !important;
   font-size: var(--font-size-caption) !important;
   font-weight: 800 !important;
 }
@@ -193,6 +194,7 @@ h2 {
 }
 
 .wallet-account.mainnet .network-badge {
+  border-color: var(--warning-border);
   background: var(--warning-soft);
   color: var(--warning) !important;
 }

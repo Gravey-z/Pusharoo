@@ -31,7 +31,11 @@
           [class.mainnet]="wallet.session()?.network === 'neo3:mainnet'"
           [title]="account.address"
         >
-          <span class="network-badge">
+          <span
+            class="network-badge"
+            [class.network-badge--mainnet]="wallet.session()?.network === 'neo3:mainnet'"
+            [class.network-badge--testnet]="wallet.session()?.network !== 'neo3:mainnet'"
+          >
             {{ wallet.session()?.network === 'neo3:mainnet' ? 'N3:Mainnet connected' : 'N3:Testnet connected' }}
           </span>
           <strong>{{ wallet.shortAddress() }}</strong>

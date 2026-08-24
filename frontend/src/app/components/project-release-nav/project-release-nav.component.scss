@@ -1,13 +1,21 @@
 .release-nav {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
+  align-items: center;
+  gap: var(--space-3);
   margin: -8px 0 20px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--line);
 }
 
+.release-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
 a {
+  flex: 0 0 auto;
   padding: var(--space-2) 10px;
   border-radius: var(--radius-control);
   color: var(--muted);
@@ -24,24 +32,50 @@ a:hover {
 a.active {
   background: rgba(21, 244, 200, 0.11);
   color: var(--sage);
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .wallet-context {
   align-self: center;
   margin-left: auto;
   padding: 6px 9px;
-  border: 1px solid rgba(21, 244, 200, 0.25);
+  border: 1px solid var(--testnet-border);
   border-radius: var(--radius-pill);
-  color: var(--sage);
+  background: var(--testnet-soft);
+  color: var(--testnet);
   font-size: var(--font-size-caption);
   font-weight: var(--font-weight-bold);
 }
 
 .wallet-context.mainnet {
   border-color: var(--warning-border);
+  background: var(--warning-soft);
   color: var(--warning);
 }
 
 @media (max-width: 620px) {
+  .release-nav {
+    position: sticky;
+    top: var(--topbar-height, 112px);
+    z-index: 8;
+    display: grid;
+    gap: var(--space-2);
+    margin-top: -8px;
+    padding: var(--space-2) 0 10px;
+    background: rgba(8, 11, 18, 0.94);
+    backdrop-filter: blur(12px);
+  }
+
+  .release-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+
+  a {
+    white-space: nowrap;
+  }
+
   .wallet-context { margin-left: 0; }
 }

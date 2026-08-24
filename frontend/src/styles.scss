@@ -14,6 +14,9 @@
   --accent: #15f4c8;
   --accent-strong: #00d6ff;
   --accent-soft: rgba(21, 244, 200, 0.14);
+  --testnet: #5fe5ff;
+  --testnet-soft: rgba(0, 214, 255, 0.12);
+  --testnet-border: rgba(0, 214, 255, 0.42);
   --brand-neon: #a9ffef;
   --success: #8dffb0;
   --success-soft: rgba(141, 255, 176, 0.13);
@@ -296,11 +299,16 @@ textarea:read-only {
   line-height: 1.2;
 }
 
-.status-badge--success,
-.network-badge--testnet {
+.status-badge--success {
   border-color: var(--success-border);
   background: var(--success-soft);
   color: var(--success);
+}
+
+.network-badge--testnet {
+  border-color: var(--testnet-border);
+  background: var(--testnet-soft);
+  color: var(--testnet);
 }
 
 .status-badge--warning,

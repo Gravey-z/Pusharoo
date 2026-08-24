@@ -16,22 +16,28 @@
   >
     <div actions class="actions">
       @if (canManageProject(overview)) {
-      <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
-        Upload Artifact
-      </a>
-      } @else {
-        <span class="primary-button disabled-action" aria-disabled="true" title="Only the project owner can upload artifacts">Upload Artifact</span>
-      }
-      @if (canManageProject(overview)) {
-      <a class="delete-project-button" [routerLink]="['/projects', overview.project.id, 'delete']">
-        Delete Project
-      </a>
-      } @else {
-        <span class="delete-project-button disabled-action" aria-disabled="true" title="Only the project owner can delete this project">Delete Project</span>
+        <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
+          Upload Artifact
+        </a>
+        <details class="project-menu">
+          <summary class="secondary-button">Project options</summary>
+          <div class="project-menu-panel surface-panel">
+            <a class="danger-button" [routerLink]="['/projects', overview.project.id, 'delete']">
+              Delete Project
+            </a>
+          </div>
+        </details>
       }
     </div>
 
     <app-project-release-nav [projectId]="overview.project.id" />
+
+    @if (!canManageProject(overview)) {
+      <aside class="read-only-notice" aria-label="Read-only access">
+        <strong>Read-only project</strong>
+        <span>Only the project owner can upload artifacts, deploy contracts, or change project settings.</span>
+      </aside>
+    }
 
     @if (releaseTab === 'overview') {
     <section class="overview-layout">
@@ -72,6 +78,8 @@
         <article
           class="network-card surface-panel"
           [class.deployed]="deployment"
+          [class.network-testnet]="network === 'testnet'"
+          [class.network-mainnet]="network === 'mainnet'"
           [class.network-unavailable]="isNetworkUnavailable(network)"
         >
           <span class="eyebrow">{{ network === 'testnet' ? 'N3:Testnet' : 'N3:Mainnet' }}</span>
@@ -95,10 +103,6 @@
               >
                 Deploy contract
               </a>
-            } @else {
-              <span class="deploy-network-button disabled-action" aria-disabled="true" title="Only the project owner can deploy contracts.">
-                Deploy contract
-              </span>
             }
           }
         </article>
@@ -110,13 +114,6 @@
     <section class="artifact-list" aria-label="Artifacts">
       <header class="artifact-list-header">
         <h2>Artifacts</h2>
-        @if (canManageProject(overview)) {
-        <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
-          Upload Artifact
-        </a>
-        } @else {
-          <span class="primary-button disabled-action" aria-disabled="true" title="Only the project owner can upload artifacts">Upload Artifact</span>
-        }
       </header>
 
       @if (overview.artifacts.length) {
@@ -158,18 +155,15 @@
     <section class="deployment-list" aria-label="Deployments">
       <header class="deployment-list-header">
         <h2>Deployments</h2>
-        @if (overview.artifacts.length) {
+        @if (overview.artifacts.length && canManageProject(overview)) {
           <div class="deployment-list-actions">
-            @if (canManageProject(overview)) {
             <a class="secondary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'recovery']">
               Recover Existing Deployment
             </a>
-            <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'new']">
-              Deploy Contract
-            </a>
-            } @else {
-              <span class="secondary-button disabled-action" aria-disabled="true" title="Only the project owner can recover deployments">Recover Existing Deployment</span>
-              <span class="primary-button disabled-action" aria-disabled="true" title="Only the project owner can deploy contracts">Deploy Contract</span>
+            @if (releaseTab === 'deployments') {
+              <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'new']">
+                Deploy Contract
+              </a>
             }
           </div>
         }
@@ -186,7 +180,9 @@
             <span
               class="deployment-status status-badge"
               [class.failed]="deployment.status === 'failed' || deployment.status === 'record_failed'"
-              [class.status-badge--danger]="deployment.status === 'failed' || deployment.status === 'record_failed'"
+              [class.status-badge--success]="deploymentStatusTone(deployment.status) === 'success'"
+              [class.status-badge--warning]="deploymentStatusTone(deployment.status) === 'warning'"
+              [class.status-badge--danger]="deploymentStatusTone(deployment.status) === 'danger'"
             >
               {{ deploymentStatusLabel(deployment) }}
             </span>

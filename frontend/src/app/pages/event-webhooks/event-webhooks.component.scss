@@ -49,10 +49,14 @@
 .payment-history div { display: grid; grid-template-columns: minmax(150px, .8fr) 120px 1fr; gap: 12px; padding: 11px 16px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 .payment-history div:last-child { border-bottom: 0; }
 .pending-payments div { grid-template-columns: minmax(190px, 1fr) 170px minmax(220px, 1fr) auto; align-items: center; }
-.active-network { border-color: var(--accent) !important; color: var(--accent) !important; }
+.active-network { border-color: var(--testnet) !important; background: var(--testnet-soft); color: var(--testnet) !important; }
+.mainnet-network.active-network { border-color: var(--warning) !important; background: var(--warning-soft); color: var(--warning) !important; }
 .relay-statuses span { border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; color: var(--muted); font-size: 12px; }
-.relay-statuses .ok { color: var(--sage); border-color: rgba(21, 244, 200, .32); }
+.relay-statuses .testnet-network { border-color: var(--testnet-border); background: var(--testnet-soft); color: var(--testnet); }
+.relay-statuses .mainnet-network { border-color: var(--warning-border); background: var(--warning-soft); color: var(--warning); }
 .relay-statuses .degraded { color: var(--danger); border-color: rgba(255, 94, 117, .32); }
+.testnet-trial { border-color: var(--testnet-border); background: var(--testnet-soft); }
+.testnet-trial h2 { color: var(--testnet); }
 
 .webhook-form,
 .empty-state {
@@ -206,25 +210,7 @@
 }
 
 .status-pill {
-  width: fit-content;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 4px 9px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 780;
-}
-
-.status-pill.success {
-  border-color: rgba(21, 244, 200, 0.28);
-  background: rgba(21, 244, 200, 0.08);
-  color: var(--sage);
-}
-
-.status-pill.failed {
-  border-color: rgba(255, 94, 117, 0.28);
-  background: rgba(255, 94, 117, 0.08);
-  color: var(--danger);
+  text-transform: capitalize;
 }
 
 @media (max-width: 980px) {

@@ -121,6 +121,14 @@ export class ProjectOverviewComponent implements OnInit {
     return deployment.status.replaceAll('_', ' ');
   }
 
+  deploymentStatusTone(status: string): 'success' | 'warning' | 'danger' {
+    if (status === 'failed' || status === 'record_failed') {
+      return 'danger';
+    }
+
+    return status === 'confirmed' || !status ? 'success' : 'warning';
+  }
+
   explorerUrl(network: string, kind: 'transaction' | 'contract' | 'address', value: string): string {
     const normalizedNetwork = network.toLowerCase().includes('mainnet') ? 'mainnet' : 'testnet';
     const path = kind === 'transaction' ? 'transaction' : kind;

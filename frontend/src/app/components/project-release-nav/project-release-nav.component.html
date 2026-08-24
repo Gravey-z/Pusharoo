@@ -1,9 +1,11 @@
 <nav class="release-nav" aria-label="Project release workspace">
-  <a [routerLink]="['/projects', projectId]" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Overview</a>
-  <a [routerLink]="['/projects', projectId, 'artifacts']" routerLinkActive="active">Artifacts</a>
-  <a [routerLink]="['/projects', projectId, 'deployments']" routerLinkActive="active">Deployments</a>
-  <a [routerLink]="['/projects', projectId, 'console']" routerLinkActive="active">Console</a>
-  <a [routerLink]="['/projects', projectId, 'webhooks']" routerLinkActive="active">Webhooks</a>
+  <div class="release-tabs">
+    <a [routerLink]="['/projects', projectId]" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Overview</a>
+    <a [routerLink]="['/projects', projectId, 'artifacts']" routerLinkActive="active">Artifacts</a>
+    <a [routerLink]="['/projects', projectId, 'deployments']" routerLinkActive="active">Deployments</a>
+    <a [routerLink]="['/projects', projectId, 'console']" routerLinkActive="active">Console</a>
+    <a [routerLink]="['/projects', projectId, 'webhooks']" routerLinkActive="active">Webhooks</a>
+  </div>
   <span class="wallet-context" [class.mainnet]="wallet.session()?.network === 'neo3:mainnet'">
     {{ wallet.shortAddress() || 'Wallet not connected' }} · {{ wallet.networkLabel(wallet.session()?.network) }}
   </span>
