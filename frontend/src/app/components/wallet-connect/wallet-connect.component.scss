@@ -311,7 +311,16 @@ textarea:focus {
 }
 
 @media (max-width: 760px) {
-  .wallet-dialog,
+  .wallet-dialog {
+    position: fixed;
+    right: 14px;
+    bottom: 14px;
+    left: 14px;
+    width: auto;
+    max-height: min(72vh, 620px);
+    overflow-y: auto;
+  }
+
   .wallet-error {
     left: 0;
     right: auto;

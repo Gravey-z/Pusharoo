@@ -1,12 +1,14 @@
+@if (!isEmbeddedInWorkspace) {
 <nav class="release-nav" aria-label="Project release workspace">
   <div class="release-tabs">
-    <a [routerLink]="['/projects', projectId]" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Overview</a>
-    <a [routerLink]="['/projects', projectId, 'artifacts']" routerLinkActive="active">Artifacts</a>
-    <a [routerLink]="['/projects', projectId, 'deployments']" routerLinkActive="active">Deployments</a>
-    <a [routerLink]="['/projects', projectId, 'console']" routerLinkActive="active">Console</a>
-    <a [routerLink]="['/projects', projectId, 'webhooks']" routerLinkActive="active">Webhooks</a>
+    <a #releaseTab [routerLink]="['/projects', projectId]" routerLinkActive="active" #overviewLink="routerLinkActive" [routerLinkActiveOptions]="{ exact: true }" [attr.aria-current]="overviewLink.isActive ? 'page' : null" (keydown)="onReleaseTabKeydown($event)">Overview</a>
+    <a #releaseTab [routerLink]="['/projects', projectId, 'artifacts']" routerLinkActive="active" #artifactsLink="routerLinkActive" [attr.aria-current]="artifactsLink.isActive ? 'page' : null" (keydown)="onReleaseTabKeydown($event)">Artifacts</a>
+    <a #releaseTab [routerLink]="['/projects', projectId, 'deployments']" routerLinkActive="active" #deploymentsLink="routerLinkActive" [attr.aria-current]="deploymentsLink.isActive ? 'page' : null" (keydown)="onReleaseTabKeydown($event)">Deployments</a>
+    <a #releaseTab [routerLink]="['/projects', projectId, 'console']" routerLinkActive="active" #consoleLink="routerLinkActive" [attr.aria-current]="consoleLink.isActive ? 'page' : null" (keydown)="onReleaseTabKeydown($event)">Console</a>
+    <a #releaseTab [routerLink]="['/projects', projectId, 'webhooks']" routerLinkActive="active" #webhooksLink="routerLinkActive" [attr.aria-current]="webhooksLink.isActive ? 'page' : null" (keydown)="onReleaseTabKeydown($event)">Webhooks</a>
   </div>
   <span class="wallet-context" [class.mainnet]="wallet.session()?.network === 'neo3:mainnet'">
     {{ wallet.shortAddress() || 'Wallet not connected' }} · {{ wallet.networkLabel(wallet.session()?.network) }}
   </span>
 </nav>
+}

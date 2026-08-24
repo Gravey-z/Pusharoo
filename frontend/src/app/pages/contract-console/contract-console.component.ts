@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { NetworkType } from 'neo-n3-walletkit';
@@ -22,6 +22,7 @@ import { ApiErrorFormatterService } from '../../services/api-error-formatter.ser
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
+import { ProjectWorkspaceContextService } from '../../services/project-workspace-context.service';
 
 type ConsoleMode = 'test' | 'transaction';
 
@@ -63,6 +64,7 @@ export class ContractConsoleComponent implements OnInit {
   errorMessage = '';
   consoleEntries: ConsoleEntry[] = [];
   readonly projectId: string;
+  private readonly workspace = inject(ProjectWorkspaceContextService, { optional: true });
 
   get pageTitle(): string {
     return 'Contract Console';
@@ -93,7 +95,7 @@ export class ContractConsoleComponent implements OnInit {
     private readonly resultFormatter: NeoVmResultFormatterService,
     readonly wallet: WalletService
   ) {
-    this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
+    this.projectId = (this.route.parent ?? this.route).snapshot.paramMap.get('projectId') ?? '';
   }
 
   ngOnInit(): void {
@@ -105,15 +107,20 @@ export class ContractConsoleComponent implements OnInit {
   }
 
   private loadProject(): void {
+    const cachedOverview = this.workspace?.overview;
+    if (cachedOverview?.project.id === this.projectId) {
+      this.applyOverview(cachedOverview);
+      return;
+    }
+
     this.isLoading = true;
     this.loadError = '';
     this.api.getProjectOverview(this.projectId).subscribe({
       next: (overview) => {
-        this.overview = overview;
-        this.targets = this.toTargets(overview);
-        this.selectedTargetKey = this.targets[0] ? this.targetKey(this.targets[0]) : '';
-        this.selectTarget();
-        this.isLoading = false;
+        if (this.workspace) {
+          this.workspace.overview = overview;
+        }
+        this.applyOverview(overview);
       },
       error: (error) => {
         this.overview = null;
@@ -122,6 +129,15 @@ export class ContractConsoleComponent implements OnInit {
         this.isLoading = false;
       }
     });
+  }
+
+  private applyOverview(overview: ProjectOverviewViewModel): void {
+    this.overview = overview;
+    this.targets = this.toTargets(overview);
+    this.selectedTargetKey = this.targets[0] ? this.targetKey(this.targets[0]) : '';
+    this.selectTarget();
+    this.loadError = '';
+    this.isLoading = false;
   }
 
   selectMethod(): void {

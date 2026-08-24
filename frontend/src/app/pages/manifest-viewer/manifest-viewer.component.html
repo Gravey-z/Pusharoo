@@ -11,9 +11,13 @@
           <button
             type="button"
             role="tab"
+            [id]="tabId(tab.id)"
             [class.active]="activeTab === tab.id"
             [attr.aria-selected]="activeTab === tab.id"
+            [attr.aria-controls]="panelId(tab.id)"
+            [attr.tabindex]="activeTab === tab.id ? 0 : -1"
             (click)="selectTab(tab.id)"
+            (keydown)="onTabKeydown($event, $index)"
           >
             {{ tab.label }}
           </button>
@@ -44,6 +48,7 @@
       </dl>
 
       @if (activeTab === 'overview') {
+        <section class="manifest-panel" [id]="panelId('overview')" role="tabpanel" [attr.aria-labelledby]="tabId('overview')" tabindex="0">
         <dl class="overview-grid">
           <div>
             <dt>Name</dt>
@@ -62,9 +67,11 @@
             <dd>{{ artifact.summary.eventCount }}</dd>
           </div>
         </dl>
+        </section>
       }
 
       @if (activeTab === 'methods') {
+        <section class="manifest-panel" [id]="panelId('methods')" role="tabpanel" [attr.aria-labelledby]="tabId('methods')" tabindex="0">
         <div class="table-wrap data-table">
           <table>
             <thead>
@@ -91,9 +98,11 @@
             </tbody>
           </table>
         </div>
+        </section>
       }
 
       @if (activeTab === 'events') {
+        <section class="manifest-panel" [id]="panelId('events')" role="tabpanel" [attr.aria-labelledby]="tabId('events')" tabindex="0">
         <div class="table-wrap data-table">
           <table>
             <thead>
@@ -112,20 +121,25 @@
             </tbody>
           </table>
         </div>
+        </section>
       }
 
       @if (activeTab === 'permissions') {
+        <section class="manifest-panel" [id]="panelId('permissions')" role="tabpanel" [attr.aria-labelledby]="tabId('permissions')" tabindex="0">
         <div class="permission-list">
           @for (permission of artifact.manifest.permissions; track $index) {
             <pre>{{ permission | json }}</pre>
           }
         </div>
+        </section>
       }
 
       @if (activeTab === 'raw') {
+        <section class="manifest-panel" [id]="panelId('raw')" role="tabpanel" [attr.aria-labelledby]="tabId('raw')" tabindex="0">
         <div class="raw-json-wrap" tabindex="0" aria-label="Raw manifest JSON">
           <pre class="raw-json">{{ rawJson(artifact) }}</pre>
         </div>
+        </section>
       }
     </section>
   </app-page-shell>

@@ -79,6 +79,36 @@
   box-sizing: border-box;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.subscription-state,
+.history-paused {
+  width: fit-content;
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius-pill);
+  padding: 3px 8px;
+  background: var(--success-soft);
+  color: var(--success) !important;
+  font-size: 11px !important;
+  font-weight: 700;
+}
+
+.subscription-state.subscription-paused,
+.history-paused {
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning) !important;
+}
+
 html,
 body {
   min-height: 100%;

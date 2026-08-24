@@ -47,6 +47,35 @@ export class ManifestViewerComponent implements OnInit {
     this.activeTab = tab;
   }
 
+  onTabKeydown(event: KeyboardEvent, currentIndex: number): void {
+    let nextIndex = currentIndex;
+
+    if (event.key === 'ArrowRight') {
+      nextIndex = (currentIndex + 1) % this.tabs.length;
+    } else if (event.key === 'ArrowLeft') {
+      nextIndex = (currentIndex - 1 + this.tabs.length) % this.tabs.length;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = this.tabs.length - 1;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    const tab = this.tabs[nextIndex];
+    this.selectTab(tab.id);
+    requestAnimationFrame(() => document.getElementById(this.tabId(tab.id))?.focus());
+  }
+
+  tabId(tab: ManifestTab): string {
+    return `manifest-tab-${tab}`;
+  }
+
+  panelId(tab: ManifestTab): string {
+    return `manifest-panel-${tab}`;
+  }
+
   methodReturnType(method: NeoMethod): string {
     return method.returntype ?? method.returnType ?? '-';
   }

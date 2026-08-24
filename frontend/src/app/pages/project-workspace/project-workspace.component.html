@@ -1,0 +1,30 @@
+<app-page-shell
+  [workspaceShell]="true"
+  [title]="projectName"
+  [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: projectName }]"
+>
+  <div actions class="workspace-actions">
+    @if (canManageProject) {
+      <a class="primary-button" [routerLink]="['/projects', projectId, 'upload']">Upload Artifact</a>
+      <details class="project-menu">
+        <summary class="secondary-button">Project options</summary>
+        <div class="project-menu-panel surface-panel">
+          <a class="danger-button" [routerLink]="['/projects', projectId, 'delete']">Delete Project</a>
+        </div>
+      </details>
+    }
+  </div>
+
+  <app-project-release-nav [projectId]="projectId" [workspaceNavigation]="true" />
+
+  @if (isLoading) {
+    <p class="workspace-status" aria-live="polite">Loading project...</p>
+  } @else if (loadError) {
+    <section class="workspace-error page-error" aria-live="assertive">
+      <p>{{ loadError }}</p>
+      <button class="secondary-button" type="button" (click)="retryLoad()">Try again</button>
+    </section>
+  } @else {
+    <router-outlet />
+  }
+</app-page-shell>

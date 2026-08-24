@@ -10,21 +10,28 @@ import { LandingComponent } from './pages/landing/landing.component';
 import { ProjectOverviewComponent } from './pages/project-overview/project-overview.component';
 import { ProjectDeleteComponent } from './pages/project-delete/project-delete.component';
 import { ProjectsComponent } from './pages/projects/projects.component';
+import { ProjectWorkspaceComponent } from './pages/project-workspace/project-workspace.component';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'home' },
   { path: 'home', component: LandingComponent },
   { path: 'projects', component: ProjectsComponent },
-  { path: 'projects/:projectId', component: ProjectOverviewComponent },
   { path: 'projects/:projectId/delete', component: ProjectDeleteComponent },
-  { path: 'projects/:projectId/artifacts', component: ProjectOverviewComponent, data: { releaseTab: 'artifacts' } },
-  { path: 'projects/:projectId/deployments', component: ProjectOverviewComponent, data: { releaseTab: 'deployments' } },
   { path: 'projects/:projectId/upload', component: ArtifactUploadComponent },
   { path: 'projects/:projectId/compare', component: ArtifactCompareComponent },
   { path: 'projects/:projectId/deployments/new', component: DeploymentCreateComponent },
   { path: 'projects/:projectId/deployments/recovery', component: DeploymentRecoveryComponent },
-  { path: 'projects/:projectId/console', component: ContractConsoleComponent },
-  { path: 'projects/:projectId/webhooks', component: EventWebhooksComponent },
+  {
+    path: 'projects/:projectId',
+    component: ProjectWorkspaceComponent,
+    children: [
+      { path: '', component: ProjectOverviewComponent },
+      { path: 'artifacts', component: ProjectOverviewComponent, data: { releaseTab: 'artifacts' } },
+      { path: 'deployments', component: ProjectOverviewComponent, data: { releaseTab: 'deployments' } },
+      { path: 'console', component: ContractConsoleComponent },
+      { path: 'webhooks', component: EventWebhooksComponent }
+    ]
+  },
   { path: 'artifacts/:artifactId/manifest', component: ManifestViewerComponent },
   { path: '**', redirectTo: 'projects' }
 ];

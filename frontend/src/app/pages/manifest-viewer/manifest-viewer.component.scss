@@ -30,6 +30,16 @@
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 
+.tabs button:focus-visible,
+.manifest-panel:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.manifest-panel {
+  min-width: 0;
+}
+
 .manifest-summary {
   display: grid;
   grid-template-columns: minmax(180px, 2fr) repeat(4, minmax(90px, 1fr));

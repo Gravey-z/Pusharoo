@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { Artifact, Deployment, ProjectOverviewViewModel } from '../../models/pusharoo.models';
@@ -10,6 +10,7 @@ import { ApiErrorFormatterService } from '../../services/api-error-formatter.ser
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
+import { ProjectWorkspaceContextService } from '../../services/project-workspace-context.service';
 
 interface ReleaseTimelineEvent {
   id: string;
@@ -35,6 +36,7 @@ export class ProjectOverviewComponent implements OnInit {
   copiedValue = '';
   confirmingDeploymentId = '';
   releaseTab: 'overview' | 'artifacts' | 'deployments' = 'overview';
+  private readonly workspace = inject(ProjectWorkspaceContextService, { optional: true });
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -48,7 +50,7 @@ export class ProjectOverviewComponent implements OnInit {
 
   ngOnInit(): void {
     this.releaseTab = this.route.snapshot.data['releaseTab'] ?? 'overview';
-    this.route.paramMap.subscribe((params) => this.loadOverview(params.get('projectId') ?? ''));
+    (this.route.parent ?? this.route).paramMap.subscribe((params) => this.loadOverview(params.get('projectId') ?? ''));
   }
 
   canManageProject(overview: ProjectOverviewViewModel): boolean {
@@ -224,12 +226,23 @@ export class ProjectOverviewComponent implements OnInit {
 
   loadOverview(projectId: string): void {
     this.projectId = projectId;
+    const cachedOverview = this.workspace?.overview;
+    if (cachedOverview?.project.id === projectId) {
+      this.overview = cachedOverview;
+      this.isLoading = false;
+      this.loadError = '';
+      return;
+    }
+
     this.isLoading = true;
     this.loadError = '';
     this.overview = null;
     this.api.getProjectOverview(projectId).subscribe({
       next: (overview) => {
         this.overview = overview;
+        if (this.workspace) {
+          this.workspace.overview = overview;
+        }
         this.isLoading = false;
       },
       error: (error) => {

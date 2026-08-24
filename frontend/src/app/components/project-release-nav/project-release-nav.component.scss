@@ -29,6 +29,11 @@ a:hover {
   color: var(--accent);
 }
 
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 a.active {
   background: rgba(21, 244, 200, 0.11);
   color: var(--sage);

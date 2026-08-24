@@ -268,25 +268,6 @@
   background: var(--field);
 }
 
-.history-paused,
-.subscription-state {
-  width: fit-content;
-  border: 1px solid var(--success-border);
-  border-radius: var(--radius-pill);
-  padding: 3px 8px;
-  background: var(--success-soft);
-  color: var(--success) !important;
-  font-size: 11px !important;
-  font-weight: 700;
-}
-
-.history-paused,
-.subscription-state.subscription-paused {
-  border-color: var(--warning-border);
-  background: var(--warning-soft);
-  color: var(--warning) !important;
-}
-
 .failed-text { color: var(--danger); }
 
 .hint,

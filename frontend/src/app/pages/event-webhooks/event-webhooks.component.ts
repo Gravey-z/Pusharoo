@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -24,6 +24,7 @@ import { ApiErrorFormatterService } from '../../services/api-error-formatter.ser
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
+import { ProjectWorkspaceContextService } from '../../services/project-workspace-context.service';
 
 interface DeploymentOption {
   label: string;
@@ -67,6 +68,7 @@ export class EventWebhooksComponent implements OnInit {
   private readonly sendingForByNetwork: Record<string, string> = {};
   private readonly formStatusByNetwork: Record<string, string> = {};
   private readonly errorMessageByNetwork: Record<string, string> = {};
+  private readonly workspace = inject(ProjectWorkspaceContextService, { optional: true });
 
   get isSaving(): boolean { return this.savingByNetwork[this.webhookNetwork] ?? false; }
   set isSaving(value: boolean) { this.savingByNetwork[this.webhookNetwork] = value; }
@@ -121,7 +123,7 @@ export class EventWebhooksComponent implements OnInit {
     private readonly ownership: ProjectOwnershipService,
     private readonly wallet: WalletService
   ) {
-    this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
+    this.projectId = (this.route.parent ?? this.route).snapshot.paramMap.get('projectId') ?? '';
   }
 
   ngOnInit(): void {
@@ -399,7 +401,13 @@ export class EventWebhooksComponent implements OnInit {
 
   private async load(): Promise<void> {
     try {
-      this.overview = await firstValueFrom(this.api.getProjectOverview(this.projectId));
+      const cachedOverview = this.workspace?.overview;
+      this.overview = cachedOverview?.project.id === this.projectId
+        ? cachedOverview
+        : await firstValueFrom(this.api.getProjectOverview(this.projectId));
+      if (this.workspace && this.overview) {
+        this.workspace.overview = this.overview;
+      }
       this.allDeploymentOptions = this.toDeploymentOptions(this.overview?.deployments ?? []);
       this.contractHash = this.deploymentOptions[0]?.contractHash ?? '';
       this.selectDeployment();

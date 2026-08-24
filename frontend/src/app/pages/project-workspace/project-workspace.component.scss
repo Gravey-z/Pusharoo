@@ -1,0 +1,48 @@
+.workspace-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.project-menu {
+  position: relative;
+}
+
+.project-menu summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.project-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.project-menu-panel {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  min-width: 168px;
+  padding: var(--space-2);
+  box-shadow: var(--shadow-overlay);
+}
+
+.project-menu-panel .danger-button {
+  width: 100%;
+}
+
+.workspace-status,
+.workspace-error p {
+  margin: 0;
+}
+
+.workspace-status {
+  color: var(--text-muted);
+}
+
+.workspace-error {
+  display: grid;
+  gap: var(--space-3);
+  width: fit-content;
+  color: var(--danger);
+}

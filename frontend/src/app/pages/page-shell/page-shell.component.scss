@@ -4,6 +4,21 @@
   background: transparent;
 }
 
+.workspace-embedded {
+  min-height: 0;
+}
+
+.workspace-embedded .topbar,
+.workspace-embedded .page-heading {
+  display: none;
+}
+
+.workspace-embedded .page {
+  width: auto;
+  margin: 0;
+  padding: 0;
+}
+
 .topbar {
   position: sticky;
   top: 0;
