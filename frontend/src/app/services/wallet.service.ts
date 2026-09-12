@@ -547,6 +547,7 @@ export class WalletService {
       network: session.network,
       provider: session.provider,
       origin: challenge.origin,
+      audience: challenge.audience,
       issuedAtUtc: challenge.issuedAtUtc,
       nonce: challenge.nonce,
       message: challenge.message,

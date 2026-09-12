@@ -6,7 +6,8 @@ namespace backend.Services;
 
 public sealed class ProjectManagementSignatureValidator(
     NeoWalletSignatureVerifier signatureVerifier,
-    WalletSignatureRequestValidator requestValidator)
+    WalletSignatureRequestValidator requestValidator,
+    ProjectOwnershipService ownership)
 {
     public ProjectManagementSignatureValidationResult ValidateArtifactUpload(
         ProjectDocument project,
@@ -114,21 +115,9 @@ public sealed class ProjectManagementSignatureValidator(
             return Fail(signatureValidation.Error);
         }
 
-        if (!string.IsNullOrWhiteSpace(project.CreatedByWalletPublicKey))
-        {
-            return signatureVerifier.PublicKeysMatch(project.CreatedByWalletPublicKey, signature.PublicKey)
-                ? ProjectManagementSignatureValidationResult.Valid
-                : Fail("Only the project creator can manage versions and deployments.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(project.CreatedByWalletAddress))
-        {
-            return string.Equals(project.CreatedByWalletAddress.Trim(), signature.Address.Trim(), StringComparison.Ordinal)
-                ? ProjectManagementSignatureValidationResult.Valid
-                : Fail("Only the project creator can manage versions and deployments.");
-        }
-
-        return ProjectManagementSignatureValidationResult.Valid;
+        return signatureVerifier.PublicKeysMatch(project.CreatedByWalletPublicKey, signature.PublicKey)
+            ? ProjectManagementSignatureValidationResult.Valid
+            : Fail("Only the project creator can manage versions and deployments.");
     }
 
     private ProjectManagementSignatureValidationResult ValidateCommon(
@@ -138,6 +127,12 @@ public sealed class ProjectManagementSignatureValidator(
         if (signature is null)
         {
             return Fail("Wallet signature is required.");
+        }
+
+        var creatorRecord = ownership.ValidateCreatorRecord(project);
+        if (!creatorRecord.IsValid)
+        {
+            return Fail(creatorRecord.Error);
         }
 
         var requestError = requestValidator.Validate(signature);
@@ -175,6 +170,7 @@ public sealed class ProjectManagementSignatureValidator(
             $"Script hash: {signature.ScriptHash.Trim()}",
             $"Network: {signature.Network.Trim()}",
             $"Origin: {signature.Origin.Trim()}",
+            $"Audience: {signature.Audience.Trim()}",
             $"Issued at UTC: {signature.IssuedAtUtc.Trim()}",
             $"Nonce: {signature.Nonce.Trim()}"
         });
@@ -196,6 +192,7 @@ public sealed class ProjectManagementSignatureValidator(
             $"Script hash: {signature.ScriptHash.Trim()}",
             $"Network: {signature.Network.Trim()}",
             $"Origin: {signature.Origin.Trim()}",
+            $"Audience: {signature.Audience.Trim()}",
             $"Issued at UTC: {signature.IssuedAtUtc.Trim()}",
             $"Nonce: {signature.Nonce.Trim()}"
         });
@@ -216,6 +213,7 @@ public sealed class ProjectManagementSignatureValidator(
             $"Script hash: {signature.ScriptHash.Trim()}",
             $"Network: {signature.Network.Trim()}",
             $"Origin: {signature.Origin.Trim()}",
+            $"Audience: {signature.Audience.Trim()}",
             $"Issued at UTC: {signature.IssuedAtUtc.Trim()}",
             $"Nonce: {signature.Nonce.Trim()}"
         });

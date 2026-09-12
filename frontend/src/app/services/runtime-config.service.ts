@@ -3,6 +3,7 @@ import { defaultWalletConfig } from '../config/wallet.config';
 
 export interface RuntimeConfig {
   apiBaseUrl: string;
+  walletSignatureAudience: string;
   eventRelayBaseUrl: string;
   eventRelayHealthUrl: string;
   eventRelays?: Record<string, { baseUrl: string; healthUrl: string }>;
@@ -16,6 +17,7 @@ export interface RuntimeConfig {
 
 const defaultConfig: RuntimeConfig = {
   apiBaseUrl: 'http://localhost:5000/api',
+  walletSignatureAudience: 'pusharoo-web',
   eventRelayBaseUrl: 'http://localhost:5001/api',
   eventRelayHealthUrl: 'http://localhost:5001/health',
   eventRelays: {

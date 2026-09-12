@@ -4,13 +4,23 @@ namespace backend.Services;
 
 public sealed class ProjectOwnershipService
 {
+    public ProjectOwnershipValidationResult ValidateCreatorRecord(ProjectDocument project)
+    {
+        return string.IsNullOrWhiteSpace(project.CreatedByWalletAddress)
+            || string.IsNullOrWhiteSpace(project.CreatedByWalletScriptHash)
+            || string.IsNullOrWhiteSpace(project.CreatedByWalletPublicKey)
+            ? Fail("Project ownership cannot be verified. This legacy project is read-only until ownership is recovered.")
+            : ProjectOwnershipValidationResult.Valid;
+    }
+
     public ProjectOwnershipValidationResult ValidateCanManage(
         ProjectDocument project,
         string? walletAddress)
     {
-        if (string.IsNullOrWhiteSpace(project.CreatedByWalletAddress))
+        var creatorRecord = ValidateCreatorRecord(project);
+        if (!creatorRecord.IsValid)
         {
-            return ProjectOwnershipValidationResult.Valid;
+            return creatorRecord;
         }
 
         if (string.IsNullOrWhiteSpace(walletAddress))
@@ -18,8 +28,14 @@ public sealed class ProjectOwnershipService
             return Fail("Wallet address is required.");
         }
 
+        var creatorWalletAddress = project.CreatedByWalletAddress;
+        if (string.IsNullOrWhiteSpace(creatorWalletAddress))
+        {
+            return Fail("Project ownership cannot be verified. This legacy project is read-only until ownership is recovered.");
+        }
+
         return string.Equals(
-            project.CreatedByWalletAddress.Trim(),
+            creatorWalletAddress.Trim(),
             walletAddress.Trim(),
             StringComparison.Ordinal)
             ? ProjectOwnershipValidationResult.Valid

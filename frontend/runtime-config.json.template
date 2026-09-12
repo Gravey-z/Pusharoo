@@ -1,5 +1,6 @@
 {
   "apiBaseUrl": "${PUSHAROO_API_BASE_URL}",
+  "walletSignatureAudience": "${PUSHAROO_WALLET_SIGNATURE_AUDIENCE}",
   "eventRelayBaseUrl": "${PUSHAROO_TESTNET_EVENT_RELAY_BASE_URL}",
   "eventRelayHealthUrl": "${PUSHAROO_TESTNET_EVENT_RELAY_HEALTH_URL}",
   "eventRelays": {

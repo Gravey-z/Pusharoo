@@ -1,8 +1,10 @@
 import { Injectable } from '@angular/core';
 import type { ConnectedAccount, WalletSession } from 'neo-n3-walletkit';
+import { RuntimeConfigService } from './runtime-config.service';
 
 export interface ProjectCreationSignatureChallenge {
   origin: string;
+  audience: string;
   issuedAtUtc: string;
   nonce: string;
   message: string;
@@ -12,6 +14,8 @@ export type WalletActionSignatureChallenge = ProjectCreationSignatureChallenge;
 
 @Injectable({ providedIn: 'root' })
 export class ProjectCreationSignatureMessageService {
+  constructor(private readonly runtimeConfig: RuntimeConfigService) {}
+
   async create(
     projectName: string,
     projectDescription: string,
@@ -19,6 +23,7 @@ export class ProjectCreationSignatureMessageService {
     session: WalletSession
   ): Promise<ProjectCreationSignatureChallenge> {
     const origin = window.location.origin;
+    const audience = this.runtimeConfig.value.walletSignatureAudience;
     const issuedAtUtc = new Date().toISOString();
     const nonce = this.createNonce();
     const descriptionHash = await this.sha256Hex(projectDescription.trim());
@@ -30,12 +35,14 @@ export class ProjectCreationSignatureMessageService {
       `Script hash: ${account.scriptHash}`,
       `Network: ${session.network}`,
       `Origin: ${origin}`,
+      `Audience: ${audience}`,
       `Issued at UTC: ${issuedAtUtc}`,
       `Nonce: ${nonce}`
     ].join('\n');
 
     return {
       origin,
+      audience,
       issuedAtUtc,
       nonce,
       message
@@ -52,6 +59,7 @@ export class ProjectCreationSignatureMessageService {
     session: WalletSession
   ): Promise<WalletActionSignatureChallenge> {
     const origin = window.location.origin;
+    const audience = this.runtimeConfig.value.walletSignatureAudience;
     const issuedAtUtc = new Date().toISOString();
     const nonce = this.createNonce();
     const nefHash = await this.sha256File(nefFile);
@@ -67,12 +75,14 @@ export class ProjectCreationSignatureMessageService {
       `Script hash: ${account.scriptHash}`,
       `Network: ${session.network}`,
       `Origin: ${origin}`,
+      `Audience: ${audience}`,
       `Issued at UTC: ${issuedAtUtc}`,
       `Nonce: ${nonce}`
     ].join('\n');
 
     return {
       origin,
+      audience,
       issuedAtUtc,
       nonce,
       message
@@ -87,6 +97,7 @@ export class ProjectCreationSignatureMessageService {
     session: WalletSession
   ): WalletActionSignatureChallenge {
     const origin = window.location.origin;
+    const audience = this.runtimeConfig.value.walletSignatureAudience;
     const issuedAtUtc = new Date().toISOString();
     const nonce = this.createNonce();
     const message = [
@@ -98,12 +109,14 @@ export class ProjectCreationSignatureMessageService {
       `Script hash: ${account.scriptHash}`,
       `Network: ${session.network}`,
       `Origin: ${origin}`,
+      `Audience: ${audience}`,
       `Issued at UTC: ${issuedAtUtc}`,
       `Nonce: ${nonce}`
     ].join('\n');
 
     return {
       origin,
+      audience,
       issuedAtUtc,
       nonce,
       message
@@ -117,6 +130,7 @@ export class ProjectCreationSignatureMessageService {
     session: WalletSession
   ): WalletActionSignatureChallenge {
     const origin = window.location.origin;
+    const audience = this.runtimeConfig.value.walletSignatureAudience;
     const issuedAtUtc = new Date().toISOString();
     const nonce = this.createNonce();
     const message = [
@@ -128,11 +142,12 @@ export class ProjectCreationSignatureMessageService {
       `Script hash: ${account.scriptHash}`,
       `Network: ${session.network}`,
       `Origin: ${origin}`,
+      `Audience: ${audience}`,
       `Issued at UTC: ${issuedAtUtc}`,
       `Nonce: ${nonce}`
     ].join('\n');
 
-    return { origin, issuedAtUtc, nonce, message };
+    return { origin, audience, issuedAtUtc, nonce, message };
   }
 
   private createNonce(): string {

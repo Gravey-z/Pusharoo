@@ -13,6 +13,7 @@ export interface WalletActionSignature {
   network: string;
   provider: string;
   origin: string;
+  audience: string;
   issuedAtUtc: string;
   nonce: string;
   message: string;

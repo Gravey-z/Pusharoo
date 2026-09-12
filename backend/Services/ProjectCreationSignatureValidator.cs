@@ -56,6 +56,7 @@ public sealed class ProjectCreationSignatureValidator(
             $"Script hash: {signature.ScriptHash.Trim()}",
             $"Network: {signature.Network.Trim()}",
             $"Origin: {signature.Origin.Trim()}",
+            $"Audience: {signature.Audience.Trim()}",
             $"Issued at UTC: {signature.IssuedAtUtc.Trim()}",
             $"Nonce: {signature.Nonce.Trim()}"
         });

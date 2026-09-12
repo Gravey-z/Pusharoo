@@ -16,6 +16,7 @@ builder.Services.Configure<FormOptions>(options =>
 
 builder.Services.Configure<MongoDbOptions>(builder.Configuration.GetSection(MongoDbOptions.SectionName));
 builder.Services.Configure<NeoRpcOptions>(builder.Configuration.GetSection(NeoRpcOptions.SectionName));
+builder.Services.Configure<WalletSignatureOptions>(builder.Configuration.GetSection(WalletSignatureOptions.SectionName));
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<IArtifactRepository, ArtifactRepository>();

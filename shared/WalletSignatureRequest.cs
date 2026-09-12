@@ -6,6 +6,7 @@ public sealed record WalletSignatureRequest(
     string Network,
     string Provider,
     string Origin,
+    string Audience,
     string IssuedAtUtc,
     string Nonce,
     string Message,
