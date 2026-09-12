@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { forkJoin, map, Observable, switchMap } from 'rxjs';
+import { defer, delay, forkJoin, map, Observable, switchMap } from 'rxjs';
 import {
   Artifact,
   ArtifactComparison,
@@ -30,19 +30,26 @@ import {
   RelayPaymentHistory
 } from '../models/pusharoo.models';
 import { RuntimeConfigService } from './runtime-config.service';
+import { DemoApiService } from './demo-api.service';
 
 @Injectable({ providedIn: 'root' })
 export class PusharooApiService {
   private readonly webhookSessions = new Map<string, string>();
   private get apiBaseUrl(): string { return this.runtimeConfig.value.apiBaseUrl.replace(/\/$/, ''); }
 
-  constructor(private readonly http: HttpClient, private readonly runtimeConfig: RuntimeConfigService) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly runtimeConfig: RuntimeConfigService,
+    private readonly demo: DemoApiService
+  ) {}
 
   hasWebhookSession(projectId: string, network: string): boolean {
+    if (this.isDemoMode) return true;
     return this.webhookSessions.has(this.webhookSessionKey(projectId, network));
   }
 
   clearWebhookSession(projectId: string, network: string): void {
+    if (this.isDemoMode) return;
     this.webhookSessions.delete(this.webhookSessionKey(projectId, network));
   }
 
@@ -51,20 +58,24 @@ export class PusharooApiService {
   }
 
   getProjectCards(): Observable<ProjectListItem[]> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.getProjectCards());
     return this.http.get<ProjectListItem[]>(`${this.apiBaseUrl}/projects/cards`);
   }
 
   getProjectOverview(projectId: string): Observable<ProjectOverviewViewModel> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.getProjectOverview(projectId));
     return this.http.get<Project>(`${this.apiBaseUrl}/projects/${projectId}`).pipe(
       switchMap((project) => this.getProjectCard(project))
     );
   }
 
   getArtifact(artifactId: string): Observable<Artifact> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.getArtifact(artifactId));
     return this.http.get<Artifact>(`${this.apiBaseUrl}/artifacts/${artifactId}`);
   }
 
   getArtifactNefHex(artifactId: string): Observable<string> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.getArtifactNefHex(artifactId));
     return this.http
       .get(`${this.apiBaseUrl}/artifacts/${artifactId}/nef`, { responseType: 'arraybuffer' })
       .pipe(map((buffer) => this.arrayBufferToHex(buffer)));
@@ -75,6 +86,7 @@ export class PusharooApiService {
     description: string,
     signature: ProjectCreationSignature
   ): Observable<Project> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.createProject(name, description));
     return this.http.post<Project>(`${this.apiBaseUrl}/projects`, {
       name,
       description: description.trim() || null,
@@ -83,6 +95,7 @@ export class PusharooApiService {
   }
 
   deleteProject(projectId: string, request: DeleteProjectRequest): Observable<void> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.deleteProject(projectId));
     return this.http.delete<void>(`${this.apiBaseUrl}/projects/${projectId}`, { body: request });
   }
 
@@ -94,6 +107,11 @@ export class PusharooApiService {
     nefFile: File,
     manifestFile: File
   ): Observable<Artifact> {
+    if (this.isDemoMode) {
+      return this.demoResponse(() => this.demo.uploadArtifact(
+        projectId, version, notes, nefFile, manifestFile
+      ));
+    }
     const formData = new FormData();
     formData.append('version', version);
     formData.append('notes', notes);
@@ -112,6 +130,15 @@ export class PusharooApiService {
     fromVersion: string,
     toVersion: string
   ): Observable<ArtifactComparison> {
+    if (this.isDemoMode) {
+      return this.demoResponse(() => {
+        const artifacts = this.demo.artifactsFor(projectId);
+        const fromArtifact = artifacts.find((artifact) => artifact.version === fromVersion);
+        const toArtifact = artifacts.find((artifact) => artifact.version === toVersion);
+        if (!fromArtifact || !toArtifact) throw new Error('Choose two demo artifact versions to compare.');
+        return this.compareLocalArtifacts(fromArtifact, toArtifact);
+      });
+    }
     return this.http.get<ArtifactComparison>(
       `${this.apiBaseUrl}/projects/${projectId}/artifacts/compare`,
       { params: { from: fromVersion, to: toVersion } }
@@ -122,6 +149,7 @@ export class PusharooApiService {
     projectId: string,
     request: CreateDeploymentRequest
   ): Observable<Deployment> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.createDeployment(projectId, request));
     return this.http.post<Deployment>(
       `${this.apiBaseUrl}/projects/${projectId}/deployments`,
       request
@@ -132,6 +160,7 @@ export class PusharooApiService {
     projectId: string,
     request: RecoverDeploymentRequest
   ): Observable<Deployment> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.recoverDeployment(projectId, request));
     return this.http.post<Deployment>(
       `${this.apiBaseUrl}/projects/${projectId}/deployments/recover`,
       request
@@ -139,10 +168,12 @@ export class PusharooApiService {
   }
 
   startDeploymentAttempt(projectId: string, request: StartDeploymentAttemptRequest): Observable<Deployment> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.startDeploymentAttempt(projectId, request));
     return this.http.post<Deployment>(`${this.apiBaseUrl}/projects/${projectId}/deployments/attempts`, request);
   }
 
   markDeploymentSubmitted(projectId: string, deploymentId: string, transactionId: string, deployedBy: string): Observable<Deployment> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.markDeploymentSubmitted(deploymentId, transactionId));
     return this.http.post<Deployment>(
       `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/submitted`,
       { transactionId, deployedBy }
@@ -150,6 +181,7 @@ export class PusharooApiService {
   }
 
   confirmDeploymentAttempt(projectId: string, deploymentId: string, deployedBy: string): Observable<Deployment> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.confirmDeploymentAttempt(deploymentId));
     return this.http.post<Deployment>(
       `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/confirm`,
       { deployedBy }
@@ -163,6 +195,7 @@ export class PusharooApiService {
     stage: 'preparing' | 'wallet' | 'confirmation' | 'record',
     reason: string
   ): Observable<Deployment> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.markDeploymentFailed(deploymentId, stage, reason));
     return this.http.post<Deployment>(
       `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/failed`,
       { deployedBy, stage, reason }
@@ -170,6 +203,7 @@ export class PusharooApiService {
   }
 
   getDeployments(projectId: string): Observable<Deployment[]> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.deploymentsFor(projectId));
     return this.http.get<Deployment[]>(`${this.apiBaseUrl}/projects/${projectId}/deployments`);
   }
 
@@ -178,6 +212,7 @@ export class PusharooApiService {
     network: string,
     signature?: WalletActionSignature
   ): Observable<WebhookSubscription[]> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.getSubscriptions(projectId, network));
     return this.http.post<WebhookSubscription[]>(
       `${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions/query`,
       { signature },
@@ -186,16 +221,19 @@ export class PusharooApiService {
   }
 
   getEventRelayStatus(network: string): Observable<EventRelayStatus> {
+    if (this.isDemoMode) return this.demoResponse(() => ({ status: 'ok', network }));
     const healthUrl = this.eventRelayHealthUrl(network);
     return this.http.get<EventRelayStatus>(healthUrl);
   }
 
   getRelayUsage(projectId: string, network: string, signature?: WalletActionSignature): Observable<RelayUsage> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.getUsage(projectId, network));
     return this.http.post<RelayUsage>(`${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions/usage`, { signature }, { headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }).pipe(map(response => this.readWebhookResponse(projectId, network, response)));
   }
 
   createRelayPaymentIntent(projectId: string, signature: WalletActionSignature): Observable<RelayPaymentIntent> {
     const network = 'neo3:mainnet';
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.createPaymentIntent(projectId));
     return this.http.post<RelayPaymentIntent>(
       `${this.eventRelayBaseUrl(network)}/projects/${projectId}/relay/payments/intents`,
       { signature }, { headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }
@@ -204,6 +242,7 @@ export class PusharooApiService {
 
   confirmRelayPayment(projectId: string, intentId: string, transactionId: string, signature?: WalletActionSignature): Observable<RelayPayment> {
     const network = 'neo3:mainnet';
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.confirmPayment(intentId, transactionId));
     return this.http.post<RelayPayment>(
       `${this.eventRelayBaseUrl(network)}/projects/${projectId}/relay/payments/confirm`,
       { intentId, transactionId, signature }, { headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }
@@ -212,6 +251,7 @@ export class PusharooApiService {
 
   getRelayPaymentHistory(projectId: string, signature?: WalletActionSignature): Observable<RelayPaymentHistory> {
     const network = 'neo3:mainnet';
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.getPaymentHistory());
     return this.http.post<RelayPaymentHistory>(
       `${this.eventRelayBaseUrl(network)}/projects/${projectId}/relay/payments/history/query`,
       { signature }, { headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }
@@ -225,6 +265,10 @@ export class PusharooApiService {
     signature?: WalletActionSignature
   ): Observable<WebhookSubscription> {
     const { projectId: ignoredProjectId, ...subscription } = request;
+
+    if (this.isDemoMode) {
+      return this.demoResponse(() => this.demo.createSubscription(projectId, network, subscription));
+    }
 
     return this.http.post<WebhookSubscription>(
       `${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions`,
@@ -242,6 +286,10 @@ export class PusharooApiService {
   ): Observable<WebhookSubscription> {
     const { projectId: ignoredProjectId, ...subscription } = request;
 
+    if (this.isDemoMode) {
+      return this.demoResponse(() => this.demo.updateSubscription(subscriptionId, subscription));
+    }
+
     return this.http.put<WebhookSubscription>(
       `${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions/${subscriptionId}`,
       { ...subscription, signature },
@@ -255,6 +303,7 @@ export class PusharooApiService {
     subscriptionId: string,
     signature?: WalletActionSignature
   ): Observable<void> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.deleteSubscription(subscriptionId));
     return this.http.delete<void>(
       `${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions/${subscriptionId}`,
       { body: { signature }, headers: this.webhookSessionHeaders(projectId, network), observe: 'response' }
@@ -267,6 +316,7 @@ export class PusharooApiService {
     subscriptionId: string,
     signature?: WalletActionSignature
   ): Observable<WebhookDelivery[]> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.getDeliveries(subscriptionId));
     return this.http.post<WebhookDelivery[]>(
       `${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions/${subscriptionId}/deliveries/query`,
       { signature },
@@ -275,6 +325,7 @@ export class PusharooApiService {
   }
 
   sendWebhookTest(projectId: string, network: string, subscriptionId: string, signature?: WalletActionSignature): Observable<WebhookDelivery> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.sendTest(subscriptionId));
     return this.http.post<WebhookDelivery>(
       `${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions/${subscriptionId}/test`,
       { signature },
@@ -283,6 +334,7 @@ export class PusharooApiService {
   }
 
   redeliverWebhook(projectId: string, network: string, subscriptionId: string, deliveryId: string, signature?: WalletActionSignature): Observable<WebhookDelivery> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.redeliver(subscriptionId, deliveryId));
     return this.http.post<WebhookDelivery>(
       `${this.eventRelayBaseUrl(network)}/projects/${projectId}/subscriptions/${subscriptionId}/deliveries/${deliveryId}/redeliver`,
       { signature },
@@ -336,7 +388,16 @@ export class PusharooApiService {
   }
 
   private getArtifacts(projectId: string): Observable<Artifact[]> {
+    if (this.isDemoMode) return this.demoResponse(() => this.demo.artifactsFor(projectId));
     return this.http.get<Artifact[]>(`${this.apiBaseUrl}/projects/${projectId}/artifacts`);
+  }
+
+  private get isDemoMode(): boolean {
+    return this.runtimeConfig.value.demoMode;
+  }
+
+  private demoResponse<T>(factory: () => T | Promise<T>): Observable<T> {
+    return defer(() => Promise.resolve().then(factory)).pipe(delay(120));
   }
 
   private eventRelayBaseUrl(network: string): string {

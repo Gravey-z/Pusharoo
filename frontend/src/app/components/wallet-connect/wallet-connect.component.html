@@ -9,7 +9,7 @@
     (click)="openDialog()"
   >
     @if (wallet.account()) {
-      {{ wallet.shortAddress() }}
+      {{ wallet.isDemoMode ? 'Demo wallet' : wallet.shortAddress() }}
     } @else {
       Wallet
     }
@@ -54,9 +54,30 @@
           >
             {{ wallet.session()?.network === 'neo3:mainnet' ? 'N3:Mainnet connected' : 'N3:Testnet connected' }}
           </span>
-          <strong>{{ wallet.shortAddress() }}</strong>
+          <strong>{{ wallet.isDemoMode ? 'Simulated investor wallet' : wallet.shortAddress() }}</strong>
         </div>
-        <button type="button" class="wallet-option danger" (click)="disconnect()">Disconnect</button>
+        @if (wallet.isDemoMode) {
+          <p class="network-guidance">Switch networks to explore TestNet and MainNet. No wallet opens and no transaction is broadcast.</p>
+          <div class="network-choice" role="group" aria-label="Demo wallet network">
+            <span>Demo network</span>
+            <button
+              type="button"
+              [class.active]="wallet.session()?.network === 'neo3:testnet'"
+              (click)="wallet.selectNetwork('neo3:testnet')"
+            >
+              N3:Testnet
+            </button>
+            <button
+              type="button"
+              [class.active]="wallet.session()?.network === 'neo3:mainnet'"
+              (click)="wallet.selectNetwork('neo3:mainnet')"
+            >
+              N3:Mainnet
+            </button>
+          </div>
+        } @else {
+          <button type="button" class="wallet-option danger" (click)="disconnect()">Disconnect</button>
+        }
       } @else if (dialogView === 'options') {
         <div class="network-choice" role="group" aria-label="Wallet network">
           <span>Network</span>

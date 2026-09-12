@@ -1,0 +1,23 @@
+services:
+  frontend-demo:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NGINX_CONFIG: nginx.demo.conf
+    restart: unless-stopped
+    environment:
+      PUSHAROO_DEMO_MODE: "true"
+      PUSHAROO_API_BASE_URL: ""
+      PUSHAROO_TESTNET_EVENT_RELAY_BASE_URL: ""
+      PUSHAROO_TESTNET_EVENT_RELAY_HEALTH_URL: ""
+      PUSHAROO_MAINNET_EVENT_RELAY_BASE_URL: ""
+      PUSHAROO_MAINNET_EVENT_RELAY_HEALTH_URL: ""
+      PUSHAROO_DEFAULT_NETWORK: neo3:testnet
+      PUSHAROO_WALLETCONNECT_PROJECT_ID: ""
+      PUSHAROO_TESTNET_CONTRACT_MANAGEMENT_HASH: "0xfffdc93764dbaddd97c48f252a53ea4643faa3fd"
+      PUSHAROO_MAINNET_CONTRACT_MANAGEMENT_HASH: "0xfffdc93764dbaddd97c48f252a53ea4643faa3fd"
+      PUSHAROO_TESTNET_RPC_URL: ""
+      PUSHAROO_MAINNET_RPC_URL: ""
+    ports:
+      - "${PUSHAROO_DEMO_HTTP_PORT:-8080}:80"

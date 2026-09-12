@@ -16,6 +16,7 @@ import {
   WalletActionSignatureChallenge
 } from './project-creation-signature-message.service';
 import { RuntimeConfigService } from './runtime-config.service';
+import { DEMO_WALLET_ADDRESS, DEMO_WALLET_SCRIPT_HASH } from './demo-data';
 
 type WalletStatus = 'idle' | 'connecting' | 'connected' | 'error';
 type ConnectableWalletProvider = Extract<WalletProvider, 'neoline' | 'onegate' | 'walletconnect'>;
@@ -75,6 +76,10 @@ export class WalletService {
     return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
   });
 
+  get isDemoMode(): boolean {
+    return this.runtimeConfig.value.demoMode;
+  }
+
   networkLabel(network: string | null | undefined): string {
     switch (network?.toLowerCase()) {
       case 'neo3:mainnet':
@@ -94,6 +99,11 @@ export class WalletService {
   ) {}
 
   async restoreSavedSession(): Promise<void> {
+    if (this.isDemoMode) {
+      this.activateDemoWallet();
+      return;
+    }
+
     if (this.session() || this.status() === 'connecting') {
       return;
     }
@@ -131,6 +141,11 @@ export class WalletService {
   }
 
   async connect(provider: ConnectableWalletProvider): Promise<void> {
+    if (this.isDemoMode) {
+      this.activateDemoWallet();
+      return;
+    }
+
     this.status.set('connecting');
     this.errorMessage.set('');
     this.selectedProvider.set(provider);
@@ -159,6 +174,11 @@ export class WalletService {
   }
 
   async disconnect(): Promise<void> {
+    if (this.isDemoMode) {
+      this.activateDemoWallet();
+      return;
+    }
+
     this.errorMessage.set('');
 
     try {
@@ -178,11 +198,15 @@ export class WalletService {
   }
 
   selectNetwork(network: PusharooNetwork): void {
-    if (this.status() === 'connected') {
+    if (this.status() === 'connected' && !this.isDemoMode) {
       return;
     }
 
     this.selectedNetwork.set(network);
+    if (this.isDemoMode) {
+      this.activateDemoWallet(network);
+      return;
+    }
     this.saveNetwork(network);
     this.errorMessage.set('');
   }
@@ -193,6 +217,11 @@ export class WalletService {
     manifestJson: string,
     contractName: string
   ): Promise<string> {
+    if (this.isDemoMode) {
+      await this.demoDelay();
+      return this.demoTransactionId();
+    }
+
     const session = this.session();
     const walletKit = this.walletKit;
 
@@ -233,6 +262,11 @@ export class WalletService {
     manifestJson: string,
     contractName: string
   ): Promise<string> {
+    if (this.isDemoMode) {
+      await this.demoDelay();
+      return this.demoTransactionId();
+    }
+
     const session = this.session();
     const walletKit = this.walletKit;
 
@@ -271,6 +305,13 @@ export class WalletService {
     manifestJson: string,
     contractHash?: string
   ): Promise<DeploymentFeeEstimate> {
+    if (this.isDemoMode) {
+      await this.demoDelay(180);
+      return operation === 'update'
+        ? { systemFee: '8.42 GAS', networkFee: '0.16 GAS', total: '8.58 GAS' }
+        : { systemFee: '12.80 GAS', networkFee: '0.18 GAS', total: '12.98 GAS' };
+    }
+
     const session = this.session();
     const walletKit = this.walletKit;
 
@@ -340,6 +381,16 @@ export class WalletService {
     projectName: string,
     projectDescription: string
   ): Promise<ProjectCreationSignature> {
+    if (this.isDemoMode) {
+      const account = this.requireDemoAccount();
+      const session = this.requireDemoSession();
+      const challenge = await this.projectCreationMessage.create(
+        projectName, projectDescription, account, session
+      );
+      await this.demoDelay();
+      return this.demoSignature(challenge);
+    }
+
     const session = this.session();
     const account = this.account();
 
@@ -370,6 +421,20 @@ export class WalletService {
     nefFile: File,
     manifestFile: File
   ): Promise<WalletActionSignature> {
+    if (this.isDemoMode) {
+      const challenge = await this.projectCreationMessage.createArtifactUpload(
+        projectId,
+        version,
+        notes,
+        nefFile,
+        manifestFile,
+        this.requireDemoAccount(),
+        this.requireDemoSession()
+      );
+      await this.demoDelay();
+      return this.demoSignature(challenge);
+    }
+
     const session = this.session();
     const account = this.account();
 
@@ -401,6 +466,18 @@ export class WalletService {
     operation: string,
     requestHash: string
   ): Promise<WalletActionSignature> {
+    if (this.isDemoMode) {
+      const challenge = this.projectCreationMessage.createWebhookAdministration(
+        projectId,
+        operation,
+        requestHash,
+        this.requireDemoAccount(),
+        this.requireDemoSession()
+      );
+      await this.demoDelay();
+      return this.demoSignature(challenge);
+    }
+
     const session = this.session();
     const account = this.account();
 
@@ -426,6 +503,17 @@ export class WalletService {
   }
 
   async signProjectDeletion(projectId: string, projectName: string): Promise<WalletActionSignature> {
+    if (this.isDemoMode) {
+      const challenge = this.projectCreationMessage.createProjectDeletion(
+        projectId,
+        projectName,
+        this.requireDemoAccount(),
+        this.requireDemoSession()
+      );
+      await this.demoDelay();
+      return this.demoSignature(challenge);
+    }
+
     const session = this.session();
     const account = this.account();
 
@@ -456,6 +544,11 @@ export class WalletService {
     args: ContractCallParameter[],
     contractName: string
   ): Promise<string> {
+    if (this.isDemoMode) {
+      await this.demoDelay();
+      return this.demoTransactionId();
+    }
+
     const session = this.session();
     const walletKit = this.walletKit;
 
@@ -485,6 +578,62 @@ export class WalletService {
     }
 
     return btoa(bytes.join(''));
+  }
+
+  private activateDemoWallet(network = this.selectedNetwork()): void {
+    const account: ConnectedAccount = {
+      address: DEMO_WALLET_ADDRESS,
+      scriptHash: DEMO_WALLET_SCRIPT_HASH
+    };
+    const session: WalletSession = {
+      provider: 'neoline',
+      network,
+      methods: ['invokeFunction', 'testInvoke', 'calculateFee', 'signMessage'],
+      accountAddress: account.address
+    };
+    this.walletKit = null;
+    this.account.set(account);
+    this.session.set(session);
+    this.status.set('connected');
+    this.errorMessage.set('');
+    this.selectedNetwork.set(network);
+    this.selectedProvider.set(null);
+  }
+
+  private requireDemoAccount(): ConnectedAccount {
+    this.activateDemoWallet(this.selectedNetwork());
+    return this.account() as ConnectedAccount;
+  }
+
+  private requireDemoSession(): WalletSession {
+    this.activateDemoWallet(this.selectedNetwork());
+    return this.session() as WalletSession;
+  }
+
+  private demoSignature(challenge: WalletActionSignatureChallenge): WalletActionSignature {
+    const account = this.requireDemoAccount();
+    const session = this.requireDemoSession();
+    return {
+      address: account.address,
+      scriptHash: account.scriptHash,
+      network: session.network,
+      provider: session.provider,
+      origin: challenge.origin,
+      issuedAtUtc: challenge.issuedAtUtc,
+      nonce: challenge.nonce,
+      message: challenge.message,
+      publicKey: `02${'00'.repeat(32)}`,
+      data: '00'.repeat(64)
+    };
+  }
+
+  private demoTransactionId(): string {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    return `0x${[...bytes].map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+  }
+
+  private async demoDelay(milliseconds = 320): Promise<void> {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
   }
 
   private formatFee(value: unknown): string | null {

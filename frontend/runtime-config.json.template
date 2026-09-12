@@ -1,4 +1,5 @@
 {
+  "demoMode": ${PUSHAROO_DEMO_MODE},
   "apiBaseUrl": "${PUSHAROO_API_BASE_URL}",
   "eventRelayBaseUrl": "${PUSHAROO_TESTNET_EVENT_RELAY_BASE_URL}",
   "eventRelayHealthUrl": "${PUSHAROO_TESTNET_EVENT_RELAY_HEALTH_URL}",

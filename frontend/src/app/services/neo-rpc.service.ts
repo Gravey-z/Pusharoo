@@ -66,6 +66,15 @@ export class NeoRpcService {
     methodName: string,
     parameters: ContractParameter[]
   ): Promise<ContractInvokeResult> {
+    if (this.runtimeConfig.value.demoMode) {
+      await this.demoDelay();
+      return {
+        state: 'HALT',
+        gasconsumed: '0.036',
+        stack: [this.demoStackItem(methodName, parameters)]
+      };
+    }
+
     if (!isPusharooNetwork(network)) {
       throw new Error(`No Neo RPC endpoint is configured for ${network}.`);
     }
@@ -95,6 +104,15 @@ export class NeoRpcService {
     transactionId: string,
     contractManagementHash: string
   ): Promise<ConfirmedDeployment> {
+    if (this.runtimeConfig.value.demoMode) {
+      await this.demoDelay();
+      return {
+        transactionId,
+        vmState: 'HALT',
+        contractHash: `0x${'ab'.repeat(20)}`
+      };
+    }
+
     if (!isPusharooNetwork(network)) {
       throw new Error(`No Neo RPC endpoint is configured for ${network}.`);
     }
@@ -126,6 +144,11 @@ export class NeoRpcService {
     network: NetworkType,
     transactionId: string
   ): Promise<{ transactionId: string; vmState: string }> {
+    if (this.runtimeConfig.value.demoMode) {
+      await this.demoDelay();
+      return { transactionId, vmState: 'HALT' };
+    }
+
     if (!isPusharooNetwork(network)) {
       throw new Error(`No Neo RPC endpoint is configured for ${network}.`);
     }
@@ -231,6 +254,24 @@ export class NeoRpcService {
 
   private normalizeHash(value: string): string {
     return value.startsWith('0x') ? value.toLowerCase() : `0x${value.toLowerCase()}`;
+  }
+
+  private demoStackItem(methodName: string, parameters: ContractParameter[]): RpcStackItem {
+    const normalizedMethod = methodName.toLowerCase();
+    if (normalizedMethod.includes('balance') || normalizedMethod.includes('count') || normalizedMethod.includes('score')) {
+      return { type: 'Integer', value: '42' };
+    }
+    if (normalizedMethod === 'symbol') {
+      return { type: 'ByteString', value: btoa('DEMO') };
+    }
+    if (normalizedMethod.includes('owner') || normalizedMethod.includes('hash')) {
+      return { type: 'Hash160', value: `0x${'12'.repeat(20)}` };
+    }
+    return { type: 'Boolean', value: parameters.length >= 0 };
+  }
+
+  private async demoDelay(): Promise<void> {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 280));
   }
 
   private isStackItem(value: unknown): value is RpcStackItem {

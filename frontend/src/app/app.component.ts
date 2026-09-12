@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { WalletService } from './services/wallet.service';
+import { RuntimeConfigService } from './services/runtime-config.service';
 
 @Component({
   selector: 'app-root',
@@ -9,7 +10,10 @@ import { WalletService } from './services/wallet.service';
   styleUrl: './app.component.scss'
 })
 export class AppComponent implements OnInit {
-  constructor(private readonly wallet: WalletService) {}
+  constructor(
+    private readonly wallet: WalletService,
+    readonly runtimeConfig: RuntimeConfigService
+  ) {}
 
   ngOnInit(): void {
     void this.wallet.restoreSavedSession();

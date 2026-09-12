@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { defaultWalletConfig } from '../config/wallet.config';
 
 export interface RuntimeConfig {
+  demoMode: boolean;
   apiBaseUrl: string;
   eventRelayBaseUrl: string;
   eventRelayHealthUrl: string;
@@ -15,6 +16,7 @@ export interface RuntimeConfig {
 }
 
 const defaultConfig: RuntimeConfig = {
+  demoMode: false,
   apiBaseUrl: 'http://localhost:5000/api',
   eventRelayBaseUrl: 'http://localhost:5001/api',
   eventRelayHealthUrl: 'http://localhost:5001/health',
@@ -49,6 +51,7 @@ export class RuntimeConfigService {
       this.config = {
         ...defaultConfig,
         ...loaded,
+        demoMode: loaded.demoMode === true || String(loaded.demoMode).toLowerCase() === 'true',
         wallet: {
           ...defaultConfig.wallet,
           ...loaded.wallet,

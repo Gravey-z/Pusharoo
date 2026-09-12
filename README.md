@@ -68,6 +68,37 @@ The app runs at `http://localhost:8080` by default (change
 to the host. See [the production deployment guide](docs/production-deployment.md)
 before making the service public.
 
+## Run the Investor Demo
+
+The investor demo is a frontend-only deployment with realistic projects,
+artifacts, deployments, webhook deliveries, Relay usage, and payment history.
+It uses a simulated wallet and simulated Neo/Relay responses. It never calls the
+Pusharoo API, MongoDB, a webhook endpoint, a wallet extension, or a Neo RPC node.
+
+Start it with:
+
+```powershell
+docker compose -f docker-compose.demo.yml up --build
+```
+
+Then open `http://localhost:8080`. Set `PUSHAROO_DEMO_HTTP_PORT` if that port is
+already in use. Investors can create and delete projects, upload a local NEF and
+manifest, compare versions, simulate deployments, use the contract console,
+manage webhooks, send/redeliver test events, and walk through a Relay payment.
+All changes live only in browser memory and a full page reload restores the seed
+data.
+
+For a static host, build the frontend normally and publish
+`frontend/dist/frontend/browser`, then replace its `runtime-config.json` with
+the included `runtime-config.demo.json` before uploading the directory:
+
+```powershell
+cd frontend
+npm ci
+npm run build
+Copy-Item public/runtime-config.demo.json dist/frontend/browser/runtime-config.json -Force
+```
+
 ## Run Locally
 
 ### Backend
