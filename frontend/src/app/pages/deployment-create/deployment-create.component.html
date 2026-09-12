@@ -15,8 +15,8 @@
   <app-project-release-nav [projectId]="projectId" />
 
     @if (artifacts.length) {
-      <aside class="deployment-access-notice" [class.access-denied]="!canDeployOnSelectedNetwork || deploymentAccess.isCollaborator">
-        <strong>{{ canDeployOnSelectedNetwork ? 'Network deployment access' : 'Deployment access required' }}</strong>
+      <aside class="deployment-access-notice" [class.access-denied]="!canStartDeployment">
+        <strong>{{ canStartDeployment ? 'Network deployment access' : 'Deployment unavailable' }}</strong>
         <span>{{ deploymentPermissionMessage }}</span>
       </aside>
       @if (!isReviewing) {

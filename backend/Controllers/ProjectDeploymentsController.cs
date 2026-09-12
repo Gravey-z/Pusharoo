@@ -13,6 +13,7 @@ public sealed class ProjectDeploymentsController(
     NeoDeploymentVerificationService deploymentVerification,
     ArtifactService artifactService,
     DeploymentAuthorizationService deploymentAuthorization,
+    DeploymentCapabilityService deploymentCapabilities,
     ProjectAuthorizationService projectAuthorization,
     SignatureNonceService nonceService) : ControllerBase
 {
@@ -48,6 +49,8 @@ public sealed class ProjectDeploymentsController(
 
         var permission = projectAuthorization.CanDeployToNetwork(projectResult.Value, request.DeployedBy, request.Network);
         if (!permission.IsAllowed) return StatusCode(permission.StatusCode, new { error = permission.Error });
+        var capability = deploymentCapabilities.CanStartDeployment(permission.IsOwner);
+        if (!capability.IsAvailable) return StatusCode(StatusCodes.Status501NotImplemented, new { error = capability.Reason });
         var deployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
         var context = deploymentAuthorization.CreateContext(projectResult.Value, artifact, deployments, request.Network, request.DeployedBy, request.Notes);
         var message = deploymentAuthorization.BuildStartMessage(context, request).Replace(
@@ -92,6 +95,11 @@ public sealed class ProjectDeploymentsController(
         if (!authorization.IsValid)
         {
             return StatusCode(authorization.StatusCode, new { error = authorization.Error });
+        }
+        var capability = deploymentCapabilities.CanStartDeployment(authorization.IsOwner);
+        if (!capability.IsAvailable)
+        {
+            return StatusCode(StatusCodes.Status501NotImplemented, new { error = capability.Reason });
         }
         if (!await nonceService.TryConsumeAsync(request.Authorization!, cancellationToken))
         {
@@ -248,7 +256,8 @@ public sealed class ProjectDeploymentsController(
         RecoverDeploymentRequest request,
         CancellationToken cancellationToken)
     {
-        return Conflict(new { error = "Unbound transaction recovery is disabled until prepared deployment intents are available. Resume an authorized submitted attempt instead." });
+        var capability = deploymentCapabilities.CanRecoverUnboundTransaction();
+        return StatusCode(StatusCodes.Status501NotImplemented, new { error = capability.Reason });
     }
 
     private async Task<DeploymentWorkflowResult<ProjectDeploymentAttemptContext>> LoadCapabilityAttemptAsync(

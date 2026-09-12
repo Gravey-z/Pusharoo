@@ -2,11 +2,12 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { firstValueFrom, forkJoin } from 'rxjs';
-import { Project, ProjectAccessAuditEvent, ProjectCollaborator } from '../../models/pusharoo.models';
+import { firstValueFrom } from 'rxjs';
+import { DeploymentCapabilities, Project, ProjectAccessAuditEvent, ProjectCollaborator } from '../../models/pusharoo.models';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
+import { ProjectDeploymentAccessService } from '../../services/project-deployment-access.service';
 import { ProjectWorkspaceContextService } from '../../services/project-workspace-context.service';
 import { WalletService } from '../../services/wallet.service';
 
@@ -22,6 +23,8 @@ export class ProjectCollaborationComponent implements OnInit {
   auditEvents: ProjectAccessAuditEvent[] = [];
   isLoading = true;
   loadError = '';
+  auditLoadError = '';
+  capabilityLoadError = '';
   actionError = '';
   actionSuccess = '';
   isMutating = false;
@@ -36,6 +39,7 @@ export class ProjectCollaborationComponent implements OnInit {
 
   removingCollaborator: ProjectCollaborator | null = null;
   removalConfirmation = '';
+  deploymentCapabilities: DeploymentCapabilities = ProjectDeploymentAccessService.unavailableCapabilities;
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -43,6 +47,7 @@ export class ProjectCollaborationComponent implements OnInit {
     private readonly errors: ApiErrorFormatterService,
     private readonly ownership: ProjectOwnershipService,
     private readonly workspace: ProjectWorkspaceContextService,
+    private readonly deploymentAccess: ProjectDeploymentAccessService,
     readonly wallet: WalletService
   ) {}
 
@@ -99,7 +104,10 @@ export class ProjectCollaborationComponent implements OnInit {
       return 'This wallet has no Pusharoo deployment access for this project.';
     }
 
-    return `This wallet can deploy to ${collaborator.allowedNetworks.map((network) => this.networkLabel(network)).join(' and ')}.`;
+    return this.deploymentAccess.description(
+      { isOwner: false, isCollaborator: true, allowedNetworks: collaborator.allowedNetworks },
+      this.deploymentCapabilities
+    );
   }
 
   retryLoad(): void {
@@ -212,7 +220,11 @@ export class ProjectCollaborationComponent implements OnInit {
     this.isMutating = true;
     try {
       const signature = await this.wallet.signCollaboratorAuthorization(
-        this.projectId, 'collaborators.remove', collaborator.walletAddress, [], collaborator.grantRevision
+        this.projectId,
+        'collaborators.remove',
+        collaborator.walletAddress,
+        collaborator.allowedNetworks,
+        collaborator.grantRevision
       );
       await firstValueFrom(this.api.removeCollaborator(this.projectId, collaborator.walletAddress, {
         expectedGrantRevision: collaborator.grantRevision,
@@ -253,13 +265,30 @@ export class ProjectCollaborationComponent implements OnInit {
   private async loadCollaboration(): Promise<void> {
     this.isLoading = true;
     this.loadError = '';
+    this.auditLoadError = '';
+    this.capabilityLoadError = '';
     try {
-      const result = await firstValueFrom(forkJoin({
-        collaborators: this.api.getCollaborators(this.projectId),
-        auditEvents: this.api.getProjectAccessAudit(this.projectId)
-      }));
-      this.collaborators = result.collaborators;
-      this.auditEvents = result.auditEvents;
+      const [collaborators, auditEvents, capabilities] = await Promise.allSettled([
+        firstValueFrom(this.api.getCollaborators(this.projectId)),
+        firstValueFrom(this.api.getProjectAccessAudit(this.projectId)),
+        firstValueFrom(this.api.getDeploymentCapabilities())
+      ]);
+      if (collaborators.status !== 'fulfilled') {
+        throw collaborators.reason;
+      }
+      this.collaborators = collaborators.value;
+      if (auditEvents.status === 'fulfilled') {
+        this.auditEvents = auditEvents.value;
+      } else {
+        this.auditEvents = [];
+        this.auditLoadError = 'Could not load the access audit. Current deployer grants are still available.';
+      }
+      if (capabilities.status === 'fulfilled') {
+        this.deploymentCapabilities = capabilities.value;
+      } else {
+        this.deploymentCapabilities = ProjectDeploymentAccessService.unavailableCapabilities;
+        this.capabilityLoadError = 'Deployment availability could not be checked. Collaborator releases remain unavailable.';
+      }
       if (this.editingCollaborator) {
         this.editingCollaborator = this.collaborators.find(
           (collaborator) => collaborator.walletAddress === this.editingCollaborator?.walletAddress

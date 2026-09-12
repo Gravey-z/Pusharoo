@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { Artifact, Deployment, ProjectCollaborator, ProjectOverviewViewModel } from '../../models/pusharoo.models';
+import { Artifact, Deployment, DeploymentCapabilities, ProjectCollaborator, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { ClipboardService } from '../../services/clipboard.service';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
@@ -38,6 +38,7 @@ export class ProjectOverviewComponent implements OnInit {
   copiedValue = '';
   confirmingDeploymentId = '';
   collaborators: ProjectCollaborator[] = [];
+  deploymentCapabilities: DeploymentCapabilities = ProjectDeploymentAccessService.unavailableCapabilities;
   collaborationAccessError = '';
   releaseTab: 'overview' | 'artifacts' | 'deployments' = 'overview';
   private readonly workspace = inject(ProjectWorkspaceContextService, { optional: true });
@@ -70,6 +71,15 @@ export class ProjectOverviewComponent implements OnInit {
     );
   }
 
+  canStartDeploymentToNetwork(overview: ProjectOverviewViewModel, network: string): boolean {
+    const normalizedNetwork = network.startsWith('neo3:') ? network : `neo3:${network}`;
+    return this.deploymentAccess.canStartDeployment(
+      this.deploymentAccess.resolve(overview.project, this.collaborators, this.wallet.account()?.address),
+      normalizedNetwork,
+      this.deploymentCapabilities
+    );
+  }
+
   hasAnyDeploymentAccess(overview: ProjectOverviewViewModel): boolean {
     return this.deploymentAccess.resolve(overview.project, this.collaborators, this.wallet.account()?.address)
       .allowedNetworks.length > 0;
@@ -81,7 +91,8 @@ export class ProjectOverviewComponent implements OnInit {
 
   deploymentAccessMessage(overview: ProjectOverviewViewModel): string {
     return this.deploymentAccess.description(
-      this.deploymentAccess.resolve(overview.project, this.collaborators, this.wallet.account()?.address)
+      this.deploymentAccess.resolve(overview.project, this.collaborators, this.wallet.account()?.address),
+      this.deploymentCapabilities
     );
   }
 
@@ -298,6 +309,7 @@ export class ProjectOverviewComponent implements OnInit {
       this.isLoading = false;
       this.loadError = '';
       this.loadCollaborators(projectId);
+      this.loadDeploymentCapabilities();
       return;
     }
 
@@ -311,6 +323,7 @@ export class ProjectOverviewComponent implements OnInit {
           this.workspace.overview = overview;
         }
         this.loadCollaborators(projectId);
+        this.loadDeploymentCapabilities();
         this.isLoading = false;
       },
       error: (error) => {
@@ -332,6 +345,13 @@ export class ProjectOverviewComponent implements OnInit {
         this.collaborators = [];
         this.collaborationAccessError = 'Could not verify collaborator access. Refresh before starting a deployment.';
       }
+    });
+  }
+
+  private loadDeploymentCapabilities(): void {
+    this.api.getDeploymentCapabilities().subscribe({
+      next: (capabilities) => this.deploymentCapabilities = capabilities,
+      error: () => this.deploymentCapabilities = ProjectDeploymentAccessService.unavailableCapabilities
     });
   }
 }

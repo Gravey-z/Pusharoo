@@ -14,6 +14,7 @@ import {
   Deployment,
   DeploymentAuthorizationChallenge,
   DeploymentAuthorizationChallengeRequest,
+  DeploymentCapabilities,
   EventRelayStatus,
   NeoMethod,
   NeoParameter,
@@ -191,6 +192,10 @@ export class PusharooApiService {
       `${this.apiBaseUrl}/projects/${projectId}/deployments/authorization-challenge`,
       request
     );
+  }
+
+  getDeploymentCapabilities(): Observable<DeploymentCapabilities> {
+    return this.http.get<DeploymentCapabilities>(`${this.apiBaseUrl}/deployment-capabilities`);
   }
 
   markDeploymentSubmitted(projectId: string, deploymentId: string, transactionId: string, attemptCapability: string): Observable<Deployment> {

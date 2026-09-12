@@ -128,6 +128,12 @@ public sealed record DeploymentAuthorizationChallengeResponse(
     string? ExpectedTargetContractHash,
     long ExpectedDeploymentRevision);
 
+public sealed record DeploymentCapabilitiesResponse(
+    bool CollaboratorDeploymentsEnabled,
+    string CollaboratorDeploymentUnavailableReason,
+    bool UnboundRecoveryEnabled,
+    string UnboundRecoveryUnavailableReason);
+
 public sealed record StartDeploymentAttemptRequest(
     string ArtifactId,
     string Network,

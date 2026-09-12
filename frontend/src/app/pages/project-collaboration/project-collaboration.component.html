@@ -37,8 +37,12 @@
 
     <aside class="security-note" aria-label="Deployment authorization notice">
       <strong>Pusharoo access is not on-chain authorization.</strong>
-      <span>A deployer wallet must already be permitted by the contract’s own update rules. Current collaborator deployments also remain safely gated until the prepared-intent workflow is available.</span>
+      <span>A deployer wallet must already be permitted by the contract’s own update rules. {{ deploymentCapabilities.collaboratorDeploymentUnavailableReason }}</span>
     </aside>
+
+    @if (capabilityLoadError) {
+      <p class="form-error" role="alert">{{ capabilityLoadError }}</p>
+    }
 
     @if (isOwner) {
       <section class="add-panel surface-panel" aria-labelledby="add-deployer-title">
@@ -171,7 +175,12 @@
           <h2 id="audit-title">Access audit</h2>
         </div>
       </header>
-      @if (auditEvents.length) {
+      @if (auditLoadError) {
+        <div class="empty-state">
+          <strong>Access audit unavailable</strong>
+          <span>{{ auditLoadError }}</span>
+        </div>
+      } @else if (auditEvents.length) {
         <ol class="audit-list">
           @for (event of auditEvents; track trackAuditEvent($index, event)) {
             <li>

@@ -123,15 +123,6 @@ public sealed class DeploymentAuthorizationService(
             return Fail(StatusCodes.Status401Unauthorized, verification.Error);
         }
 
-        // The existing RPC inspector cannot prove the selected NEF and manifest were
-        // the deployed invocation arguments. Do not enable collaborator broadcasts
-        // until the prepared-intent workflow enforces that binding.
-        if (!permission.IsOwner)
-        {
-            return Fail(StatusCodes.Status409Conflict,
-                "Collaborator deployment requires a prepared transaction intent. Pusharoo cannot yet prove an arbitrary submitted transaction used the authorized artifact.");
-        }
-
         var snapshot = new DeploymentAuthorizationSnapshot
         {
             InitiatorWalletAddress = verification.Address ?? signature.Address.Trim(),
@@ -144,7 +135,13 @@ public sealed class DeploymentAuthorizationService(
             AuthorizationMessageHash = Sha256Hex(message),
             AuthorizedAtUtc = DateTime.UtcNow
         };
-        return new DeploymentAuthorizationValidationResult(true, StatusCodes.Status204NoContent, string.Empty, context, snapshot);
+        return new DeploymentAuthorizationValidationResult(
+            true,
+            StatusCodes.Status204NoContent,
+            string.Empty,
+            context,
+            snapshot,
+            permission.IsOwner);
     }
 
     public static string CreateAttemptCapability()
@@ -169,7 +166,7 @@ public sealed class DeploymentAuthorizationService(
     }
 
     private static DeploymentAuthorizationValidationResult Fail(int statusCode, string error)
-        => new(false, statusCode, error, null, null);
+        => new(false, statusCode, error, null, null, false);
 
     private static string Sha256Hex(string value) => Sha256Hex(Encoding.UTF8.GetBytes(value));
 
@@ -202,4 +199,5 @@ public sealed record DeploymentAuthorizationValidationResult(
     int StatusCode,
     string Error,
     DeploymentAuthorizationContext? Context,
-    DeploymentAuthorizationSnapshot? Snapshot);
+    DeploymentAuthorizationSnapshot? Snapshot,
+    bool IsOwner);

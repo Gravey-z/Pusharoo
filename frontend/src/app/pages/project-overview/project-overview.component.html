@@ -97,12 +97,18 @@
                 Switch wallet to deploy
               </span>
             } @else if (canDeployToNetwork(overview, network)) {
-              <a
-                class="deploy-network-button"
-                [routerLink]="['/projects', overview.project.id, 'deployments', 'new']"
-              >
-                {{ isCollaborator(overview) ? 'Review deployment access' : 'Deploy contract' }}
-              </a>
+              @if (canStartDeploymentToNetwork(overview, network)) {
+                <a
+                  class="deploy-network-button"
+                  [routerLink]="['/projects', overview.project.id, 'deployments', 'new']"
+                >
+                  Deploy contract
+                </a>
+              } @else {
+                <a class="deploy-network-button" [routerLink]="['/projects', overview.project.id, 'collaboration']">
+                  View deployment grant
+                </a>
+              }
             }
           }
         </article>
@@ -168,11 +174,11 @@
     <section class="deployment-list" aria-label="Deployments">
       <header class="deployment-list-header">
         <h2>{{ releaseTab === 'overview' ? 'Live deployments' : 'Deployments' }}</h2>
-        @if (overview.artifacts.length && canDeployToNetwork(overview, wallet.session()?.network || '')) {
+        @if (overview.artifacts.length && canStartDeploymentToNetwork(overview, wallet.session()?.network || '')) {
           <div class="deployment-list-actions">
             @if (releaseTab === 'deployments') {
               <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'new']">
-                {{ isCollaborator(overview) ? 'Review Deployment Access' : 'Deploy Contract' }}
+                Deploy Contract
               </a>
             }
           </div>

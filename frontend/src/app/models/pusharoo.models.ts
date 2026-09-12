@@ -199,6 +199,13 @@ export interface DeploymentAuthorizationChallenge {
   expectedDeploymentRevision: number;
 }
 
+export interface DeploymentCapabilities {
+  collaboratorDeploymentsEnabled: boolean;
+  collaboratorDeploymentUnavailableReason: string;
+  unboundRecoveryEnabled: boolean;
+  unboundRecoveryUnavailableReason: string;
+}
+
 export interface ArtifactComparison {
   addedMethods: string[];
   removedMethods: string[];

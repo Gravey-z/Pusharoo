@@ -23,11 +23,13 @@ export const projectDeploymentAccessGuard: CanActivateFn = (route) => {
 
   return forkJoin({
     overview: api.getProjectOverview(projectId),
-    collaborators: api.getCollaborators(projectId)
+    collaborators: api.getCollaborators(projectId),
+    deploymentCapabilities: api.getDeploymentCapabilities()
   }).pipe(
-    map(({ overview, collaborators }) => access.canDeployToNetwork(
+    map(({ overview, collaborators, deploymentCapabilities }) => access.canStartDeployment(
       access.resolve(overview.project, collaborators, walletAddress),
-      walletNetwork
+      walletNetwork,
+      deploymentCapabilities
     ) || router.createUrlTree(['/projects', projectId, 'collaboration'])),
     // Do not treat a transient client-side lookup failure as authorization. The page
     // will show its normal retry state and the server still enforces every mutation.

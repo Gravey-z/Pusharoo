@@ -2,7 +2,7 @@ import { Component, OnInit, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
-import { Artifact, ProjectCollaborator, ProjectOverviewViewModel } from '../../models/pusharoo.models';
+import { Artifact, DeploymentCapabilities, ProjectCollaborator, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { ProjectDeploymentAccessService } from '../../services/project-deployment-access.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
@@ -28,6 +28,7 @@ export class DeploymentRecoveryComponent implements OnInit {
   isLoading = true;
   loadError = '';
   collaborators: ProjectCollaborator[] = [];
+  deploymentCapabilities: DeploymentCapabilities = ProjectDeploymentAccessService.unavailableCapabilities;
   readonly projectId: string;
   readonly walletAddress = computed(() => this.wallet.account()?.address ?? '');
   readonly walletNetwork = computed(() => this.wallet.session()?.network ?? '');
@@ -48,7 +49,7 @@ export class DeploymentRecoveryComponent implements OnInit {
     if (!this.canInspectRecovery) {
       return `The connected wallet has no deployment access for ${this.deploymentAccess.networkLabel(this.walletNetwork())}.`;
     }
-    return 'Recovery is currently limited to authorized submitted attempts. Unbound transaction recovery will return when prepared deployment intents are available.';
+    return this.deploymentCapabilities.unboundRecoveryUnavailableReason;
   }
 
   constructor(
@@ -74,11 +75,13 @@ export class DeploymentRecoveryComponent implements OnInit {
     this.loadError = '';
     forkJoin({
       overview: this.api.getProjectOverview(this.projectId),
-      collaborators: this.api.getCollaborators(this.projectId)
+      collaborators: this.api.getCollaborators(this.projectId),
+      deploymentCapabilities: this.api.getDeploymentCapabilities()
     }).subscribe({
-      next: ({ overview, collaborators }) => {
+      next: ({ overview, collaborators, deploymentCapabilities }) => {
         this.overview = overview;
         this.collaborators = collaborators;
+        this.deploymentCapabilities = deploymentCapabilities;
         this.artifacts = overview.artifacts ?? [];
         this.artifactId = this.artifacts[0]?.id ?? '';
         this.isLoading = false;
@@ -87,6 +90,7 @@ export class DeploymentRecoveryComponent implements OnInit {
         this.overview = null;
         this.artifacts = [];
         this.collaborators = [];
+        this.deploymentCapabilities = ProjectDeploymentAccessService.unavailableCapabilities;
         this.loadError = this.errors.format(error, 'Could not load this project.');
         this.isLoading = false;
       }
@@ -102,7 +106,7 @@ export class DeploymentRecoveryComponent implements OnInit {
       return;
     }
 
-    this.errorMessage = 'Unbound transaction recovery is disabled until prepared deployment intents are available. Resume an authorized submitted attempt instead.';
+    this.errorMessage = this.deploymentCapabilities.unboundRecoveryUnavailableReason;
   }
 
 }
