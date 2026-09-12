@@ -2,13 +2,13 @@ import { Component, OnInit, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { NetworkType } from 'neo-n3-walletkit';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, forkJoin } from 'rxjs';
 import { isPusharooNetwork } from '../../config/wallet.config';
-import { Artifact, Deployment, ProjectOverviewViewModel } from '../../models/pusharoo.models';
+import { Artifact, Deployment, DeploymentAuthorizationChallenge, ProjectCollaborator, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { DeploymentAttemptCapabilityService } from '../../services/deployment-attempt-capability.service';
 import { NeoRpcService } from '../../services/neo-rpc.service';
-import { ProjectOwnershipService } from '../../services/project-ownership.service';
+import { ProjectDeploymentAccessService } from '../../services/project-deployment-access.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { RuntimeConfigService } from '../../services/runtime-config.service';
@@ -37,6 +37,8 @@ export class DeploymentCreateComponent implements OnInit {
   mainnetConfirmed = false;
   feeEstimate: DeploymentFeeEstimate | null = null;
   feeEstimateError = '';
+  authorizationPreview: DeploymentAuthorizationChallenge | null = null;
+  collaborators: ProjectCollaborator[] = [];
   private preparedNefHex = '';
   private preparedArtifactId = '';
   readonly projectId: string;
@@ -67,8 +69,30 @@ export class DeploymentCreateComponent implements OnInit {
     return this.getExistingDeployment(this.walletNetwork())?.contractHash ?? null;
   }
 
-  get canManageProject(): boolean {
-    return this.ownership.canManage(this.overview?.project, this.walletAddress());
+  get deploymentAccess() {
+    return this.deploymentAccessService.resolve(this.overview?.project, this.collaborators, this.walletAddress());
+  }
+
+  get canDeployOnSelectedNetwork(): boolean {
+    return this.deploymentAccessService.canDeployToNetwork(this.deploymentAccess, this.walletNetwork());
+  }
+
+  get canStartDeployment(): boolean {
+    return this.deploymentAccess.isOwner && this.canDeployOnSelectedNetwork;
+  }
+
+  get deploymentPermissionMessage(): string {
+    const network = this.walletNetwork();
+    if (!this.walletAddress() || !network) {
+      return 'Connect the wallet assigned to the target N3 network before continuing.';
+    }
+    if (!this.canDeployOnSelectedNetwork) {
+      return `The connected wallet is not granted deployment access for ${this.deploymentAccessService.networkLabel(network)}.`;
+    }
+    if (this.deploymentAccess.isCollaborator) {
+      return 'This wallet has the selected network grant, but collaborator broadcasts remain disabled until Pusharoo supports prepared transaction intents.';
+    }
+    return 'This owner wallet can deploy on the selected network.';
   }
 
   get networkDeploymentStatus(): string {
@@ -94,7 +118,7 @@ export class DeploymentCreateComponent implements OnInit {
     private readonly deploymentHistory: DeploymentHistoryService,
     private readonly attemptCapabilities: DeploymentAttemptCapabilityService,
     private readonly neoRpc: NeoRpcService,
-    private readonly ownership: ProjectOwnershipService,
+    private readonly deploymentAccessService: ProjectDeploymentAccessService,
     private readonly runtimeConfig: RuntimeConfigService,
     readonly wallet: WalletService
   ) {
@@ -112,16 +136,21 @@ export class DeploymentCreateComponent implements OnInit {
   private loadProject(): void {
     this.isLoading = true;
     this.loadError = '';
-    this.api.getProjectOverview(this.projectId).subscribe({
-      next: (overview) => {
+    forkJoin({
+      overview: this.api.getProjectOverview(this.projectId),
+      collaborators: this.api.getCollaborators(this.projectId)
+    }).subscribe({
+      next: ({ overview, collaborators }) => {
         this.overview = overview;
-        this.artifacts = overview?.artifacts ?? [];
+        this.collaborators = collaborators;
+        this.artifacts = overview.artifacts ?? [];
         this.artifactId = this.artifacts[0]?.id ?? '';
         this.isLoading = false;
       },
       error: (error) => {
         this.overview = null;
         this.artifacts = [];
+        this.collaborators = [];
         this.loadError = this.errors.format(error, 'Could not load this project.');
         this.isLoading = false;
       }
@@ -149,13 +178,9 @@ export class DeploymentCreateComponent implements OnInit {
       return;
     }
 
-    const ownershipError = this.ownership.managementError(
-      this.overview?.project,
-      this.walletAddress()
-    );
-
-    if (ownershipError) {
-      this.errorMessage = ownershipError;
+    const deploymentPermissionError = this.getDeploymentPermissionError();
+    if (deploymentPermissionError) {
+      this.errorMessage = deploymentPermissionError;
       return;
     }
 
@@ -263,16 +288,24 @@ export class DeploymentCreateComponent implements OnInit {
       return;
     }
 
-    const ownershipError = this.ownership.managementError(this.overview?.project, this.walletAddress());
-    if (ownershipError) {
-      this.errorMessage = ownershipError;
+    const deploymentPermissionError = this.getDeploymentPermissionError();
+    if (deploymentPermissionError) {
+      this.errorMessage = deploymentPermissionError;
       return;
     }
 
-    const target = this.getExistingDeployment(session.network)?.contractHash;
     this.isPreparingReview = true;
 
     try {
+      const authorizationContext = this.wallet.createDeploymentAuthorizationContext();
+      const authorizationPreview = await firstValueFrom(this.api.createDeploymentAuthorizationChallenge(this.projectId, {
+        artifactId: artifact.id,
+        network: session.network,
+        deployedBy: this.walletAddress(),
+        notes: this.notes.trim() || null,
+        ...authorizationContext
+      }));
+      this.authorizationPreview = authorizationPreview;
       const nefHex = await firstValueFrom(this.api.getArtifactNefHex(artifact.id));
       this.ensureValidNef(nefHex);
       this.preparedNefHex = nefHex;
@@ -282,10 +315,10 @@ export class DeploymentCreateComponent implements OnInit {
       try {
         this.feeEstimate = await this.wallet.estimateDeploymentFees(
           session.network,
-          target ? 'update' : 'deploy',
+          authorizationPreview.operation,
           nefHex,
           JSON.stringify(artifact.manifest),
-          target ?? undefined
+          authorizationPreview.expectedTargetContractHash ?? undefined
         );
       } catch (error) {
         this.feeEstimateError = this.getErrorMessage(error);
@@ -302,8 +335,21 @@ export class DeploymentCreateComponent implements OnInit {
     this.mainnetConfirmed = false;
     this.feeEstimate = null;
     this.feeEstimateError = '';
+    this.authorizationPreview = null;
     this.preparedNefHex = '';
     this.preparedArtifactId = '';
+  }
+
+  private getDeploymentPermissionError(): string {
+    if (!this.canDeployOnSelectedNetwork) {
+      return this.deploymentPermissionMessage;
+    }
+
+    if (!this.deploymentAccess.isOwner) {
+      return 'Your deployer grant is recognized for this network, but Pusharoo cannot safely broadcast collaborator deployments until prepared transaction intents are available.';
+    }
+
+    return '';
   }
 
   private getErrorMessage(error: unknown): string {

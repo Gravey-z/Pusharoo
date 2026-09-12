@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { projectDeploymentAccessGuard } from './guards/project-deployment-access.guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'home' },
@@ -24,10 +25,12 @@ export const routes: Routes = [
   },
   {
     path: 'projects/:projectId/deployments/new',
+    canActivate: [projectDeploymentAccessGuard],
     loadComponent: () => import('./pages/deployment-create/deployment-create.component').then((component) => component.DeploymentCreateComponent)
   },
   {
     path: 'projects/:projectId/deployments/recovery',
+    canActivate: [projectDeploymentAccessGuard],
     loadComponent: () => import('./pages/deployment-recovery/deployment-recovery.component').then((component) => component.DeploymentRecoveryComponent)
   },
   {

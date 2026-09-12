@@ -7,6 +7,38 @@
   padding: 22px;
 }
 
+.deployment-access-notice,
+.update-authorization-note {
+  display: grid;
+  gap: var(--space-1);
+  width: min(680px, 100%);
+  margin-bottom: 18px;
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius-panel);
+  padding: var(--space-3) var(--space-4);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.deployment-access-notice span,
+.update-authorization-note span {
+  color: var(--text-muted);
+  font-size: var(--font-size-label);
+  line-height: var(--line-height-body);
+}
+
+.deployment-access-notice.access-denied,
+.update-authorization-note {
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.update-authorization-note {
+  width: auto;
+  margin: 0;
+}
+
 .form-flow-header {
   display: grid;
   gap: var(--space-2);

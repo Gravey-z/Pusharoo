@@ -7,6 +7,30 @@
   padding: 22px;
 }
 
+.recovery-policy-notice {
+  display: grid;
+  gap: var(--space-1);
+  width: min(680px, 100%);
+  margin-bottom: 18px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-panel);
+  padding: var(--space-3) var(--space-4);
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.recovery-policy-notice span {
+  color: var(--text-muted);
+  font-size: var(--font-size-label);
+  line-height: var(--line-height-body);
+}
+
+.recovery-policy-notice.access-denied {
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 .recovery-intro {
   margin-bottom: 18px;
   background: color-mix(in srgb, var(--card) 82%, var(--accent) 18%);

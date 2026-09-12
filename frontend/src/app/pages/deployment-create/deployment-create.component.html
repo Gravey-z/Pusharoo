@@ -15,6 +15,10 @@
   <app-project-release-nav [projectId]="projectId" />
 
     @if (artifacts.length) {
+      <aside class="deployment-access-notice" [class.access-denied]="!canDeployOnSelectedNetwork || deploymentAccess.isCollaborator">
+        <strong>{{ canDeployOnSelectedNetwork ? 'Network deployment access' : 'Deployment access required' }}</strong>
+        <span>{{ deploymentPermissionMessage }}</span>
+      </aside>
       @if (!isReviewing) {
       <form class="deployment-form surface-panel" (ngSubmit)="reviewRelease()">
         <header class="form-flow-header">
@@ -74,7 +78,7 @@
           <p class="form-error">{{ errorMessage }}</p>
         }
 
-        <button class="primary-button" type="submit" [disabled]="isPreparingReview || !canManageProject" title="Only the project owner can deploy or update contracts">
+        <button class="primary-button" type="submit" [disabled]="isPreparingReview || !canStartDeployment" [title]="deploymentPermissionMessage">
           {{ isPreparingReview ? 'Preparing Review...' : 'Review Release' }}
         </button>
       </form>
@@ -91,12 +95,20 @@
             <div><dt>Action</dt><dd>{{ operation === 'update' ? 'Update existing contract' : 'Deploy new contract' }}</dd></div>
             <div><dt>Artifact</dt><dd>{{ selectedArtifact?.version }} — {{ selectedArtifact?.contractName }}</dd></div>
             <div><dt>Signer</dt><dd>{{ walletAddress() }}</dd></div>
-            @if (targetContract) {
-              <div><dt>Target contract</dt><dd>{{ targetContract }}</dd></div>
+            @if (authorizationPreview?.expectedTargetContractHash) {
+              <div><dt>Target contract</dt><dd>{{ authorizationPreview?.expectedTargetContractHash }}</dd></div>
             } @else {
               <div><dt>Target contract</dt><dd>A new contract address will be created by Neo.</dd></div>
             }
+            <div><dt>Expected deployment revision</dt><dd>{{ authorizationPreview?.expectedDeploymentRevision ?? 'Not available' }}</dd></div>
           </dl>
+
+          @if (operation === 'update') {
+            <aside class="update-authorization-note">
+              <strong>Contract update authorization</strong>
+              <span>Pusharoo verifies its project access separately. The connected wallet must also be permitted by the contract’s on-chain update authorization, or Neo will reject the transaction.</span>
+            </aside>
+          }
 
           <section class="fee-estimate" aria-label="Estimated transaction fees">
             <h3>Estimated maximum fee</h3>
@@ -141,8 +153,8 @@
               [class.primary-button]="walletNetwork() !== 'neo3:mainnet'"
               [class.mainnet-action-button]="walletNetwork() === 'neo3:mainnet'"
               (click)="save()"
-              [disabled]="isSaving || !canManageProject || (walletNetwork() === 'neo3:mainnet' && !mainnetConfirmed)"
-              title="Only the project owner can deploy or update contracts"
+              [disabled]="isSaving || !canStartDeployment || (walletNetwork() === 'neo3:mainnet' && !mainnetConfirmed)"
+              [title]="deploymentPermissionMessage"
             >
               {{ submitLabel }}
             </button>

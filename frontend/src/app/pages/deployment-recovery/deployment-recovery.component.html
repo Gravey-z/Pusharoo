@@ -15,6 +15,10 @@
   <app-project-release-nav [projectId]="projectId" />
 
     @if (artifacts.length) {
+      <aside class="recovery-policy-notice" [class.access-denied]="!canInspectRecovery">
+        <strong>{{ canInspectRecovery ? 'Recovery safety gate' : 'Deployment access required' }}</strong>
+        <span>{{ recoveryAccessMessage }}</span>
+      </aside>
       <section class="recovery-intro surface-panel surface-panel--prominent">
         <h2>Record a contract that is already on-chain</h2>
         <p>
@@ -34,7 +38,7 @@
           <h3>1. Identify the deployment</h3>
           <label>
             <span>Artifact version used</span>
-            <select name="artifactId" [(ngModel)]="artifactId" [disabled]="isRecovering">
+            <select name="artifactId" [(ngModel)]="artifactId" [disabled]="true">
               @for (artifact of artifacts; track artifact.id) {
                 <option [value]="artifact.id">{{ artifact.version }} - {{ artifact.contractName }}</option>
               }
@@ -57,7 +61,7 @@
               [(ngModel)]="transactionId"
               placeholder="0x..."
               autocomplete="off"
-              [disabled]="isRecovering"
+              [disabled]="true"
             />
           </label>
           <p class="field-help">Use the transaction ID from the wallet or Neo explorer. Pusharoo verifies that it belongs to this artifact and network.</p>
@@ -72,7 +76,7 @@
 
           <label>
             <span>Notes</span>
-            <textarea name="notes" rows="4" [(ngModel)]="notes" [disabled]="isRecovering" placeholder="Why is this deployment being recovered?"></textarea>
+            <textarea name="notes" rows="4" [(ngModel)]="notes" [disabled]="true" placeholder="Why is this deployment being recovered?"></textarea>
           </label>
         </section>
 
@@ -84,8 +88,8 @@
           <p class="form-error">{{ errorMessage }}</p>
         }
 
-        <button class="primary-button" type="submit" [disabled]="isRecovering || !canManageProject" title="Only the project owner can recover deployments">
-          {{ isRecovering ? 'Verifying and Recovering...' : 'Recover Existing Deployment' }}
+        <button class="primary-button" type="submit" [disabled]="true" [title]="recoveryAccessMessage">
+          Recovery unavailable pending prepared intents
         </button>
       </form>
     } @else {

@@ -29,10 +29,15 @@
 
     <app-project-release-nav [projectId]="overview.project.id" />
 
-    @if (!canManageProject(overview)) {
+    @if (collaborationAccessError) {
+      <aside class="read-only-notice" aria-live="polite">
+        <strong>Deployment access needs a refresh</strong>
+        <span>{{ collaborationAccessError }}</span>
+      </aside>
+    } @else if (!canManageProject(overview)) {
       <aside class="read-only-notice" aria-label="Read-only access">
-        <strong>Read-only project</strong>
-        <span>Only the project owner can upload artifacts, deploy contracts, or change project settings.</span>
+        <strong>{{ hasAnyDeploymentAccess(overview) ? 'Network-scoped deployer access' : 'Read-only project' }}</strong>
+        <span>{{ hasAnyDeploymentAccess(overview) ? deploymentAccessMessage(overview) + ' Artifact uploads, project settings, webhooks, and collaboration remain owner-only.' : 'Only the project owner can upload artifacts or change project settings.' }}</span>
       </aside>
     }
 
@@ -85,16 +90,18 @@
             <strong>Not deployed</strong>
             <span class="release-state pending status-badge status-badge--warning">Awaiting release</span>
             <p>Deploy an artifact to establish this network release.</p>
-            @if (isNetworkUnavailable(network)) {
+            @if (hasActiveAttempt(overview, network)) {
+              <span class="deploy-network-button disabled">Deployment attempt already active</span>
+            } @else if (isNetworkUnavailable(network)) {
               <span class="deploy-network-button disabled" title="Switch your connected wallet to this network to deploy.">
                 Switch wallet to deploy
               </span>
-            } @else if (canManageProject(overview)) {
+            } @else if (canDeployToNetwork(overview, network)) {
               <a
                 class="deploy-network-button"
                 [routerLink]="['/projects', overview.project.id, 'deployments', 'new']"
               >
-                Deploy contract
+                {{ isCollaborator(overview) ? 'Review deployment access' : 'Deploy contract' }}
               </a>
             }
           }
@@ -161,14 +168,11 @@
     <section class="deployment-list" aria-label="Deployments">
       <header class="deployment-list-header">
         <h2>{{ releaseTab === 'overview' ? 'Live deployments' : 'Deployments' }}</h2>
-        @if (overview.artifacts.length && canManageProject(overview)) {
+        @if (overview.artifacts.length && canDeployToNetwork(overview, wallet.session()?.network || '')) {
           <div class="deployment-list-actions">
-            <a class="secondary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'recovery']">
-              Recover Existing Deployment
-            </a>
             @if (releaseTab === 'deployments') {
               <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'new']">
-                Deploy Contract
+                {{ isCollaborator(overview) ? 'Review Deployment Access' : 'Deploy Contract' }}
               </a>
             }
           </div>
@@ -230,7 +234,7 @@
             }
             <span class="hash-actions" data-label="Deployer">
             <a class="explorer-chip" [href]="explorerUrl(deployment.network, 'address', deployment.deployedBy)" target="_blank" rel="noopener noreferrer" [title]="'View wallet on Dora: ' + deployment.deployedBy">
-              {{ shortText(deployment.deployedBy) }} ↗
+              {{ shortText(deployment.deployedBy) }} · {{ deployerLabel(overview, deployment.deployedBy) }} ↗
             </a>
             <button class="copy-button" type="button" (click)="copyValue(deployment.deployedBy, $event)">
               {{ copiedValue === deployment.deployedBy ? 'Copied' : 'Copy' }}

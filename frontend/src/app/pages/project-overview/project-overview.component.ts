@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { Artifact, Deployment, ProjectOverviewViewModel } from '../../models/pusharoo.models';
+import { Artifact, Deployment, ProjectCollaborator, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { ClipboardService } from '../../services/clipboard.service';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
@@ -12,6 +12,7 @@ import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 import { ProjectWorkspaceContextService } from '../../services/project-workspace-context.service';
+import { ProjectDeploymentAccessService } from '../../services/project-deployment-access.service';
 
 interface ReleaseTimelineEvent {
   id: string;
@@ -36,6 +37,8 @@ export class ProjectOverviewComponent implements OnInit {
   private projectId = '';
   copiedValue = '';
   confirmingDeploymentId = '';
+  collaborators: ProjectCollaborator[] = [];
+  collaborationAccessError = '';
   releaseTab: 'overview' | 'artifacts' | 'deployments' = 'overview';
   private readonly workspace = inject(ProjectWorkspaceContextService, { optional: true });
 
@@ -47,6 +50,7 @@ export class ProjectOverviewComponent implements OnInit {
     private readonly clipboard: ClipboardService,
     private readonly deploymentHistory: DeploymentHistoryService,
     private readonly ownership: ProjectOwnershipService,
+    private readonly deploymentAccess: ProjectDeploymentAccessService,
     readonly wallet: WalletService
   ) {}
 
@@ -57,6 +61,28 @@ export class ProjectOverviewComponent implements OnInit {
 
   canManageProject(overview: ProjectOverviewViewModel): boolean {
     return this.ownership.canManage(overview.project, this.wallet.account()?.address ?? '');
+  }
+
+  canDeployToNetwork(overview: ProjectOverviewViewModel, network: string): boolean {
+    return this.deploymentAccess.canDeployToNetwork(
+      this.deploymentAccess.resolve(overview.project, this.collaborators, this.wallet.account()?.address),
+      `neo3:${network}`
+    );
+  }
+
+  hasAnyDeploymentAccess(overview: ProjectOverviewViewModel): boolean {
+    return this.deploymentAccess.resolve(overview.project, this.collaborators, this.wallet.account()?.address)
+      .allowedNetworks.length > 0;
+  }
+
+  isCollaborator(overview: ProjectOverviewViewModel): boolean {
+    return this.deploymentAccess.resolve(overview.project, this.collaborators, this.wallet.account()?.address).isCollaborator;
+  }
+
+  deploymentAccessMessage(overview: ProjectOverviewViewModel): string {
+    return this.deploymentAccess.description(
+      this.deploymentAccess.resolve(overview.project, this.collaborators, this.wallet.account()?.address)
+    );
   }
 
   latestDeploymentForNetwork(
@@ -91,6 +117,21 @@ export class ProjectOverviewComponent implements OnInit {
     const walletNetwork = this.wallet.session()?.network;
 
     return Boolean(walletNetwork && walletNetwork !== `neo3:${network}`);
+  }
+
+  hasActiveAttempt(overview: ProjectOverviewViewModel, network: string): boolean {
+    return overview.deployments.some((deployment) => deployment.network === `neo3:${network}`
+      && ['preparing', 'awaiting_wallet', 'submitted', 'confirming'].includes(deployment.status));
+  }
+
+  deployerLabel(overview: ProjectOverviewViewModel, walletAddress: string): string {
+    if (overview.project.createdByWalletAddress === walletAddress) {
+      return 'Owner';
+    }
+
+    return this.collaborators.some((collaborator) => collaborator.walletAddress === walletAddress)
+      ? 'Deployer collaborator'
+      : 'Deployment wallet';
   }
 
   artifactDeployments(overview: ProjectOverviewViewModel, artifact: Artifact): Deployment[] {
@@ -179,7 +220,7 @@ export class ProjectOverviewComponent implements OnInit {
         occurredAt: deployment.createdAt,
         type: deployment.operation === 'update' ? 'update' : 'deployment',
         title: `${action} started`,
-        detail: `${deployment.version} • ${this.wallet.networkLabel(deployment.network)}`,
+        detail: `${deployment.version} • ${this.wallet.networkLabel(deployment.network)} • ${this.shortText(deployment.deployedBy)} (${this.deployerLabel(overview, deployment.deployedBy)})`,
         network: deployment.network,
         deployment
       }];
@@ -256,6 +297,7 @@ export class ProjectOverviewComponent implements OnInit {
       this.overview = cachedOverview;
       this.isLoading = false;
       this.loadError = '';
+      this.loadCollaborators(projectId);
       return;
     }
 
@@ -268,6 +310,7 @@ export class ProjectOverviewComponent implements OnInit {
         if (this.workspace) {
           this.workspace.overview = overview;
         }
+        this.loadCollaborators(projectId);
         this.isLoading = false;
       },
       error: (error) => {
@@ -279,5 +322,16 @@ export class ProjectOverviewComponent implements OnInit {
 
   retryLoad(): void {
     this.loadOverview(this.projectId);
+  }
+
+  private loadCollaborators(projectId: string): void {
+    this.collaborationAccessError = '';
+    this.api.getCollaborators(projectId).subscribe({
+      next: (collaborators) => this.collaborators = collaborators,
+      error: () => {
+        this.collaborators = [];
+        this.collaborationAccessError = 'Could not verify collaborator access. Refresh before starting a deployment.';
+      }
+    });
   }
 }
