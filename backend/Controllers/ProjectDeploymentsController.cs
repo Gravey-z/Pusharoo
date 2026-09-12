@@ -104,8 +104,15 @@ public sealed class ProjectDeploymentsController(
         var context = await deploymentWorkflow.LoadOwnedArtifactAsync(projectId, request.ArtifactId, request.DeployedBy, cancellationToken);
         if (!context.IsSuccess || context.Value is null) return WorkflowFailure(context);
         var operation = await deploymentWorkflow.DetermineOperationAsync(projectId, request.Network, cancellationToken);
-        var attempt = await deploymentService.StartAttemptAsync(projectId, context.Value.Artifact, request, operation, cancellationToken);
-        return Created($"/api/projects/{projectId}/deployments/{attempt.Id}", attempt.ToResponse());
+        try
+        {
+            var attempt = await deploymentService.StartAttemptAsync(projectId, context.Value.Artifact, request, operation, cancellationToken);
+            return Created($"/api/projects/{projectId}/deployments/{attempt.Id}", attempt.ToResponse());
+        }
+        catch (MongoWriteException exception) when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            return Conflict(new { error = "Another deployment attempt is already active for this project network." });
+        }
     }
 
     [HttpPost("{deploymentId}/submitted")]

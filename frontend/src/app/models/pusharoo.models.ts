@@ -25,6 +25,52 @@ export interface WalletActionSignature {
 
 export type ProjectCreationSignature = WalletActionSignature;
 
+export type CollaboratorAction = 'collaborators.add' | 'collaborators.update' | 'collaborators.remove';
+
+export interface ProjectCollaborator {
+  walletAddress: string;
+  scriptHash: string;
+  role: 'deployer';
+  allowedNetworks: string[];
+  grantRevision: number;
+  addedAtUtc: string;
+  addedByWalletAddress: string;
+  updatedAtUtc: string;
+  updatedByWalletAddress: string;
+}
+
+export interface ProjectAccessAuditEvent {
+  action: string;
+  actorWalletAddress: string;
+  targetWalletAddress: string;
+  beforeRole?: string | null;
+  afterRole?: string | null;
+  beforeNetworks: string[];
+  afterNetworks: string[];
+  grantRevision: number;
+  createdAtUtc: string;
+}
+
+export interface AddProjectCollaboratorRequest {
+  walletAddress: string;
+  role: 'deployer';
+  allowedNetworks: string[];
+  expectedGrantRevision: number;
+  signature: WalletActionSignature;
+}
+
+export interface UpdateProjectCollaboratorRequest {
+  role: 'deployer';
+  allowedNetworks: string[];
+  expectedGrantRevision: number;
+  signature: WalletActionSignature;
+}
+
+export interface RemoveProjectCollaboratorRequest {
+  expectedGrantRevision: number;
+  signature: WalletActionSignature;
+}
+
 export interface DeleteProjectRequest {
   projectName: string;
   signature: WalletActionSignature;

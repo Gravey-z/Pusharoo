@@ -14,6 +14,45 @@ public sealed record WebhookAccessValidationRequest(
     string RequestHash,
     WalletSignatureRequest? Signature);
 
+public sealed record AddProjectCollaboratorRequest(
+    string WalletAddress,
+    string Role,
+    IReadOnlyList<string>? AllowedNetworks,
+    long ExpectedGrantRevision,
+    WalletSignatureRequest? Signature);
+
+public sealed record UpdateProjectCollaboratorRequest(
+    string Role,
+    IReadOnlyList<string>? AllowedNetworks,
+    long ExpectedGrantRevision,
+    WalletSignatureRequest? Signature);
+
+public sealed record RemoveProjectCollaboratorRequest(
+    long ExpectedGrantRevision,
+    WalletSignatureRequest? Signature);
+
+public sealed record ProjectCollaboratorResponse(
+    string WalletAddress,
+    string ScriptHash,
+    string Role,
+    IReadOnlyList<string> AllowedNetworks,
+    long GrantRevision,
+    DateTime AddedAtUtc,
+    string AddedByWalletAddress,
+    DateTime UpdatedAtUtc,
+    string UpdatedByWalletAddress);
+
+public sealed record ProjectAccessAuditResponse(
+    string Action,
+    string ActorWalletAddress,
+    string TargetWalletAddress,
+    string? BeforeRole,
+    string? AfterRole,
+    IReadOnlyList<string> BeforeNetworks,
+    IReadOnlyList<string> AfterNetworks,
+    long GrantRevision,
+    DateTime CreatedAtUtc);
+
 public sealed record ArtifactUploadInput(
     string ProjectId,
     string Version,

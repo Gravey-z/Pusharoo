@@ -150,6 +150,38 @@ export class ProjectCreationSignatureMessageService {
     return { origin, audience, issuedAtUtc, nonce, message };
   }
 
+  createCollaboratorAuthorization(
+    projectId: string,
+    action: 'collaborators.add' | 'collaborators.update' | 'collaborators.remove',
+    targetWalletAddress: string,
+    allowedNetworks: string[],
+    expectedGrantRevision: number,
+    account: ConnectedAccount,
+    session: WalletSession
+  ): WalletActionSignatureChallenge {
+    const origin = window.location.origin;
+    const audience = this.runtimeConfig.value.walletSignatureAudience;
+    const issuedAtUtc = new Date().toISOString();
+    const nonce = this.createNonce();
+    const networks = [...new Set(allowedNetworks.map((network) => network.trim()))].sort().join(',');
+    const message = [
+      'Pusharoo collaborator authorization',
+      'Schema: pusharoo.collaborator.v1',
+      `Action: ${action}`,
+      `Project ID: ${projectId.trim()}`,
+      `Target wallet: ${targetWalletAddress.trim()}`,
+      'Role: deployer',
+      `Allowed networks: ${networks}`,
+      `Expected grant revision: ${expectedGrantRevision}`,
+      `Audience: ${audience}`,
+      `Origin: ${origin}`,
+      `Issued at UTC: ${issuedAtUtc}`,
+      `Nonce: ${nonce}`
+    ].join('\n');
+
+    return { origin, audience, issuedAtUtc, nonce, message };
+  }
+
   private createNonce(): string {
     const bytes = new Uint8Array(16);
     crypto.getRandomValues(bytes);

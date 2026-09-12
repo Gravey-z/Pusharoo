@@ -68,6 +68,15 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             Notes = TrimToNull(request.Notes),
             Operation = operation,
             Status = "awaiting_wallet",
+            ActiveAttemptKey = BuildActiveAttemptKey(projectId, request.Network),
+            AuthorizationSnapshot = new DeploymentAuthorizationSnapshot
+            {
+                // Stage 3 replaces this compatibility snapshot with a verified
+                // wallet-signature authorization before this endpoint can be used
+                // by collaborators.
+                InitiatorWalletAddress = request.DeployedBy.Trim(),
+                ExpectedDeploymentRevision = 0
+            },
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -104,6 +113,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             Status = "confirmed",
             FailureStage = null,
             FailureReason = null,
+            ActiveAttemptKey = null,
             UpdatedAt = DateTime.UtcNow
         };
         await deployments.ReplaceAsync(updated, cancellationToken);
@@ -136,6 +146,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             Status = stage == "record" ? "record_failed" : "failed",
             FailureStage = stage,
             FailureReason = TrimToNull(reason),
+            ActiveAttemptKey = null,
             UpdatedAt = DateTime.UtcNow
         };
         await deployments.ReplaceAsync(updated, cancellationToken);
@@ -149,4 +160,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
+
+    private static string BuildActiveAttemptKey(string projectId, string network)
+        => $"{projectId.Trim()}:{network.Trim()}";
 }

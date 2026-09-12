@@ -26,6 +26,20 @@ public sealed class ProjectDocument
     [BsonElement("creatorNetwork")]
     public string? CreatorNetwork { get; init; }
 
+    [BsonElement("collaborators")]
+    public List<ProjectCollaboratorDocument> Collaborators { get; init; } = [];
+
+    [BsonElement("accessAuditEvents")]
+    public List<ProjectAccessAuditEvent> AccessAuditEvents { get; init; } = [];
+
+    [BsonElement("ownershipStatus")]
+    [BsonIgnoreIfNull]
+    public string? OwnershipStatus { get; init; }
+
+    [BsonElement("ownershipAuditedAtUtc")]
+    [BsonIgnoreIfNull]
+    public DateTime? OwnershipAuditedAtUtc { get; init; }
+
     [BsonElement("idempotencyKey")]
     [BsonIgnoreIfNull]
     public string? IdempotencyKey { get; init; }

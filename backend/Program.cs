@@ -29,11 +29,16 @@ builder.Services.AddScoped<DeploymentWorkflowService>();
 builder.Services.AddHttpClient<NeoRpcClient>();
 builder.Services.AddScoped<NeoDeploymentVerificationService>();
 builder.Services.AddSingleton<NeoWalletSignatureVerifier>();
+builder.Services.AddSingleton<NeoWalletAddressValidator>();
 builder.Services.AddSingleton<WalletSignatureRequestValidator>();
 builder.Services.AddSingleton<ProjectCreationSignatureValidator>();
 builder.Services.AddSingleton<ProjectManagementSignatureValidator>();
 builder.Services.AddSingleton<ProjectOwnershipService>();
 builder.Services.AddSingleton<SignatureNonceService>();
+builder.Services.AddScoped<ProjectCollaboratorInputValidator>();
+builder.Services.AddScoped<ProjectCollaboratorSignatureValidator>();
+builder.Services.AddScoped<ProjectCollaborationService>();
+builder.Services.AddHostedService<ProjectOwnershipMigrationService>();
 var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?.Where(origin => Uri.TryCreate(origin, UriKind.Absolute, out _))
     .Distinct(StringComparer.OrdinalIgnoreCase)

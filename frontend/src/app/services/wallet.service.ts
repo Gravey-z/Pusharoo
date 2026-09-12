@@ -449,6 +449,39 @@ export class WalletService {
     return this.toWalletActionSignature(account, session, challenge, signedMessage);
   }
 
+  async signCollaboratorAuthorization(
+    projectId: string,
+    action: 'collaborators.add' | 'collaborators.update' | 'collaborators.remove',
+    targetWalletAddress: string,
+    allowedNetworks: string[],
+    expectedGrantRevision: number
+  ): Promise<WalletActionSignature> {
+    const session = this.session();
+    const account = this.account();
+
+    if (!this.walletKit || !session || !account) {
+      throw new Error('Connect the project owner wallet before managing collaborators.');
+    }
+
+    const challenge = this.projectCreationMessage.createCollaboratorAuthorization(
+      projectId,
+      action,
+      targetWalletAddress,
+      allowedNetworks,
+      expectedGrantRevision,
+      account,
+      session
+    );
+    const signedMessage = await this.signMessage(
+      session,
+      account.address,
+      challenge.message,
+      `Manage Pusharoo collaborator: ${action}`
+    );
+
+    return this.toWalletActionSignature(account, session, challenge, signedMessage);
+  }
+
   async invokeContract(
     network: NetworkType,
     contractHash: string,

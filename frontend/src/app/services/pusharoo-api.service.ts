@@ -4,6 +4,7 @@ import { forkJoin, map, Observable, switchMap } from 'rxjs';
 import {
   Artifact,
   ArtifactComparison,
+  AddProjectCollaboratorRequest,
   ChangedMethod,
   CreateDeploymentRequest,
   DeleteProjectRequest,
@@ -19,6 +20,8 @@ import {
   ProjectCardViewModel,
   ProjectListItem,
   ProjectCreationSignature,
+  ProjectCollaborator,
+  ProjectAccessAuditEvent,
   ProjectOverviewViewModel,
   WalletActionSignature,
   WebhookDelivery,
@@ -27,7 +30,9 @@ import {
   RelayUsage,
   RelayPaymentIntent,
   RelayPayment,
-  RelayPaymentHistory
+  RelayPaymentHistory,
+  RemoveProjectCollaboratorRequest,
+  UpdateProjectCollaboratorRequest
 } from '../models/pusharoo.models';
 import { RuntimeConfigService } from './runtime-config.service';
 
@@ -84,6 +89,40 @@ export class PusharooApiService {
 
   deleteProject(projectId: string, request: DeleteProjectRequest): Observable<void> {
     return this.http.delete<void>(`${this.apiBaseUrl}/projects/${projectId}`, { body: request });
+  }
+
+  getCollaborators(projectId: string): Observable<ProjectCollaborator[]> {
+    return this.http.get<ProjectCollaborator[]>(`${this.apiBaseUrl}/projects/${projectId}/collaborators`);
+  }
+
+  getProjectAccessAudit(projectId: string): Observable<ProjectAccessAuditEvent[]> {
+    return this.http.get<ProjectAccessAuditEvent[]>(`${this.apiBaseUrl}/projects/${projectId}/collaborators/audit`);
+  }
+
+  addCollaborator(projectId: string, request: AddProjectCollaboratorRequest): Observable<ProjectCollaborator> {
+    return this.http.post<ProjectCollaborator>(`${this.apiBaseUrl}/projects/${projectId}/collaborators`, request);
+  }
+
+  updateCollaborator(
+    projectId: string,
+    walletAddress: string,
+    request: UpdateProjectCollaboratorRequest
+  ): Observable<ProjectCollaborator> {
+    return this.http.put<ProjectCollaborator>(
+      `${this.apiBaseUrl}/projects/${projectId}/collaborators/${encodeURIComponent(walletAddress)}`,
+      request
+    );
+  }
+
+  removeCollaborator(
+    projectId: string,
+    walletAddress: string,
+    request: RemoveProjectCollaboratorRequest
+  ): Observable<void> {
+    return this.http.delete<void>(
+      `${this.apiBaseUrl}/projects/${projectId}/collaborators/${encodeURIComponent(walletAddress)}`,
+      { body: request }
+    );
   }
 
   uploadArtifact(

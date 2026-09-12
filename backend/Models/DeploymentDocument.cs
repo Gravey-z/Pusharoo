@@ -48,6 +48,22 @@ public sealed record DeploymentDocument
     [BsonElement("idempotencyKey")]
     public string? IdempotencyKey { get; init; }
 
+    [BsonElement("activeAttemptKey")]
+    [BsonIgnoreIfNull]
+    public string? ActiveAttemptKey { get; init; }
+
+    [BsonElement("authorizationSnapshot")]
+    [BsonIgnoreIfNull]
+    public DeploymentAuthorizationSnapshot? AuthorizationSnapshot { get; init; }
+
+    [BsonElement("attemptCapabilityHash")]
+    [BsonIgnoreIfNull]
+    public string? AttemptCapabilityHash { get; init; }
+
+    [BsonElement("attemptCapabilityExpiresAtUtc")]
+    [BsonIgnoreIfNull]
+    public DateTime? AttemptCapabilityExpiresAtUtc { get; init; }
+
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; init; }
 
