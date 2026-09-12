@@ -49,6 +49,10 @@ export const routes: Routes = [
         data: { releaseTab: 'deployments' }
       },
       {
+        path: 'collaboration',
+        loadComponent: () => import('./pages/project-collaboration/project-collaboration.component').then((component) => component.ProjectCollaborationComponent)
+      },
+      {
         path: 'console',
         loadComponent: () => import('./pages/contract-console/contract-console.component').then((component) => component.ContractConsoleComponent)
       },

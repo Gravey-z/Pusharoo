@@ -6,12 +6,16 @@ export class ProjectOwnershipService {
   canManage(project: Project | null | undefined, walletAddress: string): boolean {
     const creatorAddress = project?.createdByWalletAddress?.trim();
 
-    return !creatorAddress || creatorAddress === walletAddress.trim();
+    return Boolean(creatorAddress) && creatorAddress === walletAddress.trim();
   }
 
   managementError(project: Project | null | undefined, walletAddress: string): string {
     if (!walletAddress.trim()) {
       return 'Connect the project creator wallet before continuing.';
+    }
+
+    if (!project?.createdByWalletAddress?.trim()) {
+      return 'This legacy project has no verified creator. Recover ownership before managing it.';
     }
 
     return this.canManage(project, walletAddress)
