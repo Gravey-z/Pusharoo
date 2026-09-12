@@ -12,6 +12,8 @@ import {
   StartDeploymentAttemptRequest,
   CreateWebhookSubscriptionRequest,
   Deployment,
+  DeploymentAuthorizationChallenge,
+  DeploymentAuthorizationChallengeRequest,
   EventRelayStatus,
   NeoMethod,
   NeoParameter,
@@ -181,30 +183,40 @@ export class PusharooApiService {
     return this.http.post<Deployment>(`${this.apiBaseUrl}/projects/${projectId}/deployments/attempts`, request);
   }
 
-  markDeploymentSubmitted(projectId: string, deploymentId: string, transactionId: string, deployedBy: string): Observable<Deployment> {
-    return this.http.post<Deployment>(
-      `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/submitted`,
-      { transactionId, deployedBy }
+  createDeploymentAuthorizationChallenge(
+    projectId: string,
+    request: DeploymentAuthorizationChallengeRequest
+  ): Observable<DeploymentAuthorizationChallenge> {
+    return this.http.post<DeploymentAuthorizationChallenge>(
+      `${this.apiBaseUrl}/projects/${projectId}/deployments/authorization-challenge`,
+      request
     );
   }
 
-  confirmDeploymentAttempt(projectId: string, deploymentId: string, deployedBy: string): Observable<Deployment> {
+  markDeploymentSubmitted(projectId: string, deploymentId: string, transactionId: string, attemptCapability: string): Observable<Deployment> {
+    return this.http.post<Deployment>(
+      `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/submitted`,
+      { transactionId, attemptCapability }
+    );
+  }
+
+  confirmDeploymentAttempt(projectId: string, deploymentId: string, attemptCapability: string): Observable<Deployment> {
     return this.http.post<Deployment>(
       `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/confirm`,
-      { deployedBy }
+      { attemptCapability }
     );
   }
 
   markDeploymentFailed(
     projectId: string,
     deploymentId: string,
-    deployedBy: string,
+    attemptCapability: string,
     stage: 'preparing' | 'wallet' | 'confirmation' | 'record',
     reason: string
   ): Observable<Deployment> {
     return this.http.post<Deployment>(
       `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/failed`,
-      { deployedBy, stage, reason }
+      { attemptCapability, stage, reason }
     );
   }
 

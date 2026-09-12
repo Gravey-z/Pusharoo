@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { isPusharooNetwork } from '../../config/wallet.config';
 import { Artifact, Deployment, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
+import { DeploymentAttemptCapabilityService } from '../../services/deployment-attempt-capability.service';
 import { NeoRpcService } from '../../services/neo-rpc.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
@@ -91,6 +92,7 @@ export class DeploymentCreateComponent implements OnInit {
     private readonly api: PusharooApiService,
     private readonly errors: ApiErrorFormatterService,
     private readonly deploymentHistory: DeploymentHistoryService,
+    private readonly attemptCapabilities: DeploymentAttemptCapabilityService,
     private readonly neoRpc: NeoRpcService,
     private readonly ownership: ProjectOwnershipService,
     private readonly runtimeConfig: RuntimeConfigService,
@@ -164,17 +166,38 @@ export class DeploymentCreateComponent implements OnInit {
 
     this.isSaving = true;
     let attempt: Deployment | null = null;
+    let attemptCapability = '';
     let transactionId = '';
 
     try {
       const deploymentNotes = this.notes.trim() || null;
+      const authorizationContext = this.wallet.createDeploymentAuthorizationContext();
+      this.deployStatus = 'Authorizing deployment attempt...';
+      const authorizationChallenge = await firstValueFrom(this.api.createDeploymentAuthorizationChallenge(this.projectId, {
+        artifactId: this.artifactId,
+        network: session.network,
+        deployedBy: this.walletAddress(),
+        notes: deploymentNotes,
+        ...authorizationContext
+      }));
+      const authorization = await this.wallet.signDeploymentAuthorization(
+        authorizationChallenge.message,
+        authorizationContext
+      );
+
       this.deployStatus = 'Creating deployment attempt...';
       attempt = await firstValueFrom(this.api.startDeploymentAttempt(this.projectId, {
         artifactId: this.artifactId,
         network: session.network,
         deployedBy: this.walletAddress(),
-        notes: deploymentNotes
+        notes: deploymentNotes,
+        authorization
       }));
+      attemptCapability = attempt.attemptCapability ?? '';
+      if (!attemptCapability) {
+        throw new Error('Pusharoo did not return a deployment attempt capability. Start the release again.');
+      }
+      this.attemptCapabilities.set(attempt.id, attemptCapability);
 
       const manifestJson = JSON.stringify(artifact.manifest);
       transactionId = await this.deployOrUpdateContract(
@@ -185,29 +208,35 @@ export class DeploymentCreateComponent implements OnInit {
       );
 
       this.deployStatus = 'Saving submitted transaction...';
-      await firstValueFrom(this.api.markDeploymentSubmitted(
+      const submitted = await firstValueFrom(this.api.markDeploymentSubmitted(
         this.projectId,
         attempt.id,
         transactionId,
-        this.walletAddress()
+        attemptCapability
       ));
+      attemptCapability = submitted.attemptCapability ?? '';
+      if (!attemptCapability) {
+        throw new Error('Pusharoo did not return the next deployment attempt capability. Start the release again.');
+      }
+      this.attemptCapabilities.set(attempt.id, attemptCapability);
 
       this.deployStatus = 'Confirming the transaction on Neo...';
       await this.waitForTransaction(session.network, transactionId, attempt.operation);
-      await firstValueFrom(this.api.confirmDeploymentAttempt(this.projectId, attempt.id, this.walletAddress()));
+      await firstValueFrom(this.api.confirmDeploymentAttempt(this.projectId, attempt.id, attemptCapability));
+      this.attemptCapabilities.remove(attempt.id);
 
       await this.router.navigate(['/projects', this.projectId]);
     } catch (error) {
       this.errorMessage = this.getErrorMessage(error);
-      if (attempt && !transactionId && this.walletAddress()) {
+      if (attempt && !transactionId && attemptCapability) {
         const stage = this.deployStatus.includes('wallet') ? 'wallet' : 'preparing';
         void firstValueFrom(this.api.markDeploymentFailed(
           this.projectId,
           attempt.id,
-          this.walletAddress(),
+          attemptCapability,
           stage,
           this.errorMessage
-        ));
+        )).then(() => this.attemptCapabilities.remove(attempt!.id));
       }
     } finally {
       this.isSaving = false;

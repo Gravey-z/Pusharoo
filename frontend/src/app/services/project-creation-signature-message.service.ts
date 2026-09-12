@@ -12,9 +12,20 @@ export interface ProjectCreationSignatureChallenge {
 
 export type WalletActionSignatureChallenge = ProjectCreationSignatureChallenge;
 
+export type WalletSignatureContext = Omit<WalletActionSignatureChallenge, 'message'>;
+
 @Injectable({ providedIn: 'root' })
 export class ProjectCreationSignatureMessageService {
   constructor(private readonly runtimeConfig: RuntimeConfigService) {}
+
+  createSignatureContext(): WalletSignatureContext {
+    return {
+      origin: window.location.origin,
+      audience: this.runtimeConfig.value.walletSignatureAudience,
+      issuedAtUtc: new Date().toISOString(),
+      nonce: this.createNonce()
+    };
+  }
 
   async create(
     projectName: string,

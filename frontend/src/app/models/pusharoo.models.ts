@@ -153,6 +153,7 @@ export interface Deployment {
   failureStage?: string | null;
   failureReason?: string | null;
   updatedAt: string;
+  attemptCapability?: string | null;
 }
 
 export interface CreateDeploymentRequest {
@@ -177,6 +178,25 @@ export interface StartDeploymentAttemptRequest {
   network: string;
   deployedBy: string;
   notes?: string | null;
+  authorization: WalletActionSignature;
+}
+
+export interface DeploymentAuthorizationChallengeRequest {
+  artifactId: string;
+  network: string;
+  deployedBy: string;
+  notes?: string | null;
+  origin: string;
+  audience: string;
+  issuedAtUtc: string;
+  nonce: string;
+}
+
+export interface DeploymentAuthorizationChallenge {
+  message: string;
+  operation: 'deploy' | 'update';
+  expectedTargetContractHash?: string | null;
+  expectedDeploymentRevision: number;
 }
 
 export interface ArtifactComparison {

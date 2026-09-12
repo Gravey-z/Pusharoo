@@ -112,24 +112,42 @@ public sealed record CreateDeploymentRequest(
     string DeployedBy,
     string? Notes);
 
+public sealed record DeploymentAuthorizationChallengeRequest(
+    string ArtifactId,
+    string Network,
+    string DeployedBy,
+    string? Notes,
+    string Origin,
+    string Audience,
+    string IssuedAtUtc,
+    string Nonce);
+
+public sealed record DeploymentAuthorizationChallengeResponse(
+    string Message,
+    string Operation,
+    string? ExpectedTargetContractHash,
+    long ExpectedDeploymentRevision);
+
 public sealed record StartDeploymentAttemptRequest(
     string ArtifactId,
     string Network,
     string DeployedBy,
-    string? Notes);
+    string? Notes,
+    WalletSignatureRequest? Authorization);
 
-public sealed record SubmitDeploymentAttemptRequest(string TransactionId, string DeployedBy);
+public sealed record SubmitDeploymentAttemptRequest(string TransactionId, string AttemptCapability);
 
-public sealed record ConfirmDeploymentAttemptRequest(string DeployedBy);
+public sealed record ConfirmDeploymentAttemptRequest(string AttemptCapability);
 
-public sealed record FailDeploymentAttemptRequest(string DeployedBy, string Stage, string Reason);
+public sealed record FailDeploymentAttemptRequest(string AttemptCapability, string Stage, string Reason);
 
 public sealed record RecoverDeploymentRequest(
     string ArtifactId,
     string Network,
     string TransactionId,
     string DeployedBy,
-    string? Notes);
+    string? Notes,
+    WalletSignatureRequest? Authorization);
 
 public sealed record DeploymentResponse(
     string Id,
@@ -146,4 +164,5 @@ public sealed record DeploymentResponse(
     string Status,
     string? FailureStage,
     string? FailureReason,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    string? AttemptCapability = null);

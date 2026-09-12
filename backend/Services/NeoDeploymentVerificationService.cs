@@ -32,6 +32,7 @@ public sealed class NeoDeploymentVerificationService(
             existingDeployments,
             request.Network,
             request.TransactionId,
+            null,
             cancellationToken);
         if (!inspection.IsValid)
         {
@@ -47,9 +48,10 @@ public sealed class NeoDeploymentVerificationService(
         ProjectDocument project,
         IReadOnlyList<DeploymentDocument> existingDeployments,
         RecoverDeploymentRequest request,
+        string? expectedInitiatorScriptHash,
         CancellationToken cancellationToken)
     {
-        return InspectAsync(project, existingDeployments, request.Network, request.TransactionId, cancellationToken);
+        return InspectAsync(project, existingDeployments, request.Network, request.TransactionId, expectedInitiatorScriptHash, cancellationToken);
     }
 
     private async Task<NeoDeploymentInspectionResult> InspectAsync(
@@ -57,6 +59,7 @@ public sealed class NeoDeploymentVerificationService(
         IReadOnlyList<DeploymentDocument> existingDeployments,
         string network,
         string? transactionId,
+        string? expectedInitiatorScriptHash,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(transactionId))
@@ -64,7 +67,8 @@ public sealed class NeoDeploymentVerificationService(
             return InspectFail("Transaction ID is required for deployment verification.");
         }
 
-        if (string.IsNullOrWhiteSpace(project.CreatedByWalletScriptHash))
+        var expectedSigner = expectedInitiatorScriptHash ?? project.CreatedByWalletScriptHash;
+        if (string.IsNullOrWhiteSpace(expectedSigner))
         {
             return InspectFail("Project creator script hash is missing; deployment verification cannot continue.");
         }
@@ -88,9 +92,9 @@ public sealed class NeoDeploymentVerificationService(
                 "getrawtransaction",
                 [transactionId.Trim(), 1],
                 cancellationToken);
-            if (!HasSigner(transaction, project.CreatedByWalletScriptHash))
+            if (!HasSigner(transaction, expectedSigner))
             {
-                return InspectFail("Deployment transaction was not signed by the project creator.");
+                return InspectFail("Deployment transaction was not signed by the authorized deployment initiator.");
             }
 
             var applicationLog = await neoRpc.SendAsync(

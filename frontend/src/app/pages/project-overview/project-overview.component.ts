@@ -6,6 +6,7 @@ import { ClipboardService } from '../../services/clipboard.service';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
+import { DeploymentAttemptCapabilityService } from '../../services/deployment-attempt-capability.service';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
@@ -41,6 +42,7 @@ export class ProjectOverviewComponent implements OnInit {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly api: PusharooApiService,
+    private readonly attemptCapabilities: DeploymentAttemptCapabilityService,
     private readonly errors: ApiErrorFormatterService,
     private readonly clipboard: ClipboardService,
     private readonly deploymentHistory: DeploymentHistoryService,
@@ -227,18 +229,20 @@ export class ProjectOverviewComponent implements OnInit {
       deployment.transactionId
       && ['submitted', 'confirming'].includes(deployment.status)
       && this.wallet.account()?.address === deployment.deployedBy
+      && this.attemptCapabilities.get(deployment.id)
     );
   }
 
   async resumeConfirmation(overview: ProjectOverviewViewModel, deployment: Deployment): Promise<void> {
-    const walletAddress = this.wallet.account()?.address;
-    if (!walletAddress || !this.canResumeConfirmation(deployment)) {
+    const attemptCapability = this.attemptCapabilities.get(deployment.id);
+    if (!attemptCapability || !this.canResumeConfirmation(deployment)) {
       return;
     }
 
     this.confirmingDeploymentId = deployment.id;
     try {
-      await firstValueFrom(this.api.confirmDeploymentAttempt(overview.project.id, deployment.id, walletAddress));
+      await firstValueFrom(this.api.confirmDeploymentAttempt(overview.project.id, deployment.id, attemptCapability));
+      this.attemptCapabilities.remove(deployment.id);
       this.loadOverview(overview.project.id);
     } finally {
       this.confirmingDeploymentId = '';

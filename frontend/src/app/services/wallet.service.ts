@@ -13,7 +13,8 @@ import { defaultWalletConfig, isPusharooNetwork, PusharooNetwork } from '../conf
 import { ProjectCreationSignature, WalletActionSignature } from '../models/pusharoo.models';
 import {
   ProjectCreationSignatureMessageService,
-  WalletActionSignatureChallenge
+  WalletActionSignatureChallenge,
+  WalletSignatureContext
 } from './project-creation-signature-message.service';
 import { RuntimeConfigService } from './runtime-config.service';
 
@@ -446,6 +447,30 @@ export class WalletService {
       `Delete Pusharoo project ${projectName.trim()}`
     );
 
+    return this.toWalletActionSignature(account, session, challenge, signedMessage);
+  }
+
+  createDeploymentAuthorizationContext(): WalletSignatureContext {
+    return this.projectCreationMessage.createSignatureContext();
+  }
+
+  async signDeploymentAuthorization(
+    message: string,
+    context: WalletSignatureContext
+  ): Promise<WalletActionSignature> {
+    const session = this.session();
+    const account = this.account();
+    if (!this.walletKit || !session || !account) {
+      throw new Error('Connect a wallet before authorizing a deployment.');
+    }
+
+    const challenge: WalletActionSignatureChallenge = { ...context, message };
+    const signedMessage = await this.signMessage(
+      session,
+      account.address,
+      message,
+      'Authorize Pusharoo deployment attempt'
+    );
     return this.toWalletActionSignature(account, session, challenge, signedMessage);
   }
 

@@ -10,7 +10,11 @@ namespace backend.Controllers;
 public sealed class ProjectDeploymentsController(
     DeploymentService deploymentService,
     DeploymentWorkflowService deploymentWorkflow,
-    NeoDeploymentVerificationService deploymentVerification) : ControllerBase
+    NeoDeploymentVerificationService deploymentVerification,
+    ArtifactService artifactService,
+    DeploymentAuthorizationService deploymentAuthorization,
+    ProjectAuthorizationService projectAuthorization,
+    SignatureNonceService nonceService) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<DeploymentResponse>> CreateAsync(
@@ -18,61 +22,37 @@ public sealed class ProjectDeploymentsController(
         CreateDeploymentRequest request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.ArtifactId))
+        return Conflict(new { error = "Direct deployment recording is disabled. Start an authorized deployment attempt instead." });
+    }
+
+    [HttpPost("authorization-challenge")]
+    public async Task<ActionResult<DeploymentAuthorizationChallengeResponse>> CreateAuthorizationChallengeAsync(
+        string projectId,
+        DeploymentAuthorizationChallengeRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!HasValidAuthorizationRequest(request.ArtifactId, request.Network, request.DeployedBy, request.Notes)
+            || string.IsNullOrWhiteSpace(request.Origin) || string.IsNullOrWhiteSpace(request.Audience)
+            || string.IsNullOrWhiteSpace(request.IssuedAtUtc) || string.IsNullOrWhiteSpace(request.Nonce))
         {
-            return BadRequest(new { error = "Artifact is required." });
+            return BadRequest(new { error = "Deployment authorization challenge fields are invalid." });
         }
 
-        if (string.IsNullOrWhiteSpace(request.Network))
+        var projectResult = await deploymentWorkflow.LoadProjectAsync(projectId, cancellationToken);
+        if (!projectResult.IsSuccess || projectResult.Value is null) return WorkflowFailure(projectResult);
+        var artifact = await artifactService.GetByIdAsync(request.ArtifactId, cancellationToken);
+        if (artifact is null || artifact.ProjectId != projectId)
         {
-            return BadRequest(new { error = "Network is required." });
+            return BadRequest(new { error = "Artifact does not belong to this project." });
         }
 
-        if (string.IsNullOrWhiteSpace(request.DeployedBy))
-        {
-            return BadRequest(new { error = "Wallet address is required." });
-        }
-        if (request.ArtifactId.Trim().Length > 64 || request.Network.Trim().Length > 64
-            || request.DeployedBy.Trim().Length > 128 || request.ContractHash?.Length > 128
-            || request.TransactionId?.Length > 128 || request.Notes?.Length > 2_000)
-        {
-            return BadRequest(new { error = "One or more deployment fields exceed their maximum length." });
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.TransactionId))
-        {
-            var existing = await deploymentService.GetByTransactionIdAsync(request.TransactionId.Trim(), cancellationToken);
-            if (existing is not null)
-            {
-                return existing.ProjectId == projectId
-                    ? Ok(existing.ToResponse())
-                    : Conflict(new { error = "The transaction ID is already recorded for another project." });
-            }
-        }
-
-        var context = await deploymentWorkflow.LoadOwnedArtifactAsync(projectId, request.ArtifactId, request.DeployedBy, cancellationToken);
-        if (!context.IsSuccess || context.Value is null) return WorkflowFailure(context);
-
-        var existingDeployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
-        var verification = await deploymentVerification.VerifyAsync(
-            context.Value.Project,
-            existingDeployments,
-            request,
-            cancellationToken);
-        if (!verification.IsValid)
-        {
-            return BadRequest(new { error = verification.Error });
-        }
-
-        try
-        {
-            var deployment = await deploymentService.CreateAsync(projectId, context.Value.Artifact, request, null, cancellationToken);
-            return Created($"/api/projects/{projectId}/deployments/{deployment.Id}", deployment.ToResponse());
-        }
-        catch (MongoWriteException exception) when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
-        {
-            return Conflict(new { error = "The deployment transaction is already recorded." });
-        }
+        var permission = projectAuthorization.CanDeployToNetwork(projectResult.Value, request.DeployedBy, request.Network);
+        if (!permission.IsAllowed) return StatusCode(permission.StatusCode, new { error = permission.Error });
+        var deployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
+        var context = deploymentAuthorization.CreateContext(projectResult.Value, artifact, deployments, request.Network, request.DeployedBy, request.Notes);
+        var message = deploymentAuthorization.BuildStartMessage(context, request).Replace(
+            "{resolved-on-authorization}", permission.GrantRevision?.ToString() ?? "owner", StringComparison.Ordinal);
+        return Ok(new DeploymentAuthorizationChallengeResponse(message, context.Operation, context.ExpectedTargetContractHash, context.ExpectedDeploymentRevision));
     }
 
     [HttpGet]
@@ -95,19 +75,43 @@ public sealed class ProjectDeploymentsController(
         StartDeploymentAttemptRequest request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.ArtifactId) || string.IsNullOrWhiteSpace(request.Network)
-            || string.IsNullOrWhiteSpace(request.DeployedBy))
+        if (!HasValidAuthorizationRequest(request.ArtifactId, request.Network, request.DeployedBy, request.Notes))
         {
             return BadRequest(new { error = "Artifact, network, and wallet address are required to start a deployment." });
         }
 
-        var context = await deploymentWorkflow.LoadOwnedArtifactAsync(projectId, request.ArtifactId, request.DeployedBy, cancellationToken);
-        if (!context.IsSuccess || context.Value is null) return WorkflowFailure(context);
-        var operation = await deploymentWorkflow.DetermineOperationAsync(projectId, request.Network, cancellationToken);
+        var projectResult = await deploymentWorkflow.LoadProjectAsync(projectId, cancellationToken);
+        if (!projectResult.IsSuccess || projectResult.Value is null) return WorkflowFailure(projectResult);
+        var artifact = await artifactService.GetByIdAsync(request.ArtifactId, cancellationToken);
+        if (artifact is null || artifact.ProjectId != projectId)
+        {
+            return BadRequest(new { error = "Artifact does not belong to this project." });
+        }
+        var existingDeployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
+        var authorization = deploymentAuthorization.ValidateStart(projectResult.Value, artifact, existingDeployments, request);
+        if (!authorization.IsValid)
+        {
+            return StatusCode(authorization.StatusCode, new { error = authorization.Error });
+        }
+        if (!await nonceService.TryConsumeAsync(request.Authorization!, cancellationToken))
+        {
+            return Conflict(new { error = "This deployment authorization signature has already been used." });
+        }
+
+        var attemptCapability = DeploymentAuthorizationService.CreateAttemptCapability();
         try
         {
-            var attempt = await deploymentService.StartAttemptAsync(projectId, context.Value.Artifact, request, operation, cancellationToken);
-            return Created($"/api/projects/{projectId}/deployments/{attempt.Id}", attempt.ToResponse());
+            var attempt = await deploymentService.StartAttemptAsync(
+                projectId,
+                artifact,
+                request,
+                authorization.Context!.Operation,
+                authorization.Snapshot!,
+                attemptCapability,
+                cancellationToken);
+            return Created(
+                $"/api/projects/{projectId}/deployments/{attempt.Id}",
+                attempt.ToResponse() with { AttemptCapability = attemptCapability });
         }
         catch (MongoWriteException exception) when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
         {
@@ -127,9 +131,14 @@ public sealed class ProjectDeploymentsController(
             return BadRequest(new { error = "Transaction ID is required." });
         }
 
-        var context = await deploymentWorkflow.LoadOwnedAttemptAsync(projectId, deploymentId, request.DeployedBy, "Only the project owner who started this deployment can update it.", cancellationToken);
+        var context = await LoadCapabilityAttemptAsync(projectId, deploymentId, request.AttemptCapability, requireCurrentAccess: true, cancellationToken);
         if (!context.IsSuccess || context.Value is null) return WorkflowFailure(context);
         var attempt = context.Value.Attempt;
+        var snapshotError = await ValidateAttemptSnapshotAsync(context.Value.Project, attempt, cancellationToken);
+        if (snapshotError is not null)
+        {
+            return Conflict(new { error = snapshotError });
+        }
 
         if (attempt.Status == "submitted" || attempt.Status == "confirmed")
         {
@@ -142,8 +151,9 @@ public sealed class ProjectDeploymentsController(
             return Conflict(new { error = "The transaction ID is already recorded for another deployment." });
         }
 
-        var updated = await deploymentService.MarkSubmittedAsync(attempt, request.TransactionId, cancellationToken);
-        return Ok(updated.ToResponse());
+        var nextAttemptCapability = DeploymentAuthorizationService.CreateAttemptCapability();
+        var updated = await deploymentService.MarkSubmittedAsync(attempt, request.TransactionId, nextAttemptCapability, cancellationToken);
+        return Ok(updated.ToResponse() with { AttemptCapability = nextAttemptCapability });
     }
 
     [HttpPost("{deploymentId}/confirm")]
@@ -153,7 +163,7 @@ public sealed class ProjectDeploymentsController(
         ConfirmDeploymentAttemptRequest request,
         CancellationToken cancellationToken)
     {
-        var context = await deploymentWorkflow.LoadOwnedAttemptAsync(projectId, deploymentId, request.DeployedBy, "Only the project owner who started this deployment can confirm it.", cancellationToken);
+        var context = await LoadCapabilityAttemptAsync(projectId, deploymentId, request.AttemptCapability, requireCurrentAccess: false, cancellationToken);
         if (!context.IsSuccess || context.Value is null) return WorkflowFailure(context);
         var project = context.Value.Project;
         var attempt = context.Value.Attempt;
@@ -174,7 +184,8 @@ public sealed class ProjectDeploymentsController(
         var verification = await deploymentVerification.RecoverAsync(
             project,
             deployments.Where(deployment => deployment.Id != attempt.Id).ToArray(),
-            new RecoverDeploymentRequest(attempt.ArtifactId, attempt.Network, attempt.TransactionId!, attempt.DeployedBy, attempt.Notes),
+            new RecoverDeploymentRequest(attempt.ArtifactId, attempt.Network, attempt.TransactionId!, attempt.DeployedBy, attempt.Notes, null),
+            attempt.AuthorizationSnapshot?.InitiatorScriptHash,
             cancellationToken);
         if (!verification.IsValid || string.IsNullOrWhiteSpace(verification.ContractHash))
         {
@@ -193,6 +204,17 @@ public sealed class ProjectDeploymentsController(
             return Conflict(new { error = verification.Error, deployment = submitted.ToResponse() });
         }
 
+        if (string.Equals(attempt.Operation, "update", StringComparison.Ordinal)
+            && !HashesMatch(verification.ContractHash, attempt.AuthorizationSnapshot?.ExpectedTargetContractHash))
+        {
+            var failed = await deploymentService.MarkFailedAsync(
+                attempt,
+                "confirmation",
+                "Deployment update returned a contract hash other than the authorized target.",
+                cancellationToken);
+            return BadRequest(new { error = failed.FailureReason, deployment = failed.ToResponse() });
+        }
+
         var confirmed = await deploymentService.MarkConfirmedAsync(attempt, verification.ContractHash, cancellationToken);
         return Ok(confirmed.ToResponse());
     }
@@ -204,7 +226,7 @@ public sealed class ProjectDeploymentsController(
         FailDeploymentAttemptRequest request,
         CancellationToken cancellationToken)
     {
-        var context = await deploymentWorkflow.LoadOwnedAttemptAsync(projectId, deploymentId, request.DeployedBy, "Only the project owner who started this deployment can update it.", cancellationToken);
+        var context = await LoadCapabilityAttemptAsync(projectId, deploymentId, request.AttemptCapability, requireCurrentAccess: true, cancellationToken);
         if (!context.IsSuccess || context.Value is null) return WorkflowFailure(context);
         var attempt = context.Value.Attempt;
 
@@ -226,60 +248,105 @@ public sealed class ProjectDeploymentsController(
         RecoverDeploymentRequest request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.ArtifactId)
-            || string.IsNullOrWhiteSpace(request.Network)
-            || string.IsNullOrWhiteSpace(request.TransactionId)
-            || string.IsNullOrWhiteSpace(request.DeployedBy))
+        return Conflict(new { error = "Unbound transaction recovery is disabled until prepared deployment intents are available. Resume an authorized submitted attempt instead." });
+    }
+
+    private async Task<DeploymentWorkflowResult<ProjectDeploymentAttemptContext>> LoadCapabilityAttemptAsync(
+        string projectId,
+        string deploymentId,
+        string? attemptCapability,
+        bool requireCurrentAccess,
+        CancellationToken cancellationToken)
+    {
+        var projectResult = await deploymentWorkflow.LoadProjectAsync(projectId, cancellationToken);
+        if (!projectResult.IsSuccess || projectResult.Value is null)
         {
-            return BadRequest(new { error = "Artifact, network, transaction ID, and wallet address are required to recover a deployment." });
+            return DeploymentWorkflowResult<ProjectDeploymentAttemptContext>.Failure(projectResult);
+        }
+        var attempt = await deploymentService.GetByIdAsync(deploymentId, cancellationToken);
+        if (attempt is null || attempt.ProjectId != projectId)
+        {
+            return DeploymentWorkflowResult<ProjectDeploymentAttemptContext>.NotFound("Deployment attempt was not found.");
+        }
+        if (!DeploymentAuthorizationService.IsValidCapability(attempt, attemptCapability))
+        {
+            return DeploymentWorkflowResult<ProjectDeploymentAttemptContext>.Forbidden("A valid, unexpired deployment attempt capability is required. Start a fresh signed attempt to continue.");
+        }
+        var snapshot = attempt.AuthorizationSnapshot;
+        if (snapshot is null || string.IsNullOrWhiteSpace(snapshot.InitiatorWalletAddress))
+        {
+            return DeploymentWorkflowResult<ProjectDeploymentAttemptContext>.Forbidden("Deployment attempt authorization is missing. Start a fresh signed attempt.");
+        }
+        if (requireCurrentAccess)
+        {
+            var access = projectAuthorization.CanDeployToNetwork(projectResult.Value, snapshot.InitiatorWalletAddress, attempt.Network);
+            if (!access.IsAllowed)
+            {
+                return new DeploymentWorkflowResult<ProjectDeploymentAttemptContext>(null, access.StatusCode, access.Error);
+            }
         }
 
-        if (request.ArtifactId.Trim().Length > 64 || request.Network.Trim().Length > 64
-            || request.TransactionId.Trim().Length > 128 || request.DeployedBy.Trim().Length > 128
-            || request.Notes?.Length > 2_000)
+        return DeploymentWorkflowResult<ProjectDeploymentAttemptContext>.Success(
+            new ProjectDeploymentAttemptContext(projectResult.Value, attempt));
+    }
+
+    private async Task<string?> ValidateAttemptSnapshotAsync(
+        ProjectDocument project,
+        DeploymentDocument attempt,
+        CancellationToken cancellationToken)
+    {
+        var snapshot = attempt.AuthorizationSnapshot;
+        if (snapshot is null)
         {
-            return BadRequest(new { error = "One or more recovery fields exceed their maximum length." });
+            return "Deployment attempt authorization is missing. Start a fresh signed attempt.";
+        }
+        var artifact = await artifactService.GetByIdAsync(attempt.ArtifactId, cancellationToken);
+        if (artifact is null || artifact.ProjectId != project.Id)
+        {
+            return "The authorized deployment artifact is no longer available.";
+        }
+        var deployments = await deploymentService.GetByProjectIdAsync(project.Id, cancellationToken);
+        var current = deploymentAuthorization.CreateContext(
+            project,
+            artifact,
+            deployments.Where(item => item.Id != attempt.Id).ToArray(),
+            attempt.Network,
+            attempt.DeployedBy,
+            attempt.Notes);
+        if (!string.Equals(current.Operation, attempt.Operation, StringComparison.Ordinal)
+            || current.ExpectedDeploymentRevision != snapshot.ExpectedDeploymentRevision
+            || !string.Equals(current.ExpectedTargetContractHash, snapshot.ExpectedTargetContractHash, StringComparison.OrdinalIgnoreCase))
+        {
+            return "The deployment target or revision changed while this attempt was open. Review and sign a fresh attempt.";
         }
 
-        var existing = await deploymentService.GetByTransactionIdAsync(request.TransactionId.Trim(), cancellationToken);
-        if (existing is not null)
+        return null;
+    }
+
+    private static bool HasValidAuthorizationRequest(string? artifactId, string? network, string? deployedBy, string? notes)
+    {
+        return !string.IsNullOrWhiteSpace(artifactId) && artifactId.Trim().Length <= 64
+            && !string.IsNullOrWhiteSpace(network) && network.Trim().Length <= 64
+            && !string.IsNullOrWhiteSpace(deployedBy) && deployedBy.Trim().Length <= 128
+            && (notes?.Length ?? 0) <= 2_000;
+    }
+
+    private static bool HashesMatch(string? left, string? right)
+    {
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
         {
-            return existing.ProjectId == projectId
-                ? Ok(existing.ToResponse())
-                : Conflict(new { error = "The transaction ID is already recorded for another project." });
+            return false;
         }
 
-        var context = await deploymentWorkflow.LoadOwnedArtifactAsync(projectId, request.ArtifactId, request.DeployedBy, cancellationToken);
-        if (!context.IsSuccess || context.Value is null) return WorkflowFailure(context);
+        return string.Equals(NormalizeHash(left), NormalizeHash(right), StringComparison.Ordinal);
+    }
 
-        var existingDeployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
-        var verification = await deploymentVerification.RecoverAsync(
-            context.Value.Project,
-            existingDeployments,
-            request,
-            cancellationToken);
-        if (!verification.IsValid || string.IsNullOrWhiteSpace(verification.ContractHash))
-        {
-            return BadRequest(new { error = verification.Error });
-        }
-
-        var createRequest = new CreateDeploymentRequest(
-            request.ArtifactId,
-            request.Network,
-            verification.ContractHash,
-            request.TransactionId,
-            request.DeployedBy,
-            request.Notes);
-
-        try
-        {
-            var deployment = await deploymentService.CreateAsync(projectId, context.Value.Artifact, createRequest, null, cancellationToken);
-            return Created($"/api/projects/{projectId}/deployments/{deployment.Id}", deployment.ToResponse());
-        }
-        catch (MongoWriteException exception) when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
-        {
-            return Conflict(new { error = "The deployment transaction is already recorded." });
-        }
+    private static string NormalizeHash(string value)
+    {
+        var normalized = value.Trim();
+        return normalized.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+            ? normalized[2..].ToLowerInvariant()
+            : normalized.ToLowerInvariant();
     }
 
     private ActionResult WorkflowFailure<T>(DeploymentWorkflowResult<T> result)

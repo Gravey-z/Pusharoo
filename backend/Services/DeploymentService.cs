@@ -54,6 +54,8 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
         ArtifactDocument artifact,
         StartDeploymentAttemptRequest request,
         string operation,
+        DeploymentAuthorizationSnapshot authorizationSnapshot,
+        string attemptCapability,
         CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
@@ -69,14 +71,9 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             Operation = operation,
             Status = "awaiting_wallet",
             ActiveAttemptKey = BuildActiveAttemptKey(projectId, request.Network),
-            AuthorizationSnapshot = new DeploymentAuthorizationSnapshot
-            {
-                // Stage 3 replaces this compatibility snapshot with a verified
-                // wallet-signature authorization before this endpoint can be used
-                // by collaborators.
-                InitiatorWalletAddress = request.DeployedBy.Trim(),
-                ExpectedDeploymentRevision = 0
-            },
+            AuthorizationSnapshot = authorizationSnapshot,
+            AttemptCapabilityHash = DeploymentAuthorizationService.HashAttemptCapability(attemptCapability),
+            AttemptCapabilityExpiresAtUtc = now.AddMinutes(10),
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -88,6 +85,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
     public async Task<DeploymentDocument> MarkSubmittedAsync(
         DeploymentDocument deployment,
         string transactionId,
+        string nextAttemptCapability,
         CancellationToken cancellationToken)
     {
         var updated = deployment with
@@ -96,6 +94,8 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             Status = "submitted",
             FailureStage = null,
             FailureReason = null,
+            AttemptCapabilityHash = DeploymentAuthorizationService.HashAttemptCapability(nextAttemptCapability),
+            AttemptCapabilityExpiresAtUtc = DateTime.UtcNow.AddMinutes(10),
             UpdatedAt = DateTime.UtcNow
         };
         await deployments.ReplaceAsync(updated, cancellationToken);

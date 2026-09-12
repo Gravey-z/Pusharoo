@@ -38,6 +38,8 @@ builder.Services.AddSingleton<SignatureNonceService>();
 builder.Services.AddScoped<ProjectCollaboratorInputValidator>();
 builder.Services.AddScoped<ProjectCollaboratorSignatureValidator>();
 builder.Services.AddScoped<ProjectCollaborationService>();
+builder.Services.AddScoped<ProjectAuthorizationService>();
+builder.Services.AddScoped<DeploymentAuthorizationService>();
 builder.Services.AddHostedService<ProjectOwnershipMigrationService>();
 var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?.Where(origin => Uri.TryCreate(origin, UriKind.Absolute, out _))
