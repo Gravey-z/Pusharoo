@@ -68,7 +68,6 @@
           <a class="project-card" [routerLink]="['/projects', item.project.id]">
             <header class="project-card-header">
               <div>
-                <span class="project-kicker">Project release</span>
                 <h2>{{ item.project.name }}</h2>
               </div>
               <div class="project-network-chips" aria-label="Deployment networks">
@@ -89,7 +88,6 @@
             </section>
 
             <section class="project-details" aria-label="Project details">
-              <span class="project-kicker">Project details</span>
               <ul>
                 <li><i aria-hidden="true"></i><span>Owner</span><strong>{{ creatorSummary(item) }}</strong></li>
                 <li>
