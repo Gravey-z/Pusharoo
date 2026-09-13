@@ -29,15 +29,15 @@
 
     <app-project-release-nav [projectId]="overview.project.id" />
 
-    @if (collaborationAccessError) {
+    @if (authorizedDeployerAccessError) {
       <aside class="read-only-notice" aria-live="polite">
         <strong>Deployment access needs a refresh</strong>
-        <span>{{ collaborationAccessError }}</span>
+        <span>{{ authorizedDeployerAccessError }}</span>
       </aside>
     } @else if (!canManageProject(overview)) {
       <aside class="read-only-notice" aria-label="Read-only access">
-        <strong>{{ hasAnyDeploymentAccess(overview) ? 'Network-scoped deployer access' : 'Read-only project' }}</strong>
-        <span>{{ hasAnyDeploymentAccess(overview) ? deploymentAccessMessage(overview) + ' Artifact uploads, project settings, webhooks, and collaboration remain owner-only.' : 'Only the project owner can upload artifacts or change project settings.' }}</span>
+        <strong>{{ hasAnyDeploymentAccess(overview) ? 'Authorized deployer' : 'No deployment access' }}</strong>
+        <span>{{ hasAnyDeploymentAccess(overview) ? deploymentAccessMessage(overview) + ' Only the project owner can change this project or its authorized-deployer list.' : 'Connected wallet cannot deploy this project. Ask the owner to authorize it for TestNet, MainNet, or both.' }}</span>
       </aside>
     }
 
@@ -97,18 +97,12 @@
                 Switch wallet to deploy
               </span>
             } @else if (canDeployToNetwork(overview, network)) {
-              @if (canStartDeploymentToNetwork(overview, network)) {
-                <a
-                  class="deploy-network-button"
-                  [routerLink]="['/projects', overview.project.id, 'deployments', 'new']"
-                >
-                  Deploy contract
-                </a>
-              } @else {
-                <a class="deploy-network-button" [routerLink]="['/projects', overview.project.id, 'collaboration']">
-                  View deployment grant
-                </a>
-              }
+              <a
+                class="deploy-network-button"
+                [routerLink]="['/projects', overview.project.id, 'deployments', 'new']"
+              >
+                Deploy contract
+              </a>
             }
           }
         </article>

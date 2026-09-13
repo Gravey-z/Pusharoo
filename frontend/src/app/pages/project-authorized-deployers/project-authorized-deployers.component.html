@@ -1,0 +1,162 @@
+<section class="authorized-deployers-page" aria-labelledby="authorized-deployers-title">
+  <header class="authorized-deployers-heading">
+    <div>
+      <span class="eyebrow">Project access</span>
+      <h1 id="authorized-deployers-title">Authorized deployers</h1>
+      <p>Authorize additional wallets to deploy on TestNet, MainNet, or both. Only the project owner can manage this list.</p>
+    </div>
+    <span class="access-status" [class.has-access]="isOwner || effectiveAccessMessage.startsWith('Connected wallet can deploy')">
+      {{ effectiveAccessMessage }}
+    </span>
+  </header>
+
+  @if (isLoading) {
+    <section class="loading-state" aria-live="polite">
+      <strong>Loading authorized deployers</strong>
+      <span>Retrieving the wallets allowed to deploy this project.</span>
+    </section>
+  } @else if (loadError) {
+    <section class="page-error" aria-live="assertive">
+      <p>{{ loadError }}</p>
+      <button class="secondary-button" type="button" (click)="retryLoad()">Try again</button>
+    </section>
+  } @else if (project) {
+    <section class="owner-card surface-panel">
+      <div>
+        <span class="eyebrow">Owner</span>
+        @if (project.createdByWalletAddress) {
+          <strong>{{ shortAddress(project.createdByWalletAddress) }}</strong>
+          <span class="address-full">{{ project.createdByWalletAddress }}</span>
+        } @else {
+          <strong>Ownership recovery required</strong>
+          <span class="address-full">No verified creator wallet is stored for this legacy project.</span>
+        }
+      </div>
+      <p>{{ project.createdByWalletAddress ? 'Only this wallet can manage the authorized-deployer list.' : 'Deployment access cannot be managed until ownership is recovered.' }}</p>
+    </section>
+
+    @if (deploymentAccessRequired) {
+      <aside class="read-only-notice" aria-live="polite">
+        <strong>Deployment access required</strong>
+        <span>The connected wallet is not authorized for its current network. Switch wallets or ask the project owner to add it.</span>
+      </aside>
+    }
+
+    <aside class="deployment-note" aria-label="Contract update note">
+      <span>Contract updates must also be authorized by the contract's on-chain rules.</span>
+    </aside>
+
+    @if (isOwner) {
+      <section class="add-panel surface-panel" aria-labelledby="add-deployer-title">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">Owner control</span>
+            <h2 id="add-deployer-title">Add authorized deployer</h2>
+          </div>
+        </div>
+        <p class="panel-copy">Choose the networks this wallet may deploy to.</p>
+
+        <label>
+          <span>N3 wallet address</span>
+          <input type="text" name="newWalletAddress" [(ngModel)]="newWalletAddress" autocomplete="off" spellcheck="false" placeholder="N..." [disabled]="isMutating" />
+        </label>
+        <fieldset class="network-selector" [disabled]="isMutating">
+          <legend>Deployment networks</legend>
+          <label><input type="checkbox" name="newTestnet" [(ngModel)]="newTestnet" /> N3:TestNet</label>
+          <label><input type="checkbox" name="newMainnet" [(ngModel)]="newMainnet" /> N3:MainNet</label>
+        </fieldset>
+        <button class="primary-button" type="button" [disabled]="!canAddDeployer" (click)="addDeployer()">
+          {{ isMutating ? 'Waiting for wallet signature...' : 'Sign and add wallet' }}
+        </button>
+      </section>
+    } @else {
+      <aside class="read-only-notice" aria-label="Authorized deployer access restriction">
+        <strong>Owner-only list</strong>
+        <span>Only the project owner can change deployment access.</span>
+      </aside>
+    }
+
+    @if (actionError) {
+      <p class="form-error" role="alert">{{ actionError }}</p>
+    }
+    @if (actionSuccess) {
+      <p class="action-success" role="status">{{ actionSuccess }}</p>
+    }
+
+    <section class="authorized-deployers-panel surface-panel" aria-labelledby="deployer-list-title">
+      <header class="panel-heading">
+        <div>
+          <span class="eyebrow">Deployment access</span>
+          <h2 id="deployer-list-title">Authorized wallets</h2>
+        </div>
+        <span class="count-badge">{{ authorizedDeployers.length }}</span>
+      </header>
+
+      @if (authorizedDeployers.length) {
+        <div class="authorized-deployer-list">
+          @for (authorizedDeployer of authorizedDeployers; track trackAuthorizedDeployer($index, authorizedDeployer)) {
+            <article class="authorized-deployer-row">
+              <div class="authorized-deployer-identity">
+                <strong [title]="authorizedDeployer.walletAddress">{{ shortAddress(authorizedDeployer.walletAddress) }}</strong>
+                <span class="address-full">{{ authorizedDeployer.walletAddress }}</span>
+              </div>
+              <div class="network-chips" aria-label="Allowed networks">
+                @for (network of authorizedDeployer.allowedNetworks; track network) {
+                  <span class="network-badge" [class.network-badge--mainnet]="network === 'neo3:mainnet'" [class.network-badge--testnet]="network === 'neo3:testnet'">{{ networkLabel(network) }}</span>
+                }
+              </div>
+              @if (isOwner) {
+                <div class="authorized-deployer-actions">
+                  <button class="secondary-button" type="button" [disabled]="isMutating" (click)="startEdit(authorizedDeployer)">Edit networks</button>
+                  <button class="danger-button" type="button" [disabled]="isMutating" (click)="openRemove(authorizedDeployer)">Remove</button>
+                </div>
+              }
+            </article>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">
+          <strong>No authorized deployers yet</strong>
+          <span>The owner can authorize a separate wallet for TestNet, MainNet, or both.</span>
+        </div>
+      }
+    </section>
+
+    @if (editingAuthorizedDeployer) {
+      <section class="confirmation-panel surface-panel" aria-labelledby="edit-deployer-title">
+        <span class="eyebrow">Owner confirmation</span>
+        <h2 id="edit-deployer-title">Edit {{ shortAddress(editingAuthorizedDeployer.walletAddress) }}</h2>
+        <p>Choose the permitted networks and sign with the owner wallet.</p>
+        <fieldset class="network-selector" [disabled]="isMutating">
+          <legend>Deployment networks</legend>
+          <label><input type="checkbox" name="editTestnet" [(ngModel)]="editTestnet" /> N3:TestNet</label>
+          <label><input type="checkbox" name="editMainnet" [(ngModel)]="editMainnet" /> N3:MainNet</label>
+        </fieldset>
+        <div class="confirmation-actions">
+          <button class="secondary-button" type="button" [disabled]="isMutating" (click)="cancelEdit()">Cancel</button>
+          <button class="primary-button" type="button" [disabled]="!canSaveEdit" (click)="saveEdit()">{{ isMutating ? 'Waiting for wallet signature...' : 'Sign and save' }}</button>
+        </div>
+      </section>
+    }
+
+    @if (removingAuthorizedDeployer) {
+      <section class="confirmation-panel removal-panel surface-panel" aria-labelledby="remove-deployer-title">
+        <span class="eyebrow">Owner confirmation</span>
+        <h2 id="remove-deployer-title">Remove {{ shortAddress(removingAuthorizedDeployer.walletAddress) }}?</h2>
+        <p>Type the full wallet address, then sign the removal with the owner wallet.</p>
+        <label>
+          <span>Wallet address to remove</span>
+          <input type="text" name="removalConfirmation" [(ngModel)]="removalConfirmation" autocomplete="off" [disabled]="isMutating" />
+        </label>
+        <div class="confirmation-actions">
+          <button class="secondary-button" type="button" [disabled]="isMutating" (click)="cancelRemove()">Cancel</button>
+          <button class="danger-button" type="button" [disabled]="!canRemoveAuthorizedDeployer" (click)="removeAuthorizedDeployer()">{{ isMutating ? 'Waiting for wallet signature...' : 'Sign and remove' }}</button>
+        </div>
+      </section>
+    }
+  } @else {
+    <section class="page-error" role="alert">
+      <p>Project details are unavailable. Return to the project and try again.</p>
+    </section>
+  }
+</section>

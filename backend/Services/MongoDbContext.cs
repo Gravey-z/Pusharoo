@@ -33,16 +33,6 @@ public sealed class MongoDbContext
         Projects.Indexes.CreateOne(new CreateIndexModel<ProjectDocument>(
             Builders<ProjectDocument>.IndexKeys.Ascending(project => project.IdempotencyKey),
             new CreateIndexOptions { Unique = true, Sparse = true }));
-        Projects.Indexes.CreateMany([
-            new CreateIndexModel<ProjectDocument>(
-                Builders<ProjectDocument>.IndexKeys.Ascending("collaborators.walletAddress")),
-            new CreateIndexModel<ProjectDocument>(
-                Builders<ProjectDocument>.IndexKeys.Ascending("accessAuditEvents.actorWalletAddress")),
-            new CreateIndexModel<ProjectDocument>(
-                Builders<ProjectDocument>.IndexKeys.Ascending("accessAuditEvents.targetWalletAddress")),
-            new CreateIndexModel<ProjectDocument>(
-                Builders<ProjectDocument>.IndexKeys.Descending("accessAuditEvents.createdAtUtc"))
-        ]);
         ContractArtifacts.Indexes.CreateMany([
             new CreateIndexModel<ArtifactDocument>(
                 Builders<ArtifactDocument>.IndexKeys
@@ -85,4 +75,5 @@ public sealed class MongoDbContext
     public IMongoCollection<BsonDocument> RelayEntitlementHistory { get; }
 
     public IMongoCollection<WebhookAuthorizationNonceDocument> WebhookAuthorizationNonces { get; }
+
 }

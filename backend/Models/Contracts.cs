@@ -14,44 +14,24 @@ public sealed record WebhookAccessValidationRequest(
     string RequestHash,
     WalletSignatureRequest? Signature);
 
-public sealed record AddProjectCollaboratorRequest(
+public sealed record AddProjectAuthorizedDeployerRequest(
     string WalletAddress,
-    string Role,
     IReadOnlyList<string>? AllowedNetworks,
-    long ExpectedGrantRevision,
     WalletSignatureRequest? Signature);
 
-public sealed record UpdateProjectCollaboratorRequest(
-    string Role,
+public sealed record UpdateProjectAuthorizedDeployerRequest(
     IReadOnlyList<string>? AllowedNetworks,
-    long ExpectedGrantRevision,
     WalletSignatureRequest? Signature);
 
-public sealed record RemoveProjectCollaboratorRequest(
-    long ExpectedGrantRevision,
+public sealed record RemoveProjectAuthorizedDeployerRequest(
     WalletSignatureRequest? Signature);
 
-public sealed record ProjectCollaboratorResponse(
+public sealed record ProjectAuthorizedDeployerResponse(
     string WalletAddress,
     string ScriptHash,
-    string Role,
     IReadOnlyList<string> AllowedNetworks,
-    long GrantRevision,
     DateTime AddedAtUtc,
-    string AddedByWalletAddress,
-    DateTime UpdatedAtUtc,
-    string UpdatedByWalletAddress);
-
-public sealed record ProjectAccessAuditResponse(
-    string Action,
-    string ActorWalletAddress,
-    string TargetWalletAddress,
-    string? BeforeRole,
-    string? AfterRole,
-    IReadOnlyList<string> BeforeNetworks,
-    IReadOnlyList<string> AfterNetworks,
-    long GrantRevision,
-    DateTime CreatedAtUtc);
+    DateTime UpdatedAtUtc);
 
 public sealed record ArtifactUploadInput(
     string ProjectId,
@@ -127,12 +107,6 @@ public sealed record DeploymentAuthorizationChallengeResponse(
     string Operation,
     string? ExpectedTargetContractHash,
     long ExpectedDeploymentRevision);
-
-public sealed record DeploymentCapabilitiesResponse(
-    bool CollaboratorDeploymentsEnabled,
-    string CollaboratorDeploymentUnavailableReason,
-    bool UnboundRecoveryEnabled,
-    string UnboundRecoveryUnavailableReason);
 
 public sealed record StartDeploymentAttemptRequest(
     string ArtifactId,

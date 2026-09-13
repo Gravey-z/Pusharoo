@@ -10,7 +10,7 @@ import type {
   WalletSession
 } from 'neo-n3-walletkit';
 import { defaultWalletConfig, isPusharooNetwork, PusharooNetwork } from '../config/wallet.config';
-import { ProjectCreationSignature, WalletActionSignature } from '../models/pusharoo.models';
+import { AuthorizedDeployerAction, ProjectCreationSignature, WalletActionSignature } from '../models/pusharoo.models';
 import {
   ProjectCreationSignatureMessageService,
   WalletActionSignatureChallenge,
@@ -474,26 +474,24 @@ export class WalletService {
     return this.toWalletActionSignature(account, session, challenge, signedMessage);
   }
 
-  async signCollaboratorAuthorization(
+  async signAuthorizedDeployerAuthorization(
     projectId: string,
-    action: 'collaborators.add' | 'collaborators.update' | 'collaborators.remove',
-    targetWalletAddress: string,
-    allowedNetworks: string[],
-    expectedGrantRevision: number
+    action: AuthorizedDeployerAction,
+    walletAddress: string,
+    allowedNetworks: string[]
   ): Promise<WalletActionSignature> {
     const session = this.session();
     const account = this.account();
 
     if (!this.walletKit || !session || !account) {
-      throw new Error('Connect the project owner wallet before managing collaborators.');
+      throw new Error('Connect the project owner wallet before managing authorized deployers.');
     }
 
-    const challenge = this.projectCreationMessage.createCollaboratorAuthorization(
+    const challenge = this.projectCreationMessage.createAuthorizedDeployerAuthorization(
       projectId,
       action,
-      targetWalletAddress,
+      walletAddress,
       allowedNetworks,
-      expectedGrantRevision,
       account,
       session
     );
@@ -501,7 +499,7 @@ export class WalletService {
       session,
       account.address,
       challenge.message,
-      `Manage Pusharoo collaborator: ${action}`
+      'Manage Pusharoo authorized deployers'
     );
 
     return this.toWalletActionSignature(account, session, challenge, signedMessage);

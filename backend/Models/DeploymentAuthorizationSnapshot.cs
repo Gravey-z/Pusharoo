@@ -15,9 +15,6 @@ public sealed record DeploymentAuthorizationSnapshot
     [BsonElement("initiatorScriptHash")]
     public string? InitiatorScriptHash { get; init; }
 
-    [BsonElement("grantRevision")]
-    public long? GrantRevision { get; init; }
-
     [BsonElement("expectedDeploymentRevision")]
     public long ExpectedDeploymentRevision { get; init; }
 

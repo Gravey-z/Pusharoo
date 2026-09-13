@@ -161,36 +161,35 @@ export class ProjectCreationSignatureMessageService {
     return { origin, audience, issuedAtUtc, nonce, message };
   }
 
-  createCollaboratorAuthorization(
+  createAuthorizedDeployerAuthorization(
     projectId: string,
-    action: 'collaborators.add' | 'collaborators.update' | 'collaborators.remove',
-    targetWalletAddress: string,
+    action: string,
+    walletAddress: string,
     allowedNetworks: string[],
-    expectedGrantRevision: number,
     account: ConnectedAccount,
     session: WalletSession
   ): WalletActionSignatureChallenge {
-    const origin = window.location.origin;
-    const audience = this.runtimeConfig.value.walletSignatureAudience;
-    const issuedAtUtc = new Date().toISOString();
-    const nonce = this.createNonce();
-    const networks = [...new Set(allowedNetworks.map((network) => network.trim()))].sort().join(',');
+    const context = this.createSignatureContext();
+    const networks = [...allowedNetworks]
+      .map((network) => network.trim())
+      .sort((left, right) => left.localeCompare(right));
     const message = [
-      'Pusharoo collaborator authorization',
-      'Schema: pusharoo.collaborator.v1',
-      `Action: ${action}`,
+      'Pusharoo authorized deployer authorization',
+      'Schema: pusharoo.authorized-deployer.v1',
+      `Action: ${action.trim()}`,
       `Project ID: ${projectId.trim()}`,
-      `Target wallet: ${targetWalletAddress.trim()}`,
-      'Role: deployer',
-      `Allowed networks: ${networks}`,
-      `Expected grant revision: ${expectedGrantRevision}`,
-      `Audience: ${audience}`,
-      `Origin: ${origin}`,
-      `Issued at UTC: ${issuedAtUtc}`,
-      `Nonce: ${nonce}`
+      `Target wallet: ${walletAddress.trim()}`,
+      `Allowed networks: ${networks.join(',')}`,
+      `Owner wallet: ${account.address}`,
+      `Owner script hash: ${account.scriptHash}`,
+      `Owner network: ${session.network}`,
+      `Audience: ${context.audience}`,
+      `Origin: ${context.origin}`,
+      `Issued at UTC: ${context.issuedAtUtc}`,
+      `Nonce: ${context.nonce}`
     ].join('\n');
 
-    return { origin, audience, issuedAtUtc, nonce, message };
+    return { ...context, message };
   }
 
   private createNonce(): string {

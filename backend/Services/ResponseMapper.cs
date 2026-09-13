@@ -51,31 +51,13 @@ public static class ResponseMapper
             deployment.UpdatedAt == default ? deployment.CreatedAt : deployment.UpdatedAt);
     }
 
-    public static ProjectCollaboratorResponse ToResponse(this ProjectCollaboratorDocument collaborator)
+    public static ProjectAuthorizedDeployerResponse ToResponse(this ProjectAuthorizedDeployerDocument authorizedDeployer)
     {
-        return new ProjectCollaboratorResponse(
-            collaborator.WalletAddress,
-            collaborator.ScriptHash,
-            collaborator.Role,
-            collaborator.AllowedNetworks,
-            collaborator.GrantRevision,
-            collaborator.AddedAtUtc,
-            collaborator.AddedByWalletAddress,
-            collaborator.UpdatedAtUtc,
-            collaborator.UpdatedByWalletAddress);
-    }
-
-    public static ProjectAccessAuditResponse ToResponse(this ProjectAccessAuditEvent auditEvent)
-    {
-        return new ProjectAccessAuditResponse(
-            auditEvent.Action,
-            auditEvent.ActorWalletAddress,
-            auditEvent.TargetWalletAddress,
-            auditEvent.BeforeRole,
-            auditEvent.AfterRole,
-            auditEvent.BeforeNetworks,
-            auditEvent.AfterNetworks,
-            auditEvent.GrantRevision,
-            auditEvent.CreatedAtUtc);
+        return new ProjectAuthorizedDeployerResponse(
+            authorizedDeployer.WalletAddress,
+            authorizedDeployer.ScriptHash,
+            authorizedDeployer.AllowedNetworks,
+            authorizedDeployer.AddedAtUtc,
+            authorizedDeployer.UpdatedAtUtc);
     }
 }

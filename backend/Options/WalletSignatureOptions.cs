@@ -3,7 +3,7 @@ namespace backend.Options;
 /// <summary>
 /// Configuration that binds wallet signatures to this Pusharoo application.
 /// Origins are deliberately separate from CORS: CORS controls browsers, while this
-/// allow-list controls what an owner or collaborator is willing to sign for.
+/// allow-list controls what an owner or authorized deployer is willing to sign for.
 /// </summary>
 public sealed class WalletSignatureOptions
 {

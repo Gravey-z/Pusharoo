@@ -16,7 +16,7 @@
 
     @if (artifacts.length) {
       <aside class="deployment-access-notice" [class.access-denied]="!canStartDeployment">
-        <strong>{{ canStartDeployment ? 'Network deployment access' : 'Deployment unavailable' }}</strong>
+        <strong>{{ canStartDeployment ? 'Ready to deploy' : 'Deployment access required' }}</strong>
         <span>{{ deploymentPermissionMessage }}</span>
       </aside>
       @if (!isReviewing) {

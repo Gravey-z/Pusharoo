@@ -4,7 +4,7 @@ import { forkJoin, map, Observable, switchMap } from 'rxjs';
 import {
   Artifact,
   ArtifactComparison,
-  AddProjectCollaboratorRequest,
+  AddProjectAuthorizedDeployerRequest,
   ChangedMethod,
   CreateDeploymentRequest,
   DeleteProjectRequest,
@@ -14,7 +14,6 @@ import {
   Deployment,
   DeploymentAuthorizationChallenge,
   DeploymentAuthorizationChallengeRequest,
-  DeploymentCapabilities,
   EventRelayStatus,
   NeoMethod,
   NeoParameter,
@@ -23,8 +22,7 @@ import {
   ProjectCardViewModel,
   ProjectListItem,
   ProjectCreationSignature,
-  ProjectCollaborator,
-  ProjectAccessAuditEvent,
+  ProjectAuthorizedDeployer,
   ProjectOverviewViewModel,
   WalletActionSignature,
   WebhookDelivery,
@@ -34,8 +32,8 @@ import {
   RelayPaymentIntent,
   RelayPayment,
   RelayPaymentHistory,
-  RemoveProjectCollaboratorRequest,
-  UpdateProjectCollaboratorRequest
+  RemoveProjectAuthorizedDeployerRequest,
+  UpdateProjectAuthorizedDeployerRequest
 } from '../models/pusharoo.models';
 import { RuntimeConfigService } from './runtime-config.service';
 
@@ -94,36 +92,32 @@ export class PusharooApiService {
     return this.http.delete<void>(`${this.apiBaseUrl}/projects/${projectId}`, { body: request });
   }
 
-  getCollaborators(projectId: string): Observable<ProjectCollaborator[]> {
-    return this.http.get<ProjectCollaborator[]>(`${this.apiBaseUrl}/projects/${projectId}/collaborators`);
+  getAuthorizedDeployers(projectId: string): Observable<ProjectAuthorizedDeployer[]> {
+    return this.http.get<ProjectAuthorizedDeployer[]>(`${this.apiBaseUrl}/projects/${projectId}/authorized-deployers`);
   }
 
-  getProjectAccessAudit(projectId: string): Observable<ProjectAccessAuditEvent[]> {
-    return this.http.get<ProjectAccessAuditEvent[]>(`${this.apiBaseUrl}/projects/${projectId}/collaborators/audit`);
+  addAuthorizedDeployer(projectId: string, request: AddProjectAuthorizedDeployerRequest): Observable<ProjectAuthorizedDeployer> {
+    return this.http.post<ProjectAuthorizedDeployer>(`${this.apiBaseUrl}/projects/${projectId}/authorized-deployers`, request);
   }
 
-  addCollaborator(projectId: string, request: AddProjectCollaboratorRequest): Observable<ProjectCollaborator> {
-    return this.http.post<ProjectCollaborator>(`${this.apiBaseUrl}/projects/${projectId}/collaborators`, request);
-  }
-
-  updateCollaborator(
+  updateAuthorizedDeployer(
     projectId: string,
     walletAddress: string,
-    request: UpdateProjectCollaboratorRequest
-  ): Observable<ProjectCollaborator> {
-    return this.http.put<ProjectCollaborator>(
-      `${this.apiBaseUrl}/projects/${projectId}/collaborators/${encodeURIComponent(walletAddress)}`,
+    request: UpdateProjectAuthorizedDeployerRequest
+  ): Observable<ProjectAuthorizedDeployer> {
+    return this.http.put<ProjectAuthorizedDeployer>(
+      `${this.apiBaseUrl}/projects/${projectId}/authorized-deployers/${encodeURIComponent(walletAddress)}`,
       request
     );
   }
 
-  removeCollaborator(
+  removeAuthorizedDeployer(
     projectId: string,
     walletAddress: string,
-    request: RemoveProjectCollaboratorRequest
+    request: RemoveProjectAuthorizedDeployerRequest
   ): Observable<void> {
     return this.http.delete<void>(
-      `${this.apiBaseUrl}/projects/${projectId}/collaborators/${encodeURIComponent(walletAddress)}`,
+      `${this.apiBaseUrl}/projects/${projectId}/authorized-deployers/${encodeURIComponent(walletAddress)}`,
       { body: request }
     );
   }
@@ -192,10 +186,6 @@ export class PusharooApiService {
       `${this.apiBaseUrl}/projects/${projectId}/deployments/authorization-challenge`,
       request
     );
-  }
-
-  getDeploymentCapabilities(): Observable<DeploymentCapabilities> {
-    return this.http.get<DeploymentCapabilities>(`${this.apiBaseUrl}/deployment-capabilities`);
   }
 
   markDeploymentSubmitted(projectId: string, deploymentId: string, transactionId: string, attemptCapability: string): Observable<Deployment> {

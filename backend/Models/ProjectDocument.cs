@@ -2,8 +2,11 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace backend.Models;
 
+[BsonIgnoreExtraElements]
 public sealed class ProjectDocument
 {
+    public const string AuthorizedDeployersStorageField = "collaborators";
+
     [BsonId]
     [BsonElement("_id")]
     public string Id { get; init; } = string.Empty;
@@ -26,11 +29,10 @@ public sealed class ProjectDocument
     [BsonElement("creatorNetwork")]
     public string? CreatorNetwork { get; init; }
 
-    [BsonElement("collaborators")]
-    public List<ProjectCollaboratorDocument> Collaborators { get; init; } = [];
-
-    [BsonElement("accessAuditEvents")]
-    public List<ProjectAccessAuditEvent> AccessAuditEvents { get; init; } = [];
+    // Keep the existing storage field during the terminology migration so current
+    // project records do not need a database migration.
+    [BsonElement(AuthorizedDeployersStorageField)]
+    public List<ProjectAuthorizedDeployerDocument> AuthorizedDeployers { get; init; } = [];
 
     [BsonElement("ownershipStatus")]
     [BsonIgnoreIfNull]

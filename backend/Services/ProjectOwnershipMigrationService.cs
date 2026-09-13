@@ -6,7 +6,7 @@ namespace backend.Services;
 
 /// <summary>
 /// Performs the non-destructive Stage 2 migration. It establishes explicit empty
-/// collaboration collections for existing valid projects and marks legacy projects
+/// authorized-deployer collections for existing valid projects and marks legacy projects
 /// whose creator cannot be verified as recovery-required/read-only.
 /// </summary>
 public sealed class ProjectOwnershipMigrationService(
@@ -38,18 +38,12 @@ public sealed class ProjectOwnershipMigrationService(
             filter.Ne(project => project.CreatedByWalletScriptHash, string.Empty),
             filter.Ne(project => project.CreatedByWalletPublicKey, null),
             filter.Ne(project => project.CreatedByWalletPublicKey, string.Empty));
-        var missingCollaborators = filter.Or(
-            filter.Exists("collaborators", false),
-            filter.Eq(project => project.Collaborators, null));
+        var missingAuthorizedDeployers = filter.Or(
+            filter.Exists(ProjectDocument.AuthorizedDeployersStorageField, false),
+            filter.Eq(project => project.AuthorizedDeployers, null));
         await db.Projects.UpdateManyAsync(
-            filter.And(verifiableCreator, missingCollaborators),
-            Builders<ProjectDocument>.Update.Set(project => project.Collaborators, []),
-            cancellationToken: cancellationToken);
-        await db.Projects.UpdateManyAsync(
-            filter.And(verifiableCreator, filter.Or(
-                filter.Exists("accessAuditEvents", false),
-                filter.Eq(project => project.AccessAuditEvents, null))),
-            Builders<ProjectDocument>.Update.Set(project => project.AccessAuditEvents, []),
+            filter.And(verifiableCreator, missingAuthorizedDeployers),
+            Builders<ProjectDocument>.Update.Set(project => project.AuthorizedDeployers, []),
             cancellationToken: cancellationToken);
         await db.Projects.UpdateManyAsync(
             verifiableCreator,

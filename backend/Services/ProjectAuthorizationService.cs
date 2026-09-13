@@ -32,16 +32,15 @@ public sealed class ProjectAuthorizationService(ProjectOwnershipService ownershi
         var canonicalWallet = walletAddress.Trim();
         if (string.Equals(project.CreatedByWalletAddress, canonicalWallet, StringComparison.Ordinal))
         {
-            return new ProjectAuthorizationResult(true, StatusCodes.Status204NoContent, string.Empty, true, null);
+            return new ProjectAuthorizationResult(true, StatusCodes.Status204NoContent, string.Empty, true);
         }
 
-        var grant = project.Collaborators.FirstOrDefault(item =>
+        var grant = project.AuthorizedDeployers.FirstOrDefault(item =>
             string.Equals(item.WalletAddress, canonicalWallet, StringComparison.Ordinal)
-            && string.Equals(item.Role, "deployer", StringComparison.Ordinal)
             && item.AllowedNetworks.Contains(network.Trim(), StringComparer.Ordinal));
         return grant is null
             ? Denied(StatusCodes.Status403Forbidden, "This wallet is not authorized to deploy this project on the selected network.")
-            : new ProjectAuthorizationResult(true, StatusCodes.Status204NoContent, string.Empty, false, grant.GrantRevision);
+            : new ProjectAuthorizationResult(true, StatusCodes.Status204NoContent, string.Empty, false);
     }
 
     private ProjectAuthorizationResult CanOwnerOnly(ProjectDocument project, string? walletAddress, string deniedMessage)
@@ -57,17 +56,16 @@ public sealed class ProjectAuthorizationService(ProjectOwnershipService ownershi
         }
 
         return string.Equals(project.CreatedByWalletAddress, walletAddress.Trim(), StringComparison.Ordinal)
-            ? new ProjectAuthorizationResult(true, StatusCodes.Status204NoContent, string.Empty, true, null)
+            ? new ProjectAuthorizationResult(true, StatusCodes.Status204NoContent, string.Empty, true)
             : Denied(StatusCodes.Status403Forbidden, deniedMessage);
     }
 
     private static ProjectAuthorizationResult Denied(int statusCode, string error)
-        => new(false, statusCode, error, false, null);
+        => new(false, statusCode, error, false);
 }
 
 public sealed record ProjectAuthorizationResult(
     bool IsAllowed,
     int StatusCode,
     string Error,
-    bool IsOwner,
-    long? GrantRevision);
+    bool IsOwner);

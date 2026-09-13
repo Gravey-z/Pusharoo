@@ -25,49 +25,31 @@ export interface WalletActionSignature {
 
 export type ProjectCreationSignature = WalletActionSignature;
 
-export type CollaboratorAction = 'collaborators.add' | 'collaborators.update' | 'collaborators.remove';
+export type AuthorizedDeployerAction =
+  | 'authorized-deployers.add'
+  | 'authorized-deployers.update'
+  | 'authorized-deployers.remove';
 
-export interface ProjectCollaborator {
+export interface ProjectAuthorizedDeployer {
   walletAddress: string;
   scriptHash: string;
-  role: 'deployer';
   allowedNetworks: string[];
-  grantRevision: number;
   addedAtUtc: string;
-  addedByWalletAddress: string;
   updatedAtUtc: string;
-  updatedByWalletAddress: string;
 }
 
-export interface ProjectAccessAuditEvent {
-  action: string;
-  actorWalletAddress: string;
-  targetWalletAddress: string;
-  beforeRole?: string | null;
-  afterRole?: string | null;
-  beforeNetworks: string[];
-  afterNetworks: string[];
-  grantRevision: number;
-  createdAtUtc: string;
-}
-
-export interface AddProjectCollaboratorRequest {
+export interface AddProjectAuthorizedDeployerRequest {
   walletAddress: string;
-  role: 'deployer';
   allowedNetworks: string[];
-  expectedGrantRevision: number;
   signature: WalletActionSignature;
 }
 
-export interface UpdateProjectCollaboratorRequest {
-  role: 'deployer';
+export interface UpdateProjectAuthorizedDeployerRequest {
   allowedNetworks: string[];
-  expectedGrantRevision: number;
   signature: WalletActionSignature;
 }
 
-export interface RemoveProjectCollaboratorRequest {
-  expectedGrantRevision: number;
+export interface RemoveProjectAuthorizedDeployerRequest {
   signature: WalletActionSignature;
 }
 
@@ -197,13 +179,6 @@ export interface DeploymentAuthorizationChallenge {
   operation: 'deploy' | 'update';
   expectedTargetContractHash?: string | null;
   expectedDeploymentRevision: number;
-}
-
-export interface DeploymentCapabilities {
-  collaboratorDeploymentsEnabled: boolean;
-  collaboratorDeploymentUnavailableReason: string;
-  unboundRecoveryEnabled: boolean;
-  unboundRecoveryUnavailableReason: string;
 }
 
 export interface ArtifactComparison {

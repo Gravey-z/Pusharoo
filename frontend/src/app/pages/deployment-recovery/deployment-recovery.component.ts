@@ -2,7 +2,7 @@ import { Component, OnInit, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
-import { Artifact, DeploymentCapabilities, ProjectCollaborator, ProjectOverviewViewModel } from '../../models/pusharoo.models';
+import { Artifact, ProjectAuthorizedDeployer, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { ProjectDeploymentAccessService } from '../../services/project-deployment-access.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
@@ -27,8 +27,7 @@ export class DeploymentRecoveryComponent implements OnInit {
   isRecovering = false;
   isLoading = true;
   loadError = '';
-  collaborators: ProjectCollaborator[] = [];
-  deploymentCapabilities: DeploymentCapabilities = ProjectDeploymentAccessService.unavailableCapabilities;
+  authorizedDeployers: ProjectAuthorizedDeployer[] = [];
   readonly projectId: string;
   readonly walletAddress = computed(() => this.wallet.account()?.address ?? '');
   readonly walletNetwork = computed(() => this.wallet.session()?.network ?? '');
@@ -38,7 +37,7 @@ export class DeploymentRecoveryComponent implements OnInit {
   }
 
   get canInspectRecovery(): boolean {
-    const access = this.deploymentAccess.resolve(this.overview?.project, this.collaborators, this.walletAddress());
+    const access = this.deploymentAccess.resolve(this.overview?.project, this.authorizedDeployers, this.walletAddress());
     return this.deploymentAccess.canDeployToNetwork(access, this.walletNetwork());
   }
 
@@ -49,7 +48,7 @@ export class DeploymentRecoveryComponent implements OnInit {
     if (!this.canInspectRecovery) {
       return `The connected wallet has no deployment access for ${this.deploymentAccess.networkLabel(this.walletNetwork())}.`;
     }
-    return this.deploymentCapabilities.unboundRecoveryUnavailableReason;
+    return 'Recovery is limited to the authorized deployment attempt that created the transaction.';
   }
 
   constructor(
@@ -75,13 +74,11 @@ export class DeploymentRecoveryComponent implements OnInit {
     this.loadError = '';
     forkJoin({
       overview: this.api.getProjectOverview(this.projectId),
-      collaborators: this.api.getCollaborators(this.projectId),
-      deploymentCapabilities: this.api.getDeploymentCapabilities()
+      authorizedDeployers: this.api.getAuthorizedDeployers(this.projectId)
     }).subscribe({
-      next: ({ overview, collaborators, deploymentCapabilities }) => {
+      next: ({ overview, authorizedDeployers }) => {
         this.overview = overview;
-        this.collaborators = collaborators;
-        this.deploymentCapabilities = deploymentCapabilities;
+        this.authorizedDeployers = authorizedDeployers;
         this.artifacts = overview.artifacts ?? [];
         this.artifactId = this.artifacts[0]?.id ?? '';
         this.isLoading = false;
@@ -89,8 +86,7 @@ export class DeploymentRecoveryComponent implements OnInit {
       error: (error) => {
         this.overview = null;
         this.artifacts = [];
-        this.collaborators = [];
-        this.deploymentCapabilities = ProjectDeploymentAccessService.unavailableCapabilities;
+        this.authorizedDeployers = [];
         this.loadError = this.errors.format(error, 'Could not load this project.');
         this.isLoading = false;
       }
@@ -106,7 +102,7 @@ export class DeploymentRecoveryComponent implements OnInit {
       return;
     }
 
-    this.errorMessage = this.deploymentCapabilities.unboundRecoveryUnavailableReason;
+    this.errorMessage = 'Unbound transaction recovery is not available. Resume the authorized deployment attempt that created the transaction instead.';
   }
 
 }

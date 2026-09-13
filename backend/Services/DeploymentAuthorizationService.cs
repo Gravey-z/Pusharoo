@@ -59,7 +59,6 @@ public sealed class DeploymentAuthorizationService(
             $"Expected deployment revision: {context.ExpectedDeploymentRevision}",
             $"Wallet: {context.DeployedBy}",
             $"Notes SHA-256: {Sha256Hex(context.Notes)}",
-            $"Collaborator grant revision: {{resolved-on-authorization}}",
             $"Audience: {request.Audience.Trim()}",
             $"Origin: {request.Origin.Trim()}",
             $"Issued at UTC: {request.IssuedAtUtc.Trim()}",
@@ -109,10 +108,7 @@ public sealed class DeploymentAuthorizationService(
             signature.Audience,
             signature.IssuedAtUtc,
             signature.Nonce);
-        var message = BuildStartMessage(context, challenge).Replace(
-            "{resolved-on-authorization}",
-            permission.GrantRevision?.ToString() ?? "owner",
-            StringComparison.Ordinal);
+        var message = BuildStartMessage(context, challenge);
         if (!string.Equals(signature.Message, message, StringComparison.Ordinal))
         {
             return Fail(StatusCodes.Status401Unauthorized, "Wallet signature message does not match the deployment authorization.");
@@ -127,7 +123,6 @@ public sealed class DeploymentAuthorizationService(
         {
             InitiatorWalletAddress = verification.Address ?? signature.Address.Trim(),
             InitiatorScriptHash = NormalizeScriptHash(verification.ScriptHash ?? signature.ScriptHash),
-            GrantRevision = permission.GrantRevision,
             ExpectedDeploymentRevision = context.ExpectedDeploymentRevision,
             ExpectedTargetContractHash = context.ExpectedTargetContractHash,
             ArtifactNefSha256 = Sha256Hex(context.Nef),

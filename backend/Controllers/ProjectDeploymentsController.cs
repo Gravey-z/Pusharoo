@@ -13,7 +13,6 @@ public sealed class ProjectDeploymentsController(
     NeoDeploymentVerificationService deploymentVerification,
     ArtifactService artifactService,
     DeploymentAuthorizationService deploymentAuthorization,
-    DeploymentCapabilityService deploymentCapabilities,
     ProjectAuthorizationService projectAuthorization,
     SignatureNonceService nonceService) : ControllerBase
 {
@@ -49,12 +48,9 @@ public sealed class ProjectDeploymentsController(
 
         var permission = projectAuthorization.CanDeployToNetwork(projectResult.Value, request.DeployedBy, request.Network);
         if (!permission.IsAllowed) return StatusCode(permission.StatusCode, new { error = permission.Error });
-        var capability = deploymentCapabilities.CanStartDeployment(permission.IsOwner);
-        if (!capability.IsAvailable) return StatusCode(StatusCodes.Status501NotImplemented, new { error = capability.Reason });
         var deployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
         var context = deploymentAuthorization.CreateContext(projectResult.Value, artifact, deployments, request.Network, request.DeployedBy, request.Notes);
-        var message = deploymentAuthorization.BuildStartMessage(context, request).Replace(
-            "{resolved-on-authorization}", permission.GrantRevision?.ToString() ?? "owner", StringComparison.Ordinal);
+        var message = deploymentAuthorization.BuildStartMessage(context, request);
         return Ok(new DeploymentAuthorizationChallengeResponse(message, context.Operation, context.ExpectedTargetContractHash, context.ExpectedDeploymentRevision));
     }
 
@@ -95,11 +91,6 @@ public sealed class ProjectDeploymentsController(
         if (!authorization.IsValid)
         {
             return StatusCode(authorization.StatusCode, new { error = authorization.Error });
-        }
-        var capability = deploymentCapabilities.CanStartDeployment(authorization.IsOwner);
-        if (!capability.IsAvailable)
-        {
-            return StatusCode(StatusCodes.Status501NotImplemented, new { error = capability.Reason });
         }
         if (!await nonceService.TryConsumeAsync(request.Authorization!, cancellationToken))
         {
@@ -256,8 +247,10 @@ public sealed class ProjectDeploymentsController(
         RecoverDeploymentRequest request,
         CancellationToken cancellationToken)
     {
-        var capability = deploymentCapabilities.CanRecoverUnboundTransaction();
-        return StatusCode(StatusCodes.Status501NotImplemented, new { error = capability.Reason });
+        return StatusCode(StatusCodes.Status501NotImplemented, new
+        {
+            error = "Unbound transaction recovery is not available. Resume the authorized deployment attempt that created the transaction instead."
+        });
     }
 
     private async Task<DeploymentWorkflowResult<ProjectDeploymentAttemptContext>> LoadCapabilityAttemptAsync(

@@ -35,12 +35,11 @@ builder.Services.AddSingleton<ProjectCreationSignatureValidator>();
 builder.Services.AddSingleton<ProjectManagementSignatureValidator>();
 builder.Services.AddSingleton<ProjectOwnershipService>();
 builder.Services.AddSingleton<SignatureNonceService>();
-builder.Services.AddScoped<ProjectCollaboratorInputValidator>();
-builder.Services.AddScoped<ProjectCollaboratorSignatureValidator>();
-builder.Services.AddScoped<ProjectCollaborationService>();
+builder.Services.AddScoped<ProjectAuthorizedDeployerInputValidator>();
+builder.Services.AddScoped<ProjectAuthorizedDeployerSignatureValidator>();
+builder.Services.AddScoped<ProjectAuthorizedDeployerService>();
 builder.Services.AddScoped<ProjectAuthorizationService>();
 builder.Services.AddScoped<DeploymentAuthorizationService>();
-builder.Services.AddSingleton<DeploymentCapabilityService>();
 builder.Services.AddHostedService<ProjectOwnershipMigrationService>();
 var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?.Where(origin => Uri.TryCreate(origin, UriKind.Absolute, out _))
