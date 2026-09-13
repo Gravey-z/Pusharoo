@@ -98,7 +98,7 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
 
     const authorizedDeployer = this.authorizedDeployers.find((item) => item.walletAddress === walletAddress);
     if (!authorizedDeployer) {
-      return 'Connected wallet cannot deploy this project.';
+      return 'Deployment access is managed by the project owner.';
     }
 
     return this.deploymentAccess.description({

@@ -43,63 +43,77 @@
       <button class="secondary-button" type="button" (click)="loadProjects()">Try again</button>
     </section>
   } @else if (projects.length) {
-    <section class="project-tools" aria-label="Project search and filters">
-      <input class="project-search" type="search" name="projectSearch" [(ngModel)]="searchTerm" (ngModelChange)="updateFilters()" placeholder="Search projects" aria-label="Search projects" />
-      <select name="projectStatus" [(ngModel)]="statusFilter" (ngModelChange)="updateFilters()" aria-label="Filter projects by deployment status">
-        <option value="all">All projects</option>
-        <option value="deployed">Deployed</option>
-        <option value="not-deployed">Not deployed</option>
-      </select>
-      <select name="projectSort" [(ngModel)]="sortOrder" (ngModelChange)="updateFilters()" aria-label="Sort projects">
-        <option value="recent">Newest first</option>
-        <option value="name">Name A–Z</option>
-      </select>
-    </section>
-
-  <section class="project-grid">
-    @for (item of visibleProjects(projects); track item.project.id) {
-      <a class="project-card surface-panel" [routerLink]="['/projects', item.project.id]">
+    <section class="projects-workspace" aria-label="Project workspace">
+      <header class="projects-workspace-header">
         <div>
-          <h2>{{ item.project.name }}</h2>
-          <p>{{ item.project.description || 'No project description yet.' }}</p>
+          <span class="project-kicker">Release workspace</span>
+          <p>Choose a project to review releases, deployments, and on-chain activity.</p>
         </div>
-        <dl>
-          <div>
-            <dt>Latest</dt>
-            <dd>{{ item.latestArtifact?.version ?? 'None' }}</dd>
-          </div>
-          <div>
-            <dt>Status</dt>
-            <dd><span class="status-badge" [class.status-badge--success]="item.deployed" [class.status-badge--warning]="!item.deployed">{{ item.deployed ? 'Deployed' : 'Not deployed' }}</span></dd>
-          </div>
-          <div>
-            <dt>Creator</dt>
-            <dd>{{ creatorSummary(item) }}</dd>
-          </div>
-          <div>
-            <dt>Networks</dt>
-            <dd class="network-list">
-              @for (network of item.deploymentNetworks; track network) {
-                <span class="network-badge" [class.network-badge--testnet]="network === 'neo3:testnet'" [class.network-badge--mainnet]="network === 'neo3:mainnet'">{{ networkLabel(network) }}</span>
-              } @empty {
-                <span class="metadata-empty">None</span>
-              }
-            </dd>
-          </div>
-        </dl>
-        <span class="card-affordance" aria-hidden="true">→</span>
-      </a>
-    } @empty {
-      <p class="no-results empty-state">No projects match those filters.</p>
-    }
-  </section>
-  @if (totalPages(projects) > 1) {
-    <nav class="pagination" aria-label="Project pages">
-      <button class="secondary-button" type="button" (click)="changePage(projects, -1)" [disabled]="page === 1">Previous</button>
-      <span>Page {{ page }} of {{ totalPages(projects) }}</span>
-      <button class="secondary-button" type="button" (click)="changePage(projects, 1)" [disabled]="page === totalPages(projects)">Next</button>
-    </nav>
-  }
+        <section class="project-tools" aria-label="Project search and filters">
+          <input class="project-search" type="search" name="projectSearch" [(ngModel)]="searchTerm" (ngModelChange)="updateFilters()" placeholder="Search projects" aria-label="Search projects" />
+          <select name="projectStatus" [(ngModel)]="statusFilter" (ngModelChange)="updateFilters()" aria-label="Filter projects by deployment status">
+            <option value="all">All projects</option>
+            <option value="deployed">Deployed</option>
+            <option value="not-deployed">Not deployed</option>
+          </select>
+          <select name="projectSort" [(ngModel)]="sortOrder" (ngModelChange)="updateFilters()" aria-label="Sort projects">
+            <option value="recent">Newest first</option>
+            <option value="name">Name A–Z</option>
+          </select>
+        </section>
+      </header>
+
+      <section class="project-grid">
+        @for (item of visibleProjects(projects); track item.project.id) {
+          <a class="project-card" [routerLink]="['/projects', item.project.id]">
+            <header class="project-card-header">
+              <div>
+                <span class="project-kicker">Project release</span>
+                <h2>{{ item.project.name }}</h2>
+              </div>
+              <div class="project-network-chips" aria-label="Deployment networks">
+                @for (network of item.deploymentNetworks; track network) {
+                  <span class="network-badge" [class.network-badge--testnet]="network === 'neo3:testnet'" [class.network-badge--mainnet]="network === 'neo3:mainnet'">{{ networkLabel(network) }}</span>
+                }
+              </div>
+            </header>
+
+            <p class="project-description">{{ item.project.description || 'No project description yet.' }}</p>
+
+            <section class="project-release">
+              <div>
+                <span>Latest artifact</span>
+                <strong>{{ item.latestArtifact?.version ?? 'No artifact yet' }}</strong>
+              </div>
+              <span class="status-badge" [class.status-badge--success]="item.deployed" [class.status-badge--warning]="!item.deployed">{{ item.deployed ? 'Deployed' : 'Not deployed' }}</span>
+            </section>
+
+            <section class="project-details" aria-label="Project details">
+              <span class="project-kicker">Project details</span>
+              <ul>
+                <li><i aria-hidden="true"></i><span>Owner</span><strong>{{ creatorSummary(item) }}</strong></li>
+                <li>
+                  <i [class.success-dot]="item.deployed" aria-hidden="true"></i>
+                  <span>Networks</span>
+                  <strong>{{ item.deploymentNetworks.length ? item.deploymentNetworks.length + ' active' : 'No release' }}</strong>
+                </li>
+              </ul>
+            </section>
+            <span class="card-affordance">Open workspace <span aria-hidden="true">→</span></span>
+          </a>
+        } @empty {
+          <p class="no-results empty-state">No projects match those filters.</p>
+        }
+      </section>
+
+      @if (totalPages(projects) > 1) {
+        <nav class="pagination" aria-label="Project pages">
+          <button class="secondary-button" type="button" (click)="changePage(projects, -1)" [disabled]="page === 1">Previous</button>
+          <span>Page {{ page }} of {{ totalPages(projects) }}</span>
+          <button class="secondary-button" type="button" (click)="changePage(projects, 1)" [disabled]="page === totalPages(projects)">Next</button>
+        </nav>
+      }
+    </section>
   } @else {
     <section class="getting-started surface-panel">
       <h2>Start your first Neo release</h2>

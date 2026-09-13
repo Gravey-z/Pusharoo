@@ -50,7 +50,7 @@ export class ProjectDeploymentAccessService {
     if (access.allowedNetworks.length) {
       return `Connected wallet can deploy on ${access.allowedNetworks.map((network) => this.networkLabel(network)).join(' and ')}.`;
     }
-    return 'Connected wallet cannot deploy this project.';
+    return 'Deployment access is managed by the project owner.';
   }
 
   networkLabel(network: string): string {

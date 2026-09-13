@@ -34,10 +34,10 @@
         <strong>Deployment access needs a refresh</strong>
         <span>{{ authorizedDeployerAccessError }}</span>
       </aside>
-    } @else if (!canManageProject(overview)) {
+    } @else if (!canManageProject(overview) && hasAnyDeploymentAccess(overview)) {
       <aside class="read-only-notice" aria-label="Read-only access">
-        <strong>{{ hasAnyDeploymentAccess(overview) ? 'Authorized deployer' : 'No deployment access' }}</strong>
-        <span>{{ hasAnyDeploymentAccess(overview) ? deploymentAccessMessage(overview) + ' Only the project owner can change this project or its authorized-deployer list.' : 'Connected wallet cannot deploy this project. Ask the owner to authorize it for TestNet, MainNet, or both.' }}</span>
+        <strong>Authorized deployer</strong>
+        <span>{{ deploymentAccessMessage(overview) }} Only the project owner can change this project or its authorized-deployer list.</span>
       </aside>
     }
 
