@@ -24,8 +24,6 @@ export class ProjectsComponent implements OnInit {
   newProjectDescription = '';
   errorMessage = '';
   searchTerm = '';
-  statusFilter: 'all' | 'deployed' | 'not-deployed' = 'all';
-  sortOrder: 'recent' | 'name' = 'recent';
   page = 1;
   readonly pageSize = 9;
 
@@ -88,33 +86,21 @@ export class ProjectsComponent implements OnInit {
 
   visibleProjects(projects: ProjectListItem[]): ProjectListItem[] {
     const query = this.searchTerm.trim().toLowerCase();
-    const filtered = projects.filter((item) => {
-      const matchesQuery = !query || [item.project.name, item.project.description ?? '']
-        .some((value) => value.toLowerCase().includes(query));
-      const matchesStatus = this.statusFilter === 'all'
-        || (this.statusFilter === 'deployed' ? item.deployed : !item.deployed);
-
-      return matchesQuery && matchesStatus;
-    });
-    const sorted = [...filtered].sort((left, right) => this.sortOrder === 'name'
-      ? left.project.name.localeCompare(right.project.name)
-      : new Date(right.project.createdAt).getTime() - new Date(left.project.createdAt).getTime());
+    const filtered = projects.filter((item) => !query || [item.project.name, item.project.description ?? '']
+      .some((value) => value.toLowerCase().includes(query)));
     const lastIndex = this.page * this.pageSize;
 
-    return sorted.slice(lastIndex - this.pageSize, lastIndex);
+    return filtered.slice(lastIndex - this.pageSize, lastIndex);
   }
 
   totalPages(projects: ProjectListItem[]): number {
     const query = this.searchTerm.trim().toLowerCase();
-    const count = projects.filter((item) => {
-      const matchesQuery = !query || [item.project.name, item.project.description ?? '']
-        .some((value) => value.toLowerCase().includes(query));
-      return matchesQuery && (this.statusFilter === 'all' || (this.statusFilter === 'deployed' ? item.deployed : !item.deployed));
-    }).length;
+    const count = projects.filter((item) => !query || [item.project.name, item.project.description ?? '']
+      .some((value) => value.toLowerCase().includes(query))).length;
     return Math.max(1, Math.ceil(count / this.pageSize));
   }
 
-  updateFilters(): void {
+  updateSearch(): void {
     this.page = 1;
   }
 

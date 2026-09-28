@@ -79,10 +79,6 @@
   background: var(--card-soft);
 }
 
-.project-tools select {
-  flex: 0 1 150px;
-}
-
 .project-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
@@ -286,16 +282,13 @@
 
   .project-tools {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 
   .project-tools .project-search {
     grid-column: 1 / -1;
   }
 
-  .project-tools select {
-    min-width: 0;
-  }
 }
 
 @media (max-width: 420px) {

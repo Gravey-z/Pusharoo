@@ -187,7 +187,7 @@
         <span>Deployer</span>
         <span>Action</span>
       </div>
-      @let displayedDeployments = releaseTab === 'overview' ? liveDeployments(overview) : overview.deployments;
+      @let displayedDeployments = releaseTab === 'overview' ? liveDeployments(overview) : latestAttemptsByVersion(overview);
       @if (displayedDeployments.length) {
         @for (deployment of displayedDeployments; track deployment.id) {
           <div>

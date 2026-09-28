@@ -101,6 +101,20 @@ export class ProjectOverviewComponent implements OnInit {
       .filter((deployment) => ['neo3:testnet', 'neo3:mainnet'].includes(deployment.network));
   }
 
+  latestAttemptsByVersion(overview: ProjectOverviewViewModel): Deployment[] {
+    const latestByVersionAndNetwork = new Map<string, Deployment>();
+
+    for (const deployment of [...overview.deployments]
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())) {
+      const key = `${deployment.version}\u0000${deployment.network}`;
+      if (!latestByVersionAndNetwork.has(key)) {
+        latestByVersionAndNetwork.set(key, deployment);
+      }
+    }
+
+    return [...latestByVersionAndNetwork.values()];
+  }
+
   liveArtifacts(overview: ProjectOverviewViewModel): Artifact[] {
     const artifactsById = new Map(overview.artifacts.map((artifact) => [artifact.id, artifact]));
     const includedArtifactIds = new Set<string>();

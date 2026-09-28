@@ -49,17 +49,8 @@
           <span class="project-kicker">Release workspace</span>
           <p>Choose a project to review releases, deployments, and on-chain activity.</p>
         </div>
-        <section class="project-tools" aria-label="Project search and filters">
-          <input class="project-search" type="search" name="projectSearch" [(ngModel)]="searchTerm" (ngModelChange)="updateFilters()" placeholder="Search projects" aria-label="Search projects" />
-          <select name="projectStatus" [(ngModel)]="statusFilter" (ngModelChange)="updateFilters()" aria-label="Filter projects by deployment status">
-            <option value="all">All projects</option>
-            <option value="deployed">Deployed</option>
-            <option value="not-deployed">Not deployed</option>
-          </select>
-          <select name="projectSort" [(ngModel)]="sortOrder" (ngModelChange)="updateFilters()" aria-label="Sort projects">
-            <option value="recent">Newest first</option>
-            <option value="name">Name A–Z</option>
-          </select>
+        <section class="project-tools" aria-label="Project search">
+          <input class="project-search" type="search" name="projectSearch" [(ngModel)]="searchTerm" (ngModelChange)="updateSearch()" placeholder="Search projects" aria-label="Search projects" />
         </section>
       </header>
 
@@ -100,7 +91,7 @@
             <span class="card-affordance">Open workspace <span aria-hidden="true">→</span></span>
           </a>
         } @empty {
-          <p class="no-results empty-state">No projects match those filters.</p>
+          <p class="no-results empty-state">No projects match your search.</p>
         }
       </section>
 
