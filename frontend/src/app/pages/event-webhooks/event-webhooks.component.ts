@@ -19,6 +19,7 @@ import {
 } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
+import { EventRelayApiService } from '../../services/event-relay-api.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
@@ -117,7 +118,8 @@ export class EventWebhooksComponent implements OnInit {
 
   constructor(
     private readonly route: ActivatedRoute,
-    private readonly api: PusharooApiService,
+    private readonly api: EventRelayApiService,
+    private readonly projectApi: PusharooApiService,
     private readonly errors: ApiErrorFormatterService,
     private readonly deploymentHistory: DeploymentHistoryService,
     private readonly ownership: ProjectOwnershipService,
@@ -404,7 +406,7 @@ export class EventWebhooksComponent implements OnInit {
       const cachedOverview = this.workspace?.getFreshOverview(this.projectId);
       this.overview = cachedOverview?.project.id === this.projectId
         ? cachedOverview
-        : await firstValueFrom(this.api.getProjectOverview(this.projectId));
+        : await firstValueFrom(this.projectApi.getProjectOverview(this.projectId));
       if (this.workspace && this.overview) {
         this.workspace.overview = this.overview;
       }
