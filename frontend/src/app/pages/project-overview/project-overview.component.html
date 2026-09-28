@@ -190,7 +190,7 @@
       @let displayedDeployments = releaseTab === 'overview' ? liveDeployments(overview) : latestAttemptsByVersion(overview);
       @if (displayedDeployments.length) {
         @for (deployment of displayedDeployments; track deployment.id) {
-          <div>
+          <div [class.has-failure]="!!deployment.failureReason">
             <span data-label="Version">{{ deployment.version }}</span>
             <span
               class="network-pill network-badge"

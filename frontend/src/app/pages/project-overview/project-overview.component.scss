@@ -283,6 +283,10 @@ dd {
   font-size: 14px;
 }
 
+.deployment-list > div.has-failure {
+  padding-top: var(--space-3);
+}
+
 .deployment-status {
   text-transform: capitalize;
 }
@@ -294,8 +298,11 @@ dd {
 
 .deployment-failure {
   grid-column: 1 / -1;
-  padding-bottom: 12px;
+  margin-top: var(--space-1);
+  border-top: 1px solid rgba(255, 107, 138, 0.18);
+  padding: var(--space-2) 0 var(--space-3);
   font-size: 12px;
+  line-height: 1.5;
 }
 
 .resume-button {
