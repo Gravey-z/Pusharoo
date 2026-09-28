@@ -310,7 +310,7 @@ export class ProjectOverviewComponent implements OnInit {
 
   loadOverview(projectId: string): void {
     this.projectId = projectId;
-    const cachedOverview = this.workspace?.overview;
+    const cachedOverview = this.workspace?.getFreshOverview(projectId);
     if (cachedOverview?.project.id === projectId) {
       this.overview = cachedOverview;
       this.isLoading = false;

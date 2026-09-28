@@ -401,7 +401,7 @@ export class EventWebhooksComponent implements OnInit {
 
   private async load(): Promise<void> {
     try {
-      const cachedOverview = this.workspace?.overview;
+      const cachedOverview = this.workspace?.getFreshOverview(this.projectId);
       this.overview = cachedOverview?.project.id === this.projectId
         ? cachedOverview
         : await firstValueFrom(this.api.getProjectOverview(this.projectId));

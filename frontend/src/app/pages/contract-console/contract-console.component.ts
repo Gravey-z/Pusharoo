@@ -107,7 +107,7 @@ export class ContractConsoleComponent implements OnInit {
   }
 
   private loadProject(): void {
-    const cachedOverview = this.workspace?.overview;
+    const cachedOverview = this.workspace?.getFreshOverview(this.projectId);
     if (cachedOverview?.project.id === this.projectId) {
       this.applyOverview(cachedOverview);
       return;
