@@ -7,6 +7,9 @@
     "neo3:testnet": { "baseUrl": "${PUSHAROO_TESTNET_EVENT_RELAY_BASE_URL}", "healthUrl": "${PUSHAROO_TESTNET_EVENT_RELAY_HEALTH_URL}" },
     "neo3:mainnet": { "baseUrl": "${PUSHAROO_MAINNET_EVENT_RELAY_BASE_URL}", "healthUrl": "${PUSHAROO_MAINNET_EVENT_RELAY_HEALTH_URL}" }
   },
+  "faucet": {
+    "testnetContractHash": "${PUSHAROO_TESTNET_FAUCET_CONTRACT_HASH}"
+  },
   "wallet": {
     "network": "${PUSHAROO_DEFAULT_NETWORK}",
     "walletConnectProjectId": "${PUSHAROO_WALLETCONNECT_PROJECT_ID}",

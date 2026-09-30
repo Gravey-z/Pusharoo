@@ -7,6 +7,9 @@
     "neo3:testnet": { "baseUrl": "http://localhost:5001/api", "healthUrl": "http://localhost:5001/health" },
     "neo3:mainnet": { "baseUrl": "http://localhost:5002/api", "healthUrl": "http://localhost:5002/health" }
   },
+  "faucet": {
+    "testnetContractHash": ""
+  },
   "wallet": {
     "network": "neo3:testnet",
     "walletConnectProjectId": "d77209728a8564a2571c5c87bf71b8f1",

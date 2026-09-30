@@ -17,6 +17,10 @@ interface ApplicationLog {
   executions?: ApplicationLogExecution[];
 }
 
+interface NeoVersionResponse {
+  protocol?: { network?: number };
+}
+
 interface ApplicationLogExecution {
   vmstate?: string;
   state?: string;
@@ -45,6 +49,11 @@ export interface ConfirmedDeployment {
   transactionId: string;
   vmState: string;
   contractHash: string;
+}
+
+export interface ConfirmedFaucetClaim {
+  transactionId: string;
+  amountDatoshi: string;
 }
 
 export interface ContractInvokeResult {
@@ -88,6 +97,62 @@ export class NeoRpcService {
     }
 
     return response.result;
+  }
+
+  async verifyTestnetContract(contractHash: string): Promise<void> {
+    if (!contractHash) throw new Error('The testnet faucet contract is not configured.');
+    const endpoint = this.runtimeConfig.value.wallet.rpc['neo3:testnet'];
+    const version = await this.rpcRequest<NeoVersionResponse>(endpoint, 'getversion', []);
+    if (version.protocol?.network !== 894710606) {
+      throw new Error('The configured faucet RPC endpoint is not Neo N3 testnet.');
+    }
+    await this.rpcRequest(endpoint, 'getcontractstate', [contractHash]);
+  }
+
+  async getGasBalanceDatoshi(addressScriptHash: string): Promise<string> {
+    const result = await this.invokeFunction('neo3:testnet', '0xd2a4cff31913016155e38e474a2c06d08be276cf', 'balanceOf', [
+      { type: 'Hash160', value: addressScriptHash }
+    ]);
+    return this.stackInteger(result.stack?.[0]).toString();
+  }
+
+  async waitForFaucetClaim(
+    transactionId: string,
+    faucetHash: string,
+    recipientScriptHash: string
+  ): Promise<ConfirmedFaucetClaim> {
+    const endpoint = this.runtimeConfig.value.wallet.rpc['neo3:testnet'];
+    const log = await this.waitForApplicationLog(endpoint, transactionId);
+    const execution = log.executions?.[0];
+    const vmState = execution?.vmstate ?? execution?.state ?? '';
+    if (vmState !== 'HALT') {
+      throw new Error(`Claim transaction finished with ${vmState || 'UNKNOWN'}${execution?.exception ? `: ${execution.exception}` : '.'}`);
+    }
+
+    let claimedAmount: bigint | null = null;
+    let transferredAmount: bigint | null = null;
+    for (const notification of execution?.notifications ?? []) {
+      const state = notification.state?.value;
+      if (!Array.isArray(state)) continue;
+      if (this.sameHash(notification.contract ?? '', faucetHash)
+        && notification.eventname === 'Claimed'
+        && state.length >= 2
+        && this.sameHash(this.stackHash(state[0]), recipientScriptHash)) {
+        claimedAmount = this.stackInteger(state[1]);
+      }
+      if (this.sameHash(notification.contract ?? '', '0xd2a4cff31913016155e38e474a2c06d08be276cf')
+        && notification.eventname === 'Transfer'
+        && state.length >= 3
+        && this.sameHash(this.stackHash(state[0]), faucetHash)
+        && this.sameHash(this.stackHash(state[1]), recipientScriptHash)) {
+        transferredAmount = this.stackInteger(state[2]);
+      }
+    }
+
+    if (claimedAmount === null || transferredAmount !== claimedAmount) {
+      throw new Error('Claim transaction halted without matching faucet and GAS transfer events.');
+    }
+    return { transactionId, amountDatoshi: claimedAmount.toString() };
   }
 
   async waitForDeployment(
@@ -169,6 +234,49 @@ export class NeoRpcService {
     }
 
     throw new Error('Timed out waiting for the deployment transaction application log.');
+  }
+
+  private async rpcRequest<T>(endpoint: string, method: string, params: unknown[]): Promise<T> {
+    if (!endpoint) throw new Error('The Neo N3 testnet RPC endpoint is not configured.');
+    const response = await firstValueFrom(this.http.post<RpcResponse<T>>(endpoint, {
+      jsonrpc: '2.0', method, params, id: Date.now()
+    }));
+    if (response.error) throw new Error(response.error.message);
+    if (response.result === undefined) throw new Error(`Neo RPC returned no result for ${method}.`);
+    return response.result;
+  }
+
+  private stackInteger(item: RpcStackItem | undefined): bigint {
+    const value = item?.value;
+    if (typeof value === 'number' || typeof value === 'string') {
+      const text = String(value);
+      if (/^-?\d+$/.test(text)) return BigInt(text);
+      if (item?.type === 'ByteString' || item?.type === 'Buffer') return this.littleEndianInteger(text);
+    }
+    throw new Error('Neo RPC returned an invalid integer value.');
+  }
+
+  private littleEndianInteger(base64: string): bigint {
+    const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+    let value = 0n;
+    for (let index = bytes.length - 1; index >= 0; index -= 1) value = (value << 8n) | BigInt(bytes[index]);
+    if (bytes.length && (bytes[bytes.length - 1] & 0x80)) value -= 1n << BigInt(bytes.length * 8);
+    return value;
+  }
+
+  private stackHash(item: RpcStackItem): string {
+    const value = item.value;
+    if (typeof value !== 'string') return '';
+    if (/^(0x)?[0-9a-f]{40}$/i.test(value)) return this.normalizeHash(value);
+    if (item.type === 'ByteString' || item.type === 'Buffer') {
+      const bytes = [...atob(value)].map((character) => character.charCodeAt(0)).reverse();
+      if (bytes.length === 20) return `0x${bytes.map((byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+    }
+    return '';
+  }
+
+  private sameHash(left: string, right: string): boolean {
+    return this.normalizeHash(left).replace(/^0x/i, '') === this.normalizeHash(right).replace(/^0x/i, '');
   }
 
   private findDeployContractHash(

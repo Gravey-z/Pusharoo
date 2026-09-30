@@ -168,6 +168,14 @@
   font-size: 12px;
 }
 
+.faucet-fee-link a {
+  color: var(--testnet);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.faucet-fee-link a:hover { text-decoration: underline; }
+
 .mainnet-warning {
   border-color: var(--warning-border);
   background: var(--warning-soft);

@@ -2,6 +2,7 @@ import { Component, Input, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { WalletConnectComponent } from '../../components/wallet-connect/wallet-connect.component';
 import { ProjectWorkspaceContextService } from '../../services/project-workspace-context.service';
+import { WalletService } from '../../services/wallet.service';
 
 export interface PageBreadcrumb {
   label: string;
@@ -20,6 +21,7 @@ export class PageShellComponent {
   @Input() workspaceShell = false;
 
   private readonly workspaceContext = inject(ProjectWorkspaceContextService, { optional: true });
+  readonly wallet = inject(WalletService);
 
   get isEmbeddedInWorkspace(): boolean {
     return Boolean(this.workspaceContext) && !this.workspaceShell;

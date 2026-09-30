@@ -10,7 +10,10 @@ public sealed class DeploymentAuthorizationService(
     WalletSignatureRequestValidator signatureRequestValidator,
     ProjectAuthorizationService authorization)
 {
-    private static readonly JsonSerializerOptions ManifestJsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions ManifestJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new BsonValueJsonConverter(), new BsonDocumentJsonConverter() }
+    };
 
     public DeploymentAuthorizationContext CreateContext(
         ProjectDocument project,

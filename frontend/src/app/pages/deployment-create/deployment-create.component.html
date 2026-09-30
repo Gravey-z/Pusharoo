@@ -15,10 +15,12 @@
   <app-project-release-nav [projectId]="projectId" />
 
     @if (artifacts.length) {
-      <aside class="deployment-access-notice" [class.access-denied]="!canStartDeployment">
-        <strong>{{ canStartDeployment ? 'Ready to deploy' : 'Deployment access required' }}</strong>
+      @if (showDeploymentAccessNotice) {
+      <aside class="deployment-access-notice access-denied" role="alert">
+        <strong>Deployment access required</strong>
         <span>{{ deploymentPermissionMessage }}</span>
       </aside>
+      }
       @if (!isReviewing) {
       <form class="deployment-form surface-panel" (ngSubmit)="reviewRelease()">
         <header class="form-flow-header">
@@ -78,7 +80,7 @@
           <p class="form-error">{{ errorMessage }}</p>
         }
 
-        <button class="primary-button" type="submit" [disabled]="isPreparingReview || !canStartDeployment" [title]="deploymentPermissionMessage">
+        <button class="primary-button" type="submit" [disabled]="isPreparingReview">
           {{ isPreparingReview ? 'Preparing Review...' : 'Review Release' }}
         </button>
       </form>
@@ -125,6 +127,9 @@
             @if (feeEstimateError) {
               <p class="fee-estimate-error">Pusharoo could not estimate the fee: {{ feeEstimateError }}</p>
             }
+          @if (walletNetwork() === 'neo3:testnet') {
+            <p class="faucet-fee-link"><a routerLink="/faucet">Need testnet GAS? Visit the faucet.</a></p>
+          }
           </section>
 
           @if (walletNetwork() === 'neo3:mainnet') {
@@ -153,8 +158,7 @@
               [class.primary-button]="walletNetwork() !== 'neo3:mainnet'"
               [class.mainnet-action-button]="walletNetwork() === 'neo3:mainnet'"
               (click)="save()"
-              [disabled]="isSaving || !canStartDeployment || (walletNetwork() === 'neo3:mainnet' && !mainnetConfirmed)"
-              [title]="deploymentPermissionMessage"
+              [disabled]="isSaving || (walletNetwork() === 'neo3:mainnet' && !mainnetConfirmed)"
             >
               {{ submitLabel }}
             </button>

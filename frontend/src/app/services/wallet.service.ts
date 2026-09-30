@@ -337,6 +337,37 @@ export class WalletService {
     };
   }
 
+  async estimateContractInvocationFees(
+    network: NetworkType,
+    contractHash: string,
+    operation: string,
+    args: ContractCallParameter[]
+  ): Promise<DeploymentFeeEstimate> {
+    const session = this.session();
+    const walletKit = this.walletKit;
+    if (!walletKit || !session || session.network !== network || network !== 'neo3:testnet') {
+      throw new Error('Connect a wallet on N3:Testnet to estimate this transaction fee.');
+    }
+    if (session.provider === 'walletconnect' && !session.methods.includes('calculateFee')) {
+      throw new Error('Reconnect your wallet to enable transaction fee estimates.');
+    }
+
+    const result = await walletKit.wallet.request<{
+      systemFee?: unknown;
+      networkFee?: unknown;
+      total?: unknown;
+    }>('calculateFee', {
+      invocations: [{ scriptHash: contractHash, operation, args: args as ContractArgs }],
+      signers: [walletKit.connectedSigner()]
+    }, `Estimate ${operation} fee with Pusharoo`);
+
+    const systemFee = this.formatFee(result.systemFee);
+    const networkFee = this.formatFee(result.networkFee);
+    const total = result.total === undefined || result.total === null ? null : this.formatFee(result.total);
+    if (!systemFee || !networkFee) throw new Error('The wallet returned an incomplete fee estimate.');
+    return { systemFee, networkFee, total: total ?? this.sumFees(systemFee, networkFee) };
+  }
+
   async signProjectCreation(
     projectName: string,
     projectDescription: string
@@ -470,6 +501,25 @@ export class WalletService {
       account.address,
       message,
       'Authorize Pusharoo deployment attempt'
+    );
+    return this.toWalletActionSignature(account, session, challenge, signedMessage);
+  }
+
+  async signFaucetClaim(message: string): Promise<WalletActionSignature> {
+    const session = this.session();
+    const account = this.account();
+    if (!this.walletKit || !session || !account) throw new Error('Connect a wallet before claiming testnet GAS.');
+    if (session.network !== 'neo3:testnet') throw new Error('Faucet claims are available on N3:Testnet only.');
+
+    const challenge: WalletActionSignatureChallenge = {
+      ...this.projectCreationMessage.createSignatureContext(),
+      message
+    };
+    const signedMessage = await this.signMessage(
+      session,
+      account.address,
+      message,
+      'Sign a message to request sponsored testnet GAS. Pusharoo pays the transaction fee.'
     );
     return this.toWalletActionSignature(account, session, challenge, signedMessage);
   }

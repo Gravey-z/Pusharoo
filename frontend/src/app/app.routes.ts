@@ -12,6 +12,10 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/projects/projects.component').then((component) => component.ProjectsComponent)
   },
   {
+    path: 'faucet',
+    loadComponent: () => import('./pages/faucet/faucet.component').then((component) => component.FaucetComponent)
+  },
+  {
     path: 'projects/:projectId/delete',
     loadComponent: () => import('./pages/project-delete/project-delete.component').then((component) => component.ProjectDeleteComponent)
   },

@@ -39,6 +39,7 @@ export class DeploymentCreateComponent implements OnInit {
   feeEstimateError = '';
   authorizationPreview: DeploymentAuthorizationChallenge | null = null;
   authorizedDeployers: ProjectAuthorizedDeployer[] = [];
+  private deniedDeploymentAttempt: { walletAddress: string; network: string } | null = null;
   private preparedNefHex = '';
   private preparedArtifactId = '';
   readonly projectId: string;
@@ -77,13 +78,6 @@ export class DeploymentCreateComponent implements OnInit {
     return this.deploymentAccessService.canDeployToNetwork(this.deploymentAccess, this.walletNetwork());
   }
 
-  get canStartDeployment(): boolean {
-    return this.deploymentAccessService.canStartDeployment(
-      this.deploymentAccess,
-      this.walletNetwork()
-    );
-  }
-
   get deploymentPermissionMessage(): string {
     const network = this.walletNetwork();
     if (!this.walletAddress() || !network) {
@@ -96,6 +90,15 @@ export class DeploymentCreateComponent implements OnInit {
       return this.deploymentAccessService.description(this.deploymentAccess);
     }
     return 'Connected wallet can deploy on the selected network.';
+  }
+
+  get showDeploymentAccessNotice(): boolean {
+    return Boolean(
+      this.deniedDeploymentAttempt &&
+      this.deniedDeploymentAttempt.walletAddress === this.walletAddress() &&
+      this.deniedDeploymentAttempt.network === this.walletNetwork() &&
+      !this.canDeployOnSelectedNetwork
+    );
   }
 
   get networkDeploymentStatus(): string {
@@ -183,7 +186,6 @@ export class DeploymentCreateComponent implements OnInit {
 
     const deploymentPermissionError = this.getDeploymentPermissionError();
     if (deploymentPermissionError) {
-      this.errorMessage = deploymentPermissionError;
       return;
     }
 
@@ -293,7 +295,6 @@ export class DeploymentCreateComponent implements OnInit {
 
     const deploymentPermissionError = this.getDeploymentPermissionError();
     if (deploymentPermissionError) {
-      this.errorMessage = deploymentPermissionError;
       return;
     }
 
@@ -345,9 +346,14 @@ export class DeploymentCreateComponent implements OnInit {
 
   private getDeploymentPermissionError(): string {
     if (!this.canDeployOnSelectedNetwork) {
+      this.deniedDeploymentAttempt = {
+        walletAddress: this.walletAddress(),
+        network: this.walletNetwork()
+      };
       return this.deploymentPermissionMessage;
     }
 
+    this.deniedDeploymentAttempt = null;
     return '';
   }
 

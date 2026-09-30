@@ -7,6 +7,9 @@ export interface RuntimeConfig {
   eventRelayBaseUrl: string;
   eventRelayHealthUrl: string;
   eventRelays?: Record<string, { baseUrl: string; healthUrl: string }>;
+  faucet: {
+    testnetContractHash: string;
+  };
   wallet: {
     network: string;
     walletConnectProjectId: string;
@@ -24,6 +27,7 @@ const defaultConfig: RuntimeConfig = {
     'neo3:testnet': { baseUrl: 'http://localhost:5001/api', healthUrl: 'http://localhost:5001/health' },
     'neo3:mainnet': { baseUrl: 'http://localhost:5002/api', healthUrl: 'http://localhost:5002/health' }
   },
+  faucet: { testnetContractHash: '' },
   wallet: {
     network: defaultWalletConfig.network,
     walletConnectProjectId: defaultWalletConfig.walletConnectProjectId,
@@ -51,6 +55,10 @@ export class RuntimeConfigService {
       this.config = {
         ...defaultConfig,
         ...loaded,
+        faucet: {
+          ...defaultConfig.faucet,
+          ...loaded.faucet
+        },
         wallet: {
           ...defaultConfig.wallet,
           ...loaded.wallet,
