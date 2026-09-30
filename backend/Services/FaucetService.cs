@@ -23,12 +23,16 @@ public sealed class FaucetService(
     {
         var availability = await rpc.GetAvailabilityAsync(cancellationToken);
         if (!availability.Available)
-            return new FaucetStatusResponse(false, availability.Reason, null, null, null, null, null, null, null, null);
+            return new FaucetStatusResponse(false, availability.Reason, false, GetOperationalReason(), null, null, null, null, null, null, null, null, null, null, null, null);
 
         var statusResult = await rpc.InvokeAsync("getStatus", null, cancellationToken);
         var status = statusResult.GetProperty("stack");
-        string? eligible = null;
+        bool? registered = null;
+        bool? sponsoredEligible = null;
+        bool? directEligible = null;
         string? nextClaim = null;
+        string? sponsoredReason = null;
+        string? directReason = null;
         if (!string.IsNullOrWhiteSpace(address))
         {
             var validation = addressValidator.Validate(address);
@@ -36,21 +40,32 @@ public sealed class FaucetService(
             {
                 var claimResult = await rpc.InvokeAsync("getClaimStatus", validation.ScriptHash, cancellationToken);
                 var claim = claimResult.GetProperty("stack");
-                eligible = FaucetRpcService.StackValue(claim[0]);
-                nextClaim = FaucetRpcService.StackValue(claim[1]);
+                registered = ParseStackBoolean(claim[0]);
+                sponsoredEligible = ParseStackBoolean(claim[1]);
+                directEligible = ParseStackBoolean(claim[2]);
+                nextClaim = FaucetRpcService.StackValue(claim[3]);
+                sponsoredReason = FaucetRpcService.StackValue(claim[4]);
+                directReason = FaucetRpcService.StackValue(claim[5]);
             }
         }
 
+        var sponsoredReasonUnavailable = GetOperationalReason();
         return new FaucetStatusResponse(
-            GetOperationalReason() is null,
-            GetOperationalReason(),
+            true,
+            availability.Reason,
+            sponsoredReasonUnavailable is null,
+            sponsoredReasonUnavailable,
             FaucetRpcService.StackInteger(status[0]).ToString(),
             FaucetRpcService.StackInteger(status[1]).ToString(),
             FaucetRpcService.StackValue(status[2]),
             FaucetRpcService.StackInteger(status[3]).ToString(),
             FaucetRpcService.StackInteger(status[5]).ToString(),
-            eligible,
+            registered,
+            sponsoredEligible,
+            directEligible,
             nextClaim,
+            sponsoredReason,
+            directReason,
             FaucetRpcService.StackInteger(status[6]).ToString());
     }
 
@@ -63,8 +78,9 @@ public sealed class FaucetService(
         var recipient = addressValidator.Validate(address);
         if (!recipient.IsValid) throw new FaucetRequestException(400, recipient.Error);
         var current = await rpc.InvokeAsync("getClaimStatus", recipient.ScriptHash, cancellationToken);
-        if (!string.Equals(FaucetRpcService.StackValue(current.GetProperty("stack")[0]), "true", StringComparison.OrdinalIgnoreCase))
-            throw new FaucetRequestException(409, "This wallet is not currently eligible to claim.");
+        var claimStatus = current.GetProperty("stack");
+        if (!ParseStackBoolean(claimStatus[1]))
+            throw new FaucetRequestException(409, $"This wallet is not currently eligible for a sponsored claim ({FaucetRpcService.StackValue(claimStatus[4])}).");
 
         if (string.IsNullOrWhiteSpace(origin)) throw new FaucetRequestException(400, "Request origin is required.");
         if (!IsConfiguredOrigin(origin)) throw new FaucetRequestException(403, "Request origin is not allowed for this Pusharoo application.");
@@ -189,6 +205,9 @@ public sealed class FaucetService(
                 && string.Equals(configured.GetLeftPart(UriPartial.Authority), canonicalOrigin, StringComparison.OrdinalIgnoreCase));
     }
 
+    private static bool ParseStackBoolean(System.Text.Json.JsonElement item) =>
+        string.Equals(FaucetRpcService.StackValue(item), "true", StringComparison.OrdinalIgnoreCase);
+
     private FaucetClaimResponse Map(FaucetClaimDocument claim) => new(
         claim.Id,
         claim.State,
@@ -200,13 +219,19 @@ public sealed class FaucetService(
 public sealed record FaucetStatusResponse(
     bool Available,
     string? Reason,
+    bool SponsoredAvailable,
+    string? SponsoredReason,
     string? ClaimAmount,
     string? DailyCap,
     string? Paused,
     string? Balance,
     string? RemainingDailyAllowance,
-    string? Eligible,
+    bool? Registered,
+    bool? SponsoredEligible,
+    bool? DirectEligible,
     string? NextClaimAt,
+    string? SponsoredIneligibleReason,
+    string? DirectIneligibleReason,
     string? DailyResetAt);
 
 public sealed record FaucetChallengeResponse(string ChallengeId, string Message, DateTime ExpiresAtUtc);

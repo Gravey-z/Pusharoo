@@ -9,7 +9,7 @@ using Neo.SmartContract.Framework.Services;
 namespace Pusharoo.Faucet;
 
 [DisplayName("PusharooTestnetFaucet")]
-[ContractVersion("1.0.0")]
+[ContractVersion("1.1.0")]
 [ContractDescription("Testnet-only GAS faucet")]
 [ContractPermission("0xd2a4cff31913016155e38e474a2c06d08be276cf", "balanceOf")]
 [ContractPermission("0xd2a4cff31913016155e38e474a2c06d08be276cf", "transfer")]
@@ -86,7 +86,6 @@ public class FaucetContract : SmartContract
     [DisplayName("claim")]
     public static void Claim(UInt160 recipient)
     {
-        RequireRelayer();
         if (IsPaused()) throw new Exception("Faucet is paused.");
         if (IsReentrant()) throw new Exception("Reentrant call.");
 
@@ -98,6 +97,17 @@ public class FaucetContract : SmartContract
 
         StorageContext context = Storage.CurrentContext;
         BigInteger claimAmount = GetClaimAmount();
+        StorageMap lastClaims = new(context, LastClaimPrefix);
+        object lastClaimValue = lastClaims.Get(recipient);
+
+        if (lastClaimValue is null)
+        {
+            RequireRelayer();
+        }
+        else if (!Runtime.CheckWitness(Relayer()) && !Runtime.CheckWitness(recipient))
+        {
+            throw new Exception("Relayer or registered recipient witness required.");
+        }
 
         ulong today = now / DayMilliseconds;
         BigInteger spentToday = GetSpentToday(today);
@@ -106,8 +116,6 @@ public class FaucetContract : SmartContract
         if (GAS.BalanceOf(Runtime.ExecutingScriptHash) < claimAmount)
             throw new Exception("Faucet has insufficient GAS balance.");
 
-        StorageMap lastClaims = new(context, LastClaimPrefix);
-        object lastClaimValue = lastClaims.Get(recipient);
         if (lastClaimValue is not null)
         {
             ulong lastClaim = (ulong)(BigInteger)lastClaimValue;
@@ -115,7 +123,6 @@ public class FaucetContract : SmartContract
                 throw new Exception("Recipient may claim once every 24 hours.");
         }
 
-        // Update all guards before the external token call. A faulting transfer rolls these writes back.
         Storage.Put(context, ReentrancyKey, BigInteger.One);
         lastClaims.Put(recipient, now);
         Storage.Put(context, DayKey, today);
@@ -154,28 +161,51 @@ public class FaucetContract : SmartContract
     [DisplayName("getClaimStatus")]
     public static object[] GetClaimStatus(UInt160 recipient)
     {
-        if (recipient == UInt160.Zero || recipient == Runtime.ExecutingScriptHash)
-            return new object[] { false, (ulong)0, "invalidRecipient" };
-        if (ContractManagement.GetContract(recipient) is not null)
-            return new object[] { false, (ulong)0, "contractRecipientUnsupported" };
-        if (IsPaused()) return new object[] { false, (ulong)0, "paused" };
-        if (GAS.BalanceOf(Runtime.ExecutingScriptHash) < GetClaimAmount())
-            return new object[] { false, (ulong)0, "insufficientBalance" };
-
+        StorageMap lastClaims = new(Storage.CurrentContext, LastClaimPrefix);
+        bool registered = lastClaims.Get(recipient) is not null;
         ulong now = Runtime.Time;
-        object lastClaimValue = new StorageMap(Storage.CurrentContext, LastClaimPrefix).Get(recipient);
-        if (lastClaimValue is not null)
+        ulong nextClaim = now;
+        string reason = "eligible";
+
+        if (recipient == UInt160.Zero || recipient == Runtime.ExecutingScriptHash)
+            reason = "invalidRecipient";
+        else if (ContractManagement.GetContract(recipient) is not null)
+            reason = "contractRecipientUnsupported";
+        else if (IsPaused())
+            reason = "paused";
+        else if (GAS.BalanceOf(Runtime.ExecutingScriptHash) < GetClaimAmount())
+            reason = "insufficientBalance";
+        else if (lastClaims.Get(recipient) is not null)
         {
-            ulong nextClaim = (ulong)(BigInteger)lastClaimValue + DayMilliseconds;
-            if (now < nextClaim) return new object[] { false, nextClaim, "cooldown" };
+            nextClaim = (ulong)(BigInteger)lastClaims.Get(recipient) + DayMilliseconds;
+            if (now < nextClaim) reason = "cooldown";
         }
 
-        ulong today = now / DayMilliseconds;
-        BigInteger spent = GetSpentToday(today);
-        if (spent + GetClaimAmount() > DailyCap)
-            return new object[] { false, (today + 1) * DayMilliseconds, "dailyCapReached" };
+        if (reason == "eligible")
+        {
+            ulong today = now / DayMilliseconds;
+            BigInteger spent = GetSpentToday(today);
+            if (spent + GetClaimAmount() > DailyCap)
+            {
+                reason = "dailyCapReached";
+                nextClaim = (today + 1) * DayMilliseconds;
+            }
+        }
 
-        return new object[] { true, now, "eligible" };
+        bool commonEligible = reason == "eligible";
+        bool sponsoredEligible = commonEligible;
+        bool directEligible = registered && commonEligible;
+        string sponsoredReason = reason;
+        string directReason = registered ? reason : (commonEligible ? "firstSponsoredClaim" : reason);
+        return new object[]
+        {
+            registered,
+            sponsoredEligible,
+            directEligible,
+            nextClaim,
+            sponsoredReason,
+            directReason
+        };
     }
 
     [DisplayName("setClaimAmount")]

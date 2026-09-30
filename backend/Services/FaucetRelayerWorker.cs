@@ -118,15 +118,6 @@ public sealed class FaucetRelayerWorker(
 
         var script = UInt160.Parse(faucet.ContractHash).MakeScript("claim", UInt160.Parse(claim.ScriptHash));
         var signers = new[] { new Signer { Account = sender, Scopes = WitnessScope.CalledByEntry } };
-        var preflight = await rpc.SendAsync(network.Endpoint, "invokefunction",
-            [faucet.ContractHash, "claim", new[] { new { type = "Hash160", value = claim.ScriptHash } },
-                new[] { new { account = sender.ToString(), scopes = "CalledByEntry" } }], cancellationToken);
-        if (!string.Equals(preflight.GetProperty("state").GetString(), "HALT", StringComparison.OrdinalIgnoreCase)
-            || !HasExpectedClaim(preflight, claim.ScriptHash))
-        {
-            await SetStateAsync(claim.Id, "Failed", "Exact faucet call did not simulate to HALT with the expected recipient event.", cancellationToken, release: true);
-            return;
-        }
         var protocol = ProtocolSettings.Load(configuration.GetSection("FaucetRelayer:ProtocolSettings"));
         if (protocol.Network != faucet.NetworkMagic)
             throw new InvalidOperationException("Neo SDK protocol settings are not configured for testnet.");
