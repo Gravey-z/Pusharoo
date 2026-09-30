@@ -1,5 +1,7 @@
 /*/bin/
 /*/obj/
+/contracts/*/bin/
+/contracts/*/obj/
 /event-relay/bin/
 /event-relay/obj/
 
@@ -10,3 +12,9 @@ ng-serve.err.log
 ng-serve.out.log
 backend-run.err.log
 backend-run.out.log
+
+.env
+.env.*
+!.env.example
+/*.md
+*/*.md

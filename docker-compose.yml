@@ -15,8 +15,39 @@ services:
       NeoRpc__Networks__mainnet__ContractManagementHash: ${PUSHAROO_MAINNET_CONTRACT_MANAGEMENT_HASH:-0xfffdc93764dbaddd97c48f252a53ea4643faa3fd}
       WalletSignatures__Audience: ${PUSHAROO_WALLET_SIGNATURE_AUDIENCE:-pusharoo-web}
       WalletSignatures__AllowedOrigins__0: ${PUSHAROO_APP_ORIGIN:-http://localhost:8080}
+      Faucet__Enabled: ${PUSHAROO_FAUCET_ENABLED:-false}
+      Faucet__RelayerEnabled: ${PUSHAROO_FAUCET_RELAYER_ENABLED:-false}
+      Faucet__ContractHash: ${PUSHAROO_TESTNET_FAUCET_CONTRACT_HASH:-}
+      Faucet__NetworkMagic: 894710606
+      Faucet__TrustedProxyAddresses__0: ${PUSHAROO_FAUCET_TRUSTED_PROXY_IP:-}
+      FaucetRelayer__Enabled: "false"
     expose:
       - "8080"
+    depends_on:
+      - mongo
+
+  faucet-relayer:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://127.0.0.1:8081
+      MongoDb__ConnectionString: mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongo:27017/?authSource=admin
+      MongoDb__DatabaseName: ${MONGO_DATABASE:-Pusharoo}
+      NeoRpc__Networks__testnet__Endpoint: ${PUSHAROO_TESTNET_RPC_URL:-https://testnet1.neo.coz.io:443}
+      Faucet__ContractHash: ${PUSHAROO_TESTNET_FAUCET_CONTRACT_HASH:-}
+      Faucet__Enabled: ${PUSHAROO_FAUCET_ENABLED:-false}
+      Faucet__RelayerEnabled: ${PUSHAROO_FAUCET_RELAYER_ENABLED:-false}
+      Faucet__NetworkMagic: 894710606
+      FaucetRelayer__Enabled: ${PUSHAROO_FAUCET_RELAYER_ENABLED:-false}
+      FaucetRelayer__PrivateKeyWif: ${PUSHAROO_FAUCET_RELAYER_WIF:-}
+      FaucetRelayer__MaximumTransactionFeeGas: ${PUSHAROO_FAUCET_MAX_TRANSACTION_FEE_GAS:-0}
+      FaucetRelayer__DailyFeeBudgetGas: ${PUSHAROO_FAUCET_DAILY_FEE_BUDGET_GAS:-0}
+      FaucetRelayer__PollIntervalSeconds: 3
+      FaucetRelayer__ProtocolSettings__Network: 894710606
+      FaucetRelayer__ProtocolSettings__AddressVersion: 53
     depends_on:
       - mongo
 

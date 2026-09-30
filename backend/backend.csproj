@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
     <PackageReference Include="MongoDB.Driver" Version="3.10.0" />
+    <PackageReference Include="Neo.Network.RPC.RpcClient" Version="3.10.1" />
     <ProjectReference Include="..\shared\Pusharoo.Contracts.csproj" />
   </ItemGroup>
 

@@ -25,11 +25,24 @@ public sealed class MongoDbContext
         RelayPayments = database.GetCollection<BsonDocument>("relayPayments");
         RelayEntitlementHistory = database.GetCollection<BsonDocument>("relayEntitlementHistory");
         WebhookAuthorizationNonces = database.GetCollection<WebhookAuthorizationNonceDocument>("webhookAuthorizationNonces");
+        FaucetChallenges = database.GetCollection<FaucetChallengeDocument>("faucetChallenges");
+        FaucetClaims = database.GetCollection<FaucetClaimDocument>("faucetClaims");
+        FaucetDailyFeeBudgets = database.GetCollection<FaucetDailyFeeBudgetDocument>("faucetDailyFeeBudgets");
 
         WebhookAuthorizationNonces.Indexes.CreateOne(
             new CreateIndexModel<WebhookAuthorizationNonceDocument>(
                 Builders<WebhookAuthorizationNonceDocument>.IndexKeys.Ascending(nonce => nonce.ExpiresAt),
                 new CreateIndexOptions { ExpireAfter = TimeSpan.Zero }));
+        FaucetChallenges.Indexes.CreateOne(new CreateIndexModel<FaucetChallengeDocument>(
+            Builders<FaucetChallengeDocument>.IndexKeys.Ascending(challenge => challenge.ExpiresAt),
+            new CreateIndexOptions { ExpireAfter = TimeSpan.Zero }));
+        FaucetClaims.Indexes.CreateMany([
+            new CreateIndexModel<FaucetClaimDocument>(
+                Builders<FaucetClaimDocument>.IndexKeys.Ascending(claim => claim.ActiveWalletKey),
+                new CreateIndexOptions { Unique = true, Sparse = true }),
+            new CreateIndexModel<FaucetClaimDocument>(
+                Builders<FaucetClaimDocument>.IndexKeys.Descending(claim => claim.CreatedAt))
+        ]);
         Projects.Indexes.CreateOne(new CreateIndexModel<ProjectDocument>(
             Builders<ProjectDocument>.IndexKeys.Ascending(project => project.IdempotencyKey),
             new CreateIndexOptions { Unique = true, Sparse = true }));
@@ -75,5 +88,11 @@ public sealed class MongoDbContext
     public IMongoCollection<BsonDocument> RelayEntitlementHistory { get; }
 
     public IMongoCollection<WebhookAuthorizationNonceDocument> WebhookAuthorizationNonces { get; }
+
+    public IMongoCollection<FaucetChallengeDocument> FaucetChallenges { get; }
+
+    public IMongoCollection<FaucetClaimDocument> FaucetClaims { get; }
+
+    public IMongoCollection<FaucetDailyFeeBudgetDocument> FaucetDailyFeeBudgets { get; }
 
 }
