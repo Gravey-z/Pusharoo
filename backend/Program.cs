@@ -41,6 +41,7 @@ if (builder.Configuration.GetValue<bool>($"{FaucetRelayerOptions.SectionName}:En
 builder.Services.AddScoped<NeoDeploymentVerificationService>();
 builder.Services.AddSingleton<NeoWalletSignatureVerifier>();
 builder.Services.AddSingleton<NeoWalletAddressValidator>();
+builder.Services.AddSingleton<DeploymentDataService>();
 builder.Services.AddSingleton<WalletSignatureRequestValidator>();
 builder.Services.AddSingleton<ProjectCreationSignatureValidator>();
 builder.Services.AddSingleton<ProjectManagementSignatureValidator>();

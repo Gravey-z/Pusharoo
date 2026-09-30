@@ -163,6 +163,15 @@ export interface StartDeploymentAttemptRequest {
   authorization: WalletActionSignature;
 }
 
+export type DeploymentDataValue =
+  | { type: 'Any'; value: null }
+  | { type: 'String'; value: string }
+  | { type: 'Boolean'; value: boolean }
+  | { type: 'Integer'; value: string }
+  | { type: 'Hash160'; value: string }
+  | { type: 'ByteArray'; value: string }
+  | { type: 'Array'; value: DeploymentDataValue[] };
+
 export interface DeploymentAuthorizationChallengeRequest {
   artifactId: string;
   network: string;
@@ -172,6 +181,7 @@ export interface DeploymentAuthorizationChallengeRequest {
   audience: string;
   issuedAtUtc: string;
   nonce: string;
+  deploymentData?: DeploymentDataValue | null;
 }
 
 export interface DeploymentAuthorizationChallenge {
@@ -179,6 +189,9 @@ export interface DeploymentAuthorizationChallenge {
   operation: 'deploy' | 'update';
   expectedTargetContractHash?: string | null;
   expectedDeploymentRevision: number;
+  deploymentData: DeploymentDataValue;
+  deploymentDataSha256: string;
+  deploymentDataFormatVersion: string;
 }
 
 export interface ArtifactComparison {

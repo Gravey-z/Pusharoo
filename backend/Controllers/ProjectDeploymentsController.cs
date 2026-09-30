@@ -13,6 +13,7 @@ public sealed class ProjectDeploymentsController(
     NeoDeploymentVerificationService deploymentVerification,
     ArtifactService artifactService,
     DeploymentAuthorizationService deploymentAuthorization,
+    DeploymentDataService deploymentData,
     ProjectAuthorizationService projectAuthorization,
     SignatureNonceService nonceService) : ControllerBase
 {
@@ -48,10 +49,26 @@ public sealed class ProjectDeploymentsController(
 
         var permission = projectAuthorization.CanDeployToNetwork(projectResult.Value, request.DeployedBy, request.Network);
         if (!permission.IsAllowed) return StatusCode(permission.StatusCode, new { error = permission.Error });
+        NormalizedDeploymentData normalizedData;
+        try
+        {
+            normalizedData = deploymentData.Normalize(request.DeploymentData);
+        }
+        catch (DeploymentDataValidationException exception)
+        {
+            return BadRequest(new { error = exception.Message });
+        }
         var deployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
         var context = deploymentAuthorization.CreateContext(projectResult.Value, artifact, deployments, request.Network, request.DeployedBy, request.Notes);
         var message = deploymentAuthorization.BuildStartMessage(context, request);
-        return Ok(new DeploymentAuthorizationChallengeResponse(message, context.Operation, context.ExpectedTargetContractHash, context.ExpectedDeploymentRevision));
+        return Ok(new DeploymentAuthorizationChallengeResponse(
+            message,
+            context.Operation,
+            context.ExpectedTargetContractHash,
+            context.ExpectedDeploymentRevision,
+            normalizedData.Value,
+            normalizedData.Sha256,
+            normalizedData.FormatVersion));
     }
 
     [HttpGet]

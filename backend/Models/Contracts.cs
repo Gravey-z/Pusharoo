@@ -100,13 +100,17 @@ public sealed record DeploymentAuthorizationChallengeRequest(
     string Origin,
     string Audience,
     string IssuedAtUtc,
-    string Nonce);
+    string Nonce,
+    DeploymentDataValue? DeploymentData = null);
 
 public sealed record DeploymentAuthorizationChallengeResponse(
     string Message,
     string Operation,
     string? ExpectedTargetContractHash,
-    long ExpectedDeploymentRevision);
+    long ExpectedDeploymentRevision,
+    DeploymentDataValue DeploymentData,
+    string DeploymentDataSha256,
+    string DeploymentDataFormatVersion);
 
 public sealed record StartDeploymentAttemptRequest(
     string ArtifactId,
