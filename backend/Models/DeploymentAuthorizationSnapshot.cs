@@ -2,11 +2,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace backend.Models;
 
-/// <summary>
-/// Immutable authorization context used by Stage 3 once deployment signatures and
-/// short-lived attempt capabilities are enabled. Existing attempts deserialize with
-/// a null snapshot and remain creator-only under the fail-closed ownership policy.
-/// </summary>
+
 public sealed record DeploymentAuthorizationSnapshot
 {
     [BsonElement("initiatorWalletAddress")]
@@ -32,4 +28,20 @@ public sealed record DeploymentAuthorizationSnapshot
 
     [BsonElement("authorizedAtUtc")]
     public DateTime? AuthorizedAtUtc { get; init; }
+
+    [BsonElement("authorizationSchemaVersion")]
+    [BsonIgnoreIfNull]
+    public int? AuthorizationSchemaVersion { get; init; }
+
+    [BsonElement("deploymentData")]
+    [BsonIgnoreIfNull]
+    public DeploymentDataValue? DeploymentData { get; init; }
+
+    [BsonElement("deploymentDataSha256")]
+    [BsonIgnoreIfNull]
+    public string? DeploymentDataSha256 { get; init; }
+
+    [BsonElement("deploymentDataFormatVersion")]
+    [BsonIgnoreIfNull]
+    public string? DeploymentDataFormatVersion { get; init; }
 }

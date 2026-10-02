@@ -136,6 +136,10 @@ export interface Deployment {
   failureReason?: string | null;
   updatedAt: string;
   attemptCapability?: string | null;
+  deploymentData?: DeploymentDataValue | null;
+  deploymentDataSha256?: string | null;
+  deploymentDataFormatVersion?: string | null;
+  authorizationSchemaVersion?: number;
 }
 
 export interface CreateDeploymentRequest {
@@ -161,6 +165,7 @@ export interface StartDeploymentAttemptRequest {
   deployedBy: string;
   notes?: string | null;
   authorization: WalletActionSignature;
+  deploymentData?: DeploymentDataValue | null;
 }
 
 export type DeploymentDataValue =

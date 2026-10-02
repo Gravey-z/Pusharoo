@@ -117,7 +117,8 @@ public sealed record StartDeploymentAttemptRequest(
     string Network,
     string DeployedBy,
     string? Notes,
-    WalletSignatureRequest? Authorization);
+    WalletSignatureRequest? Authorization,
+    DeploymentDataValue? DeploymentData = null);
 
 public sealed record SubmitDeploymentAttemptRequest(string TransactionId, string AttemptCapability);
 
@@ -149,4 +150,8 @@ public sealed record DeploymentResponse(
     string? FailureStage,
     string? FailureReason,
     DateTime UpdatedAt,
-    string? AttemptCapability = null);
+    string? AttemptCapability = null,
+    DeploymentDataValue? DeploymentData = null,
+    string? DeploymentDataSha256 = null,
+    string? DeploymentDataFormatVersion = null,
+    int AuthorizationSchemaVersion = 1);

@@ -8,7 +8,8 @@ namespace backend.Services;
 public sealed class DeploymentAuthorizationService(
     NeoWalletSignatureVerifier signatureVerifier,
     WalletSignatureRequestValidator signatureRequestValidator,
-    ProjectAuthorizationService authorization)
+    ProjectAuthorizationService authorization,
+    DeploymentDataService deploymentData)
 {
     private static readonly JsonSerializerOptions ManifestJsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -21,7 +22,8 @@ public sealed class DeploymentAuthorizationService(
         IReadOnlyList<DeploymentDocument> deployments,
         string network,
         string deployedBy,
-        string? notes)
+        string? notes,
+        NormalizedDeploymentData? normalizedData = null)
     {
         var confirmedForNetwork = deployments
             .Where(item => string.Equals(item.Network, network.Trim(), StringComparison.Ordinal)
@@ -42,15 +44,17 @@ public sealed class DeploymentAuthorizationService(
             target,
             confirmedForNetwork.LongLength,
             deployedBy.Trim(),
-            string.IsNullOrWhiteSpace(notes) ? string.Empty : notes.Trim());
+            string.IsNullOrWhiteSpace(notes) ? string.Empty : notes.Trim(),
+            normalizedData ?? deploymentData.Normalize(null));
     }
 
     public string BuildStartMessage(DeploymentAuthorizationContext context, DeploymentAuthorizationChallengeRequest request)
     {
-        return string.Join('\n', new[]
+        var isDataBoundSchema = request.DeploymentData is not null;
+        var message = new List<string>
         {
             "Pusharoo deployment authorization",
-            "Schema: pusharoo.deployment.v1",
+            $"Schema: {(isDataBoundSchema ? "pusharoo.deployment.v2" : "pusharoo.deployment.v1")}",
             "Action: deployment.start",
             $"Project ID: {context.ProjectId}",
             $"Artifact ID: {context.ArtifactId}",
@@ -66,7 +70,17 @@ public sealed class DeploymentAuthorizationService(
             $"Origin: {request.Origin.Trim()}",
             $"Issued at UTC: {request.IssuedAtUtc.Trim()}",
             $"Nonce: {request.Nonce.Trim()}"
-        });
+        };
+        if (isDataBoundSchema)
+        {
+            var audienceIndex = message.FindIndex(line => line.StartsWith("Audience:", StringComparison.Ordinal));
+            message.InsertRange(audienceIndex, new[]
+            {
+                $"Deployment data format: {context.DeploymentData.FormatVersion}",
+                $"Deployment data SHA-256: {context.DeploymentData.Sha256}"
+            });
+        }
+        return string.Join('\n', message);
     }
 
     public DeploymentAuthorizationValidationResult ValidateStart(
@@ -101,7 +115,21 @@ public sealed class DeploymentAuthorizationService(
             return Fail(permission.StatusCode, permission.Error);
         }
 
-        var context = CreateContext(project, artifact, deployments, request.Network, request.DeployedBy, request.Notes);
+        NormalizedDeploymentData normalizedData;
+        try
+        {
+            normalizedData = deploymentData.Normalize(request.DeploymentData);
+        }
+        catch (DeploymentDataValidationException exception)
+        {
+            return Fail(StatusCodes.Status400BadRequest, exception.Message);
+        }
+
+        var context = CreateContext(project, artifact, deployments, request.Network, request.DeployedBy, request.Notes, normalizedData);
+        if (context.Operation == "update" && request.DeploymentData is not null)
+        {
+            return Fail(StatusCodes.Status400BadRequest, "Deployment initialization data can only be supplied for a new contract deployment.");
+        }
         var challenge = new DeploymentAuthorizationChallengeRequest(
             request.ArtifactId,
             request.Network,
@@ -110,7 +138,8 @@ public sealed class DeploymentAuthorizationService(
             signature.Origin,
             signature.Audience,
             signature.IssuedAtUtc,
-            signature.Nonce);
+            signature.Nonce,
+            request.DeploymentData);
         var message = BuildStartMessage(context, challenge);
         if (!string.Equals(signature.Message, message, StringComparison.Ordinal))
         {
@@ -131,7 +160,11 @@ public sealed class DeploymentAuthorizationService(
             ArtifactNefSha256 = Sha256Hex(context.Nef),
             ArtifactManifestSha256 = Sha256Hex(context.ManifestJson),
             AuthorizationMessageHash = Sha256Hex(message),
-            AuthorizedAtUtc = DateTime.UtcNow
+            AuthorizedAtUtc = DateTime.UtcNow,
+            AuthorizationSchemaVersion = request.DeploymentData is null ? 1 : 2,
+            DeploymentData = request.DeploymentData is null ? null : normalizedData.Value,
+            DeploymentDataSha256 = request.DeploymentData is null ? null : normalizedData.Sha256,
+            DeploymentDataFormatVersion = request.DeploymentData is null ? null : normalizedData.FormatVersion
         };
         return new DeploymentAuthorizationValidationResult(
             true,
@@ -190,7 +223,8 @@ public sealed record DeploymentAuthorizationContext(
     string? ExpectedTargetContractHash,
     long ExpectedDeploymentRevision,
     string DeployedBy,
-    string Notes);
+    string Notes,
+    NormalizedDeploymentData DeploymentData);
 
 public sealed record DeploymentAuthorizationValidationResult(
     bool IsValid,

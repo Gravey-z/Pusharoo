@@ -59,7 +59,18 @@ public sealed class ProjectDeploymentsController(
             return BadRequest(new { error = exception.Message });
         }
         var deployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
-        var context = deploymentAuthorization.CreateContext(projectResult.Value, artifact, deployments, request.Network, request.DeployedBy, request.Notes);
+        var context = deploymentAuthorization.CreateContext(
+            projectResult.Value,
+            artifact,
+            deployments,
+            request.Network,
+            request.DeployedBy,
+            request.Notes,
+            normalizedData);
+        if (context.Operation == "update" && request.DeploymentData is not null)
+        {
+            return BadRequest(new { error = "Deployment initialization data can only be supplied for a new contract deployment." });
+        }
         var message = deploymentAuthorization.BuildStartMessage(context, request);
         return Ok(new DeploymentAuthorizationChallengeResponse(
             message,
@@ -318,6 +329,32 @@ public sealed class ProjectDeploymentsController(
         if (snapshot is null)
         {
             return "Deployment attempt authorization is missing. Start a fresh signed attempt.";
+        }
+        var authorizationSchemaVersion = snapshot.AuthorizationSchemaVersion ?? 1;
+        if (authorizationSchemaVersion is < 1 or > 2)
+        {
+            return "The deployment attempt uses an unsupported authorization format.";
+        }
+        if (authorizationSchemaVersion == 2)
+        {
+            if (snapshot.DeploymentData is null || string.IsNullOrWhiteSpace(snapshot.DeploymentDataSha256)
+                || string.IsNullOrWhiteSpace(snapshot.DeploymentDataFormatVersion))
+            {
+                return "The authorized deployment data snapshot is incomplete. Start a fresh signed attempt.";
+            }
+            try
+            {
+                var normalizedData = deploymentData.Normalize(snapshot.DeploymentData, snapshot.DeploymentDataFormatVersion);
+                if (!string.Equals(normalizedData.Sha256, snapshot.DeploymentDataSha256, StringComparison.Ordinal)
+                    || !string.Equals(normalizedData.FormatVersion, snapshot.DeploymentDataFormatVersion, StringComparison.Ordinal))
+                {
+                    return "The authorized deployment data snapshot failed its integrity check.";
+                }
+            }
+            catch (DeploymentDataValidationException)
+            {
+                return "The authorized deployment data snapshot is invalid.";
+            }
         }
         var artifact = await artifactService.GetByIdAsync(attempt.ArtifactId, cancellationToken);
         if (artifact is null || artifact.ProjectId != project.Id)

@@ -1,9 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace backend.Models;
 
 [JsonConverter(typeof(DeploymentDataValueJsonConverter))]
+[BsonSerializer(typeof(DeploymentDataValueBsonSerializer))]
 public sealed record DeploymentDataValue(string Type, JsonElement Value);
 
 public sealed record NormalizedDeploymentData(

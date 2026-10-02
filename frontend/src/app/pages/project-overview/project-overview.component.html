@@ -253,6 +253,13 @@
             @if (deployment.failureReason) {
               <span class="deployment-failure" [title]="deployment.failureReason">{{ deployment.failureReason }}</span>
             }
+            @if (deployment.deploymentData && deployment.deploymentData.type !== 'Any') {
+              <details class="deployment-data-record">
+                <summary>Initialization data</summary>
+                <pre>{{ formatDeploymentData(deployment.deploymentData) }}</pre>
+                @if (deployment.deploymentDataSha256) { <small>SHA-256: {{ deployment.deploymentDataSha256 }}</small> }
+              </details>
+            }
           </div>
         }
       } @else {

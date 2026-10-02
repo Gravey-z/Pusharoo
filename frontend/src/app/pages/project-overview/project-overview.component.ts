@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { Artifact, Deployment, ProjectAuthorizedDeployer, ProjectOverviewViewModel } from '../../models/pusharoo.models';
+import { Artifact, Deployment, DeploymentDataValue, ProjectAuthorizedDeployer, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { ClipboardService } from '../../services/clipboard.service';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
@@ -32,6 +32,10 @@ interface ReleaseTimelineEvent {
 })
 export class ProjectOverviewComponent implements OnInit {
   overview: ProjectOverviewViewModel | null = null;
+
+  formatDeploymentData(value: DeploymentDataValue): string {
+    return JSON.stringify(value, null, 2);
+  }
   isLoading = true;
   loadError = '';
   private projectId = '';

@@ -48,7 +48,11 @@ public static class ResponseMapper
             string.IsNullOrWhiteSpace(deployment.Status) ? "confirmed" : deployment.Status,
             deployment.FailureStage,
             deployment.FailureReason,
-            deployment.UpdatedAt == default ? deployment.CreatedAt : deployment.UpdatedAt);
+            deployment.UpdatedAt == default ? deployment.CreatedAt : deployment.UpdatedAt,
+            DeploymentData: deployment.AuthorizationSnapshot?.DeploymentData,
+            DeploymentDataSha256: deployment.AuthorizationSnapshot?.DeploymentDataSha256,
+            DeploymentDataFormatVersion: deployment.AuthorizationSnapshot?.DeploymentDataFormatVersion,
+            AuthorizationSchemaVersion: deployment.AuthorizationSnapshot?.AuthorizationSchemaVersion ?? 1);
     }
 
     public static ProjectAuthorizedDeployerResponse ToResponse(this ProjectAuthorizedDeployerDocument authorizedDeployer)

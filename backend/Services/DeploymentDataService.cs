@@ -19,7 +19,14 @@ public sealed class DeploymentDataService(NeoWalletAddressValidator addressValid
     private static readonly BigInteger MaximumInteger = BigInteger.Pow(2, 255) - BigInteger.One;
 
     public NormalizedDeploymentData Normalize(DeploymentDataValue? input)
+        => Normalize(input, FormatVersion);
+
+    public NormalizedDeploymentData Normalize(DeploymentDataValue? input, string formatVersion)
     {
+        if (!string.Equals(formatVersion, FormatVersion, StringComparison.Ordinal))
+        {
+            throw new DeploymentDataValidationException($"Deployment data format '{formatVersion}' is not supported.");
+        }
         var nodes = 0;
         var normalized = NormalizeValue(input ?? new DeploymentDataValue("Any", JsonSerializer.SerializeToElement<object?>(null)), 0, ref nodes);
         var canonicalJson = SerializeCanonical(normalized);
@@ -29,9 +36,9 @@ public sealed class DeploymentDataService(NeoWalletAddressValidator addressValid
             throw new DeploymentDataValidationException($"Deployment data must be {MaximumSerializedBytes} bytes or smaller after normalization.");
         }
 
-        var digestInput = Encoding.UTF8.GetBytes($"{FormatVersion}\n{canonicalJson}");
+        var digestInput = Encoding.UTF8.GetBytes($"{formatVersion}\n{canonicalJson}");
         var digest = Convert.ToHexString(SHA256.HashData(digestInput)).ToLowerInvariant();
-        return new NormalizedDeploymentData(normalized, digest, FormatVersion);
+        return new NormalizedDeploymentData(normalized, digest, formatVersion);
     }
 
     private DeploymentDataValue NormalizeValue(DeploymentDataValue input, int depth, ref int nodes)

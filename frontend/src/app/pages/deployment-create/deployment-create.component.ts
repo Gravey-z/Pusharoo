@@ -256,13 +256,19 @@ export class DeploymentCreateComponent implements OnInit {
         network: session.network,
         deployedBy: this.walletAddress(),
         notes: deploymentNotes,
-        authorization
+        authorization,
+        ...(this.reviewedContext?.operation === 'deploy' ? { deploymentData: this.authorizationPreview?.deploymentData } : {})
       }));
       attemptCapability = attempt.attemptCapability ?? '';
       if (!attemptCapability) {
         throw new Error('Pusharoo did not return a deployment attempt capability. Start the release again.');
       }
       this.attemptCapabilities.set(attempt.id, attemptCapability);
+      if (this.reviewedContext?.operation === 'deploy' &&
+          (attempt.deploymentDataSha256 !== this.authorizationPreview?.deploymentDataSha256 ||
+           attempt.deploymentDataFormatVersion !== this.authorizationPreview?.deploymentDataFormatVersion)) {
+        throw new Error('The deployment attempt did not retain the data from the reviewed release. The attempt was stopped before opening the wallet.');
+      }
 
       const manifestJson = JSON.stringify(artifact.manifest);
       transactionId = await this.deployOrUpdateContract(
