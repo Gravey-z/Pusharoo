@@ -4,7 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { NetworkType } from 'neo-n3-walletkit';
 import { firstValueFrom, forkJoin } from 'rxjs';
 import { isPusharooNetwork } from '../../config/wallet.config';
-import { Artifact, Deployment, DeploymentAuthorizationChallenge, ProjectAuthorizedDeployer, ProjectOverviewViewModel } from '../../models/pusharoo.models';
+import { Artifact, Deployment, DeploymentAuthorizationChallenge, DeploymentDataValue, ProjectAuthorizedDeployer, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { DeploymentAttemptCapabilityService } from '../../services/deployment-attempt-capability.service';
 import { NeoRpcService } from '../../services/neo-rpc.service';
@@ -15,10 +15,12 @@ import { RuntimeConfigService } from '../../services/runtime-config.service';
 import { DeploymentFeeEstimate, WalletService } from '../../services/wallet.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
+import { DeploymentDataEditorComponent, EditableDeploymentData } from '../../components/deployment-data-editor/deployment-data-editor.component';
+import { DeploymentDataService } from '../../services/deployment-data.service';
 
 @Component({
   selector: 'app-deployment-create',
-  imports: [FormsModule, PageShellComponent, ProjectReleaseNavComponent, RouterLink],
+  imports: [FormsModule, PageShellComponent, ProjectReleaseNavComponent, DeploymentDataEditorComponent, RouterLink],
   templateUrl: './deployment-create.component.html',
   styleUrl: './deployment-create.component.scss'
 })
@@ -27,6 +29,9 @@ export class DeploymentCreateComponent implements OnInit {
   artifacts: Artifact[] = [];
   artifactId = '';
   notes = '';
+  deploymentDataMode: 'none' | 'custom' = 'none';
+  deploymentDataDraft: EditableDeploymentData = { type: 'Any', value: null };
+  deploymentDataError = '';
   errorMessage = '';
   deployStatus = '';
   isSaving = false;
@@ -42,6 +47,7 @@ export class DeploymentCreateComponent implements OnInit {
   private deniedDeploymentAttempt: { walletAddress: string; network: string } | null = null;
   private preparedNefHex = '';
   private preparedArtifactId = '';
+  private reviewedContext: { artifactId: string; wallet: string; network: string; operation: 'deploy' | 'update'; target: string | null } | null = null;
   readonly projectId: string;
   readonly walletAddress = computed(() => this.wallet.account()?.address ?? '');
   readonly walletNetwork = computed(() => this.wallet.session()?.network ?? '');
@@ -68,6 +74,15 @@ export class DeploymentCreateComponent implements OnInit {
 
   get targetContract(): string | null {
     return this.getExistingDeployment(this.walletNetwork())?.contractHash ?? null;
+  }
+
+  get reviewedContextIsCurrent(): boolean {
+    const context = this.reviewedContext;
+    return Boolean(context && this.contextMatches(context));
+  }
+
+  get formattedReviewedDeploymentData(): string {
+    return JSON.stringify(this.authorizationPreview?.deploymentData ?? { type: 'Any', value: null }, null, 2);
   }
 
   get deploymentAccess() {
@@ -126,7 +141,8 @@ export class DeploymentCreateComponent implements OnInit {
     private readonly neoRpc: NeoRpcService,
     private readonly deploymentAccessService: ProjectDeploymentAccessService,
     private readonly runtimeConfig: RuntimeConfigService,
-    readonly wallet: WalletService
+    readonly wallet: WalletService,
+    private readonly deploymentDataService: DeploymentDataService
   ) {
     this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
   }
@@ -172,6 +188,16 @@ export class DeploymentCreateComponent implements OnInit {
       return;
     }
 
+    if (!this.reviewedContextIsCurrent) {
+      this.errorMessage = 'The wallet, network, artifact, or deployment action changed. Review this release again.';
+      return;
+    }
+
+    if (this.reviewedContext?.operation === 'deploy' && this.authorizationPreview?.deploymentData.type !== 'Any') {
+      this.errorMessage = 'Custom deployment data can be reviewed here, but transaction submission is not enabled until the remaining deployment-data phases are complete.';
+      return;
+    }
+
     const artifact = this.artifacts.find((item) => item.id === this.artifactId);
     if (!artifact) {
       this.errorMessage = 'The selected artifact could not be loaded.';
@@ -208,8 +234,17 @@ export class DeploymentCreateComponent implements OnInit {
         network: session.network,
         deployedBy: this.walletAddress(),
         notes: deploymentNotes,
+        ...(this.reviewedContext?.operation === 'deploy' ? { deploymentData: this.authorizationPreview?.deploymentData } : {}),
         ...authorizationContext
       }));
+      const reviewed = this.authorizationPreview;
+      if (!reviewed || authorizationChallenge.deploymentDataSha256 !== reviewed.deploymentDataSha256 ||
+          authorizationChallenge.expectedDeploymentRevision !== reviewed.expectedDeploymentRevision ||
+          authorizationChallenge.operation !== reviewed.operation ||
+          authorizationChallenge.expectedTargetContractHash !== reviewed.expectedTargetContractHash) {
+        this.errorMessage = 'This release changed after review. Edit the release and review it again before opening the wallet.';
+        return;
+      }
       const authorization = await this.wallet.signDeploymentAuthorization(
         authorizationChallenge.message,
         authorizationContext
@@ -279,6 +314,7 @@ export class DeploymentCreateComponent implements OnInit {
     this.feeEstimateError = '';
     this.feeEstimate = null;
     this.mainnetConfirmed = false;
+    this.deploymentDataError = '';
 
     const artifact = this.selectedArtifact;
     const session = this.wallet.session();
@@ -298,6 +334,22 @@ export class DeploymentCreateComponent implements OnInit {
       return;
     }
 
+    let deploymentData: DeploymentDataValue;
+    try {
+      deploymentData = this.getDeploymentDataForReview();
+    } catch (error) {
+      this.deploymentDataError = error instanceof Error ? error.message : 'Enter valid deployment data.';
+      return;
+    }
+
+    const reviewContext = {
+      artifactId: artifact.id,
+      wallet: this.walletAddress(),
+      network: session.network,
+      operation: this.operation,
+      target: this.targetContract
+    };
+
     this.isPreparingReview = true;
 
     try {
@@ -307,25 +359,40 @@ export class DeploymentCreateComponent implements OnInit {
         network: session.network,
         deployedBy: this.walletAddress(),
         notes: this.notes.trim() || null,
+        ...(this.operation === 'deploy' ? { deploymentData } : {}),
         ...authorizationContext
       }));
-      this.authorizationPreview = authorizationPreview;
+      if (!this.contextMatches(reviewContext)) {
+        this.errorMessage = 'The wallet, network, artifact, or deployment action changed while preparing review. Review the release again.';
+        return;
+      }
+      this.authorizationPreview = JSON.parse(JSON.stringify(authorizationPreview)) as DeploymentAuthorizationChallenge;
       const nefHex = await firstValueFrom(this.api.getArtifactNefHex(artifact.id));
+      if (!this.contextMatches(reviewContext)) {
+        this.errorMessage = 'The wallet, network, artifact, or deployment action changed while preparing review. Review the release again.';
+        return;
+      }
       this.ensureValidNef(nefHex);
       this.preparedNefHex = nefHex;
       this.preparedArtifactId = artifact.id;
+      this.reviewedContext = reviewContext;
       this.isReviewing = true;
 
-      try {
-        this.feeEstimate = await this.wallet.estimateDeploymentFees(
-          session.network,
-          authorizationPreview.operation,
-          nefHex,
-          JSON.stringify(artifact.manifest),
-          authorizationPreview.expectedTargetContractHash ?? undefined
-        );
-      } catch (error) {
-        this.feeEstimateError = this.getErrorMessage(error);
+      if (authorizationPreview.operation === 'deploy' && authorizationPreview.deploymentData.type !== 'Any') {
+        this.feeEstimateError = 'Fee estimation will be available when custom deployment data is connected to the deploy invocation.';
+      } else {
+        try {
+          const feeEstimate = await this.wallet.estimateDeploymentFees(
+            session.network,
+            authorizationPreview.operation,
+            nefHex,
+            JSON.stringify(artifact.manifest),
+            authorizationPreview.expectedTargetContractHash ?? undefined
+          );
+          if (this.contextMatches(reviewContext)) this.feeEstimate = feeEstimate;
+        } catch (error) {
+          if (this.contextMatches(reviewContext)) this.feeEstimateError = this.getErrorMessage(error);
+        }
       }
     } catch (error) {
       this.errorMessage = this.getErrorMessage(error);
@@ -342,6 +409,23 @@ export class DeploymentCreateComponent implements OnInit {
     this.authorizationPreview = null;
     this.preparedNefHex = '';
     this.preparedArtifactId = '';
+    this.reviewedContext = null;
+  }
+
+  private getDeploymentDataForReview(): DeploymentDataValue {
+    if (this.operation === 'update' || this.deploymentDataMode === 'none') {
+      return this.deploymentDataService.normalize({ type: 'Any', value: null });
+    }
+    return this.deploymentDataService.normalize(this.deploymentDataDraft);
+  }
+
+  private contextMatches(context: { artifactId: string; wallet: string; network: string; operation: 'deploy' | 'update'; target: string | null }): boolean {
+    return context.artifactId === this.artifactId && context.wallet === this.walletAddress() &&
+      context.network === this.walletNetwork() && context.operation === this.operation && context.target === this.targetContract;
+  }
+
+  onDeploymentDataChanged(): void {
+    this.deploymentDataError = '';
   }
 
   private getDeploymentPermissionError(): string {

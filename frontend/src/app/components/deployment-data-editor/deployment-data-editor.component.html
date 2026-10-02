@@ -1,0 +1,52 @@
+<ng-template #renderValue let-node let-nodeDepth="depth" let-isRoot="root">
+  <div class="deployment-data-node" [class.deployment-data-root]="isRoot" [class.deployment-data-child]="!isRoot">
+    <div class="deployment-data-controls">
+      @if (!isRoot) { <strong class="deployment-data-index">{{ nodeDepth.index + 1 }}.</strong> }
+      <label class="deployment-data-type">
+        <span>{{ isRoot ? 'Root type' : 'Type' }}</span>
+        <select [ngModel]="node.type" [ngModelOptions]="{ standalone: true }" (ngModelChange)="node.type = $event; node.value = defaultValue($event); emitChange()">
+          @for (type of dataTypes; track type) { <option [value]="type">{{ type }}</option> }
+        </select>
+      </label>
+
+      @switch (node.type) {
+        @case ('Any') { <p class="deployment-data-null">Null</p> }
+        @case ('String') {
+          <label class="deployment-data-input"><span>String value</span><input type="text" [ngModel]="$any(node.value)" [ngModelOptions]="{ standalone: true }" (ngModelChange)="node.value = $event; emitChange()" /></label>
+        }
+        @case ('Boolean') {
+          <label class="deployment-data-input"><span>Boolean value</span><select [ngModel]="$any(node.value)" [ngModelOptions]="{ standalone: true }" (ngModelChange)="node.value = $event; emitChange()"><option [ngValue]="true">True</option><option [ngValue]="false">False</option></select></label>
+        }
+        @case ('Integer') {
+          <label class="deployment-data-input"><span>Integer value</span><input type="text" inputmode="numeric" [ngModel]="$any(node.value)" [ngModelOptions]="{ standalone: true }" (ngModelChange)="node.value = $event; emitChange()" placeholder="For example, 42" /></label>
+        }
+        @case ('Hash160') {
+          <label class="deployment-data-input"><span>Neo N3 address or script hash</span><input type="text" [ngModel]="$any(node.value)" [ngModelOptions]="{ standalone: true }" (ngModelChange)="node.value = $event; emitChange()" placeholder="Address or 0x script hash" /></label>
+          @if (connectedWalletAddress) { <button type="button" class="secondary-button wallet-data-button" (click)="node.value = connectedWalletAddress; emitChange()">Use connected wallet</button> }
+          @if (node.value && node.type === 'Hash160' && resolveHash(node)) { <small class="deployment-data-resolved">Resolved script hash: {{ resolveHash(node) }}</small> }
+        }
+        @case ('ByteArray') {
+          <label class="deployment-data-input"><span>Hex bytes</span><input type="text" spellcheck="false" [ngModel]="$any(node.value)" [ngModelOptions]="{ standalone: true }" (ngModelChange)="node.value = $event; emitChange()" placeholder="Even-length hex, optional 0x prefix" /></label>
+        }
+        @case ('Array') {
+          <div class="deployment-data-array">
+            @for (child of arrayChildren(node); track child; let index = $index) {
+              <div class="deployment-data-array-row">
+                <ng-container *ngTemplateOutlet="renderValue; context: { $implicit: child, depth: { index: index }, root: false }"></ng-container>
+                <div class="array-actions">
+                  <button type="button" class="secondary-button" (click)="moveArrayItem(node, index, -1)" [disabled]="index === 0" aria-label="Move item up">↑</button>
+                  <button type="button" class="secondary-button" (click)="moveArrayItem(node, index, 1)" [disabled]="index === arrayChildren(node).length - 1" aria-label="Move item down">↓</button>
+                  <button type="button" class="secondary-button remove-data-button" (click)="removeArrayItem(node, index)">Remove</button>
+                </div>
+              </div>
+            }
+            <button type="button" class="secondary-button add-data-button" (click)="addArrayItem(node)">Add array item</button>
+          </div>
+        }
+      }
+    </div>
+    @if (node.type !== 'Array' && fieldError(node)) { <p class="deployment-data-error" role="alert">{{ fieldError(node) }}</p> }
+  </div>
+</ng-template>
+
+<ng-container *ngTemplateOutlet="renderValue; context: { $implicit: value, depth: { index: 0 }, root: root }"></ng-container>

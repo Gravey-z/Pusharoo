@@ -63,6 +63,34 @@
   line-height: var(--line-height-body);
 }
 
+.deployment-data-help { font-family: var(--font-body); }
+
+.deployment-data-review {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--field);
+}
+
+.deployment-data-review h3 { margin: 0; color: var(--accent); font-size: 14px; }
+.deployment-data-review p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.deployment-data-review pre {
+  max-height: 320px;
+  overflow: auto;
+  margin: 0;
+  border-radius: 6px;
+  padding: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 12px/1.5 var(--font-mono);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.deployment-data-review small { color: var(--muted); overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 10px; }
+.review-stale-warning { border: 1px solid var(--warning-border); border-radius: 8px; padding: 12px; background: var(--warning-soft); color: var(--warning); font-size: 13px; line-height: 1.5; }
+
 .form-flow-section {
   display: grid;
   gap: var(--space-3);

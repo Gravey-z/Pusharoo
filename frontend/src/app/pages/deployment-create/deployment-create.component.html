@@ -64,8 +64,31 @@
           <p class="network-status">{{ networkDeploymentStatus }}</p>
         </section>
 
+        @if (operation === 'deploy') {
         <section class="form-flow-section">
-          <h3>3. Add an optional note</h3>
+          <h3>3. Deployment data (optional)</h3>
+          <label>
+            <span>Initialization data</span>
+            <select name="deploymentDataMode" [(ngModel)]="deploymentDataMode">
+              <option value="none">None (null)</option>
+              <option value="custom">Enter typed data</option>
+            </select>
+          </label>
+          <p class="field-help deployment-data-help">This value is public on-chain and is passed to the contract during its initial deployment. Account values should be public Neo N3 addresses or script hashes. Never enter a WIF or other private key.</p>
+          @if (deploymentDataMode === 'custom') {
+            <app-deployment-data-editor
+              [value]="deploymentDataDraft"
+              [connectedWalletAddress]="walletAddress()"
+              [root]="true"
+              (valueChange)="onDeploymentDataChanged()"
+            />
+          }
+          @if (deploymentDataError) { <p class="deployment-data-error" role="alert">{{ deploymentDataError }}</p> }
+        </section>
+        }
+
+        <section class="form-flow-section">
+          <h3>{{ operation === 'deploy' ? '4.' : '3.' }} Add an optional note</h3>
           <label>
             <span>Notes</span>
             <textarea name="notes" rows="4" [(ngModel)]="notes" placeholder="What changes in this release?"></textarea>
@@ -105,6 +128,21 @@
             <div><dt>Expected deployment revision</dt><dd>{{ authorizationPreview?.expectedDeploymentRevision ?? 'Not available' }}</dd></div>
           </dl>
 
+          @if (operation === 'deploy') {
+            <section class="deployment-data-review">
+              <h3>Deployment data</h3>
+              <p>The normalized value below is the initialization data recorded for this review.</p>
+              <pre>{{ formattedReviewedDeploymentData }}</pre>
+              @if (authorizationPreview?.deploymentDataSha256) {
+                <small>Data digest: {{ authorizationPreview?.deploymentDataSha256 }}</small>
+              }
+            </section>
+          }
+
+          @if (!reviewedContextIsCurrent) {
+            <aside class="review-stale-warning" role="status">The connected wallet, network, artifact, or deployment action changed after this review. Edit the release and review it again before continuing.</aside>
+          }
+
           @if (operation === 'update') {
             <aside class="update-authorization-note">
               <strong>Contract update authorization</strong>
@@ -112,15 +150,21 @@
             </aside>
           }
 
+          @if (operation === 'deploy' && authorizationPreview?.deploymentData?.type !== 'Any') {
+            <aside class="review-stale-warning" role="status">This custom value is available for review, but deployment is disabled until fee estimation, authorization binding, and transaction submission support the same data value.</aside>
+          }
+
           <section class="fee-estimate" aria-label="Estimated transaction fees">
             <h3>Estimated maximum fee</h3>
-            @if (feeEstimate) {
+            @if (feeEstimate && reviewedContextIsCurrent) {
               <div class="fee-grid">
                 <span>System fee <strong>{{ feeEstimate.systemFee }}</strong></span>
                 <span>Network fee <strong>{{ feeEstimate.networkFee }}</strong></span>
                 <span>Total maximum <strong>{{ feeEstimate.total }}</strong></span>
               </div>
               <p>Your wallet calculates the final transaction fee before signing.</p>
+            } @else if (!reviewedContextIsCurrent) {
+              <p class="fee-unavailable">Review again to refresh the fee estimate for the current wallet and network.</p>
             } @else {
               <p class="fee-unavailable">Fee estimate unavailable. Review the final fee shown on your wallet’s confirmation screen before signing.</p>
             }
@@ -158,7 +202,7 @@
               [class.primary-button]="walletNetwork() !== 'neo3:mainnet'"
               [class.mainnet-action-button]="walletNetwork() === 'neo3:mainnet'"
               (click)="save()"
-              [disabled]="isSaving || (walletNetwork() === 'neo3:mainnet' && !mainnetConfirmed)"
+              [disabled]="isSaving || !reviewedContextIsCurrent || (operation === 'deploy' && authorizationPreview?.deploymentData?.type !== 'Any') || (walletNetwork() === 'neo3:mainnet' && !mainnetConfirmed)"
             >
               {{ submitLabel }}
             </button>

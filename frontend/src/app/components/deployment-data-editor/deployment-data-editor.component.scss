@@ -1,0 +1,16 @@
+:host { display: block; }
+
+.deployment-data-node { display: grid; gap: 8px; min-width: 0; }
+.deployment-data-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; min-width: 0; }
+.deployment-data-type, .deployment-data-input { display: grid; gap: 5px; min-width: 150px; flex: 1 1 190px; }
+.deployment-data-type { flex: 0 1 170px; }
+.deployment-data-index { align-self: center; color: var(--muted); }
+.deployment-data-null { margin: 0 0 9px; color: var(--muted); font-size: 13px; }
+.deployment-data-array { display: grid; gap: 10px; flex: 1 1 100%; min-width: 0; }
+.deployment-data-array-row { display: grid; gap: 8px; border-left: 2px solid var(--line-strong); padding-left: 12px; }
+.array-actions { display: flex; gap: 6px; }
+.array-actions button, .add-data-button, .wallet-data-button { min-height: 32px; padding: 0 10px; }
+.deployment-data-resolved { flex: 1 1 100%; overflow-wrap: anywhere; color: var(--sage); font-family: var(--font-mono); font-size: 11px; }
+.deployment-data-error { margin: 0; color: var(--danger); font-size: 12px; }
+.deployment-data-child { width: 100%; }
+.deployment-data-root { width: 100%; }
