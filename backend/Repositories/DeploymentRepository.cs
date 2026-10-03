@@ -1,6 +1,8 @@
 using backend.Models;
 using backend.Services;
+using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.RegularExpressions;
 
 namespace backend.Repositories;
 
@@ -23,7 +25,10 @@ public sealed class DeploymentRepository(MongoDbContext db) : IDeploymentReposit
 
     public async Task<DeploymentDocument?> GetByTransactionIdAsync(string transactionId, CancellationToken cancellationToken)
     {
-        return await db.Deployments.Find(deployment => deployment.TransactionId == transactionId)
+        var hash = transactionId.Trim();
+        if (hash.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) hash = hash[2..];
+        var exactHash = new BsonRegularExpression($"^(?:0x)?{Regex.Escape(hash)}$", "i");
+        return await db.Deployments.Find(Builders<DeploymentDocument>.Filter.Regex(deployment => deployment.TransactionId, exactHash))
             .FirstOrDefaultAsync(cancellationToken);
     }
 

@@ -14,36 +14,29 @@
   } @else if (overview) {
   <app-project-release-nav [projectId]="projectId" />
 
-    @if (artifacts.length) {
-      <aside class="recovery-policy-notice" [class.access-denied]="!canInspectRecovery">
-        <strong>{{ canInspectRecovery ? 'Recovery safety gate' : 'Deployment access required' }}</strong>
-        <span>{{ recoveryAccessMessage }}</span>
-      </aside>
       <section class="recovery-intro surface-panel surface-panel--prominent">
+        @if (hasConfirmedDeploymentOnConnectedNetwork) {
+          <h2>Deployment already recorded on {{ wallet.networkLabel(walletNetwork()) }}</h2>
+          <p>This project already has a confirmed deployment on this network. Switch your wallet to another network to recover a deployment there.</p>
+        } @else {
         <h2>Record a contract that is already on-chain</h2>
         <p>
-          Use this if your wallet successfully deployed or updated a contract but Pusharoo did not save it.
-          Pusharoo verifies the transaction with Neo before adding the deployment record, it will not deploy again.
+          Already deployed a contract on Neo N3, with or without Pusharoo? Enter its deployment transaction hash to add it to this project.
+          You can also recover an existing Pusharoo update that was not confirmed. Your old NEF and manifest files are not required.
         </p>
+        }
       </section>
 
+      @if (!hasConfirmedDeploymentOnConnectedNetwork) {
       <form class="recovery-form surface-panel" (ngSubmit)="recover()">
         <header class="recovery-form-header">
           <span>Deployment recovery</span>
           <h2>Verify an on-chain transaction</h2>
-          <p>Pusharoo checks the transaction with Neo and records it. It never sends another deployment transaction from this form.</p>
+          <p>Pusharoo checks the signed transaction and its Deploy or Update event on Neo, then records the contract hash. This form does not deploy a contract.</p>
         </header>
 
         <section class="recovery-form-section">
-          <h3>1. Identify the deployment</h3>
-          <label>
-            <span>Artifact version used</span>
-            <select name="artifactId" [(ngModel)]="artifactId" [disabled]="true">
-              @for (artifact of artifacts; track artifact.id) {
-                <option [value]="artifact.id">{{ artifact.version }} - {{ artifact.contractName }}</option>
-              }
-            </select>
-          </label>
+          <h3>Identify the deployment</h3>
 
           <label [class.mainnet-network]="walletNetwork() === 'neo3:mainnet'">
             <span class="field-label">
@@ -61,23 +54,19 @@
               [(ngModel)]="transactionId"
               placeholder="0x..."
               autocomplete="off"
-              [disabled]="true"
+              spellcheck="false"
             />
           </label>
-          <p class="field-help">Use the transaction ID from the wallet or Neo explorer. Pusharoo verifies that it belongs to this artifact and network.</p>
+          <p class="field-help">Use the transaction hash from your wallet or Neo explorer. The connected wallet must be the transaction signer and have deployment access to this project.</p>
         </section>
 
         <section class="recovery-form-section">
-          <h3>2. Confirm ownership</h3>
+          <h3>Confirm the wallet</h3>
           <label>
-            <span>Project owner wallet</span>
-            <input type="text" name="projectOwner" [value]="overview.project.createdByWalletAddress || 'Legacy project owner unavailable'" readonly />
+            <span>Deployment wallet</span>
+            <input type="text" name="deploymentWallet" [value]="walletAddress() || 'Connect wallet first'" readonly />
           </label>
-
-          <label>
-            <span>Notes</span>
-            <textarea name="notes" rows="4" [(ngModel)]="notes" [disabled]="true" placeholder="Why is this deployment being recovered?"></textarea>
-          </label>
+          <p class="field-help">Your wallet will sign one recovery message to attach this transaction to the project. Pusharoo will not request another deployment transaction.</p>
         </section>
 
         @if (statusMessage) {
@@ -88,17 +77,11 @@
           <p class="form-error">{{ errorMessage }}</p>
         }
 
-        <button class="primary-button" type="submit" [disabled]="true" [title]="recoveryAccessMessage">
-          Recovery unavailable
+        <button class="primary-button" type="submit" [disabled]="isRecovering">
+          {{ isRecovering ? 'Recovering...' : 'Recover Deployment' }}
         </button>
       </form>
-    } @else {
-      <section class="empty-state">
-        <strong>No artifacts uploaded</strong>
-        <p>Upload the artifact used by the transaction before recovering the deployment.</p>
-        <a class="primary-button" [routerLink]="['/projects', projectId, 'upload']">Upload Artifact</a>
-      </section>
-    }
+      }
   } @else {
     <p class="missing">Project not found.</p>
   }

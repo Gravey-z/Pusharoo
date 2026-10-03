@@ -41,6 +41,8 @@ export class ProjectOverviewComponent implements OnInit {
   private projectId = '';
   copiedValue = '';
   confirmingDeploymentId = '';
+  confirmationErrorDeploymentId = '';
+  confirmationError = '';
   authorizedDeployers: ProjectAuthorizedDeployer[] = [];
   authorizedDeployerAccessError = '';
   releaseTab: 'overview' | 'artifacts' | 'deployments' = 'overview';
@@ -103,6 +105,11 @@ export class ProjectOverviewComponent implements OnInit {
   liveDeployments(overview: ProjectOverviewViewModel): Deployment[] {
     return this.deploymentHistory.latestConfirmedByNetwork(overview.deployments)
       .filter((deployment) => ['neo3:testnet', 'neo3:mainnet'].includes(deployment.network));
+  }
+
+  hasConfirmedDeploymentOnConnectedNetwork(overview: ProjectOverviewViewModel): boolean {
+    const network = this.wallet.session()?.network;
+    return Boolean(network && this.deploymentHistory.latestForNetwork(overview.deployments, network));
   }
 
   latestAttemptsByVersion(overview: ProjectOverviewViewModel): Deployment[] {
@@ -288,9 +295,12 @@ export class ProjectOverviewComponent implements OnInit {
   }
 
   canResumeConfirmation(deployment: Deployment): boolean {
+    const retryableFailure = deployment.status === 'failed'
+      && deployment.failureStage === 'confirmation'
+      && deployment.failureReason?.startsWith('Pusharoo could not verify the submitted invocation:');
     return Boolean(
       deployment.transactionId
-      && ['submitted', 'confirming'].includes(deployment.status)
+      && (['submitted', 'confirming'].includes(deployment.status) || retryableFailure)
       && this.wallet.account()?.address === deployment.deployedBy
       && this.attemptCapabilities.get(deployment.id)
     );
@@ -303,10 +313,16 @@ export class ProjectOverviewComponent implements OnInit {
     }
 
     this.confirmingDeploymentId = deployment.id;
+    this.confirmationErrorDeploymentId = '';
+    this.confirmationError = '';
     try {
       await firstValueFrom(this.api.confirmDeploymentAttempt(overview.project.id, deployment.id, attemptCapability));
       this.attemptCapabilities.remove(deployment.id);
+      if (this.workspace) this.workspace.overview = null;
       this.loadOverview(overview.project.id);
+    } catch (error) {
+      this.confirmationErrorDeploymentId = deployment.id;
+      this.confirmationError = this.errors.format(error, 'Could not confirm this deployment.');
     } finally {
       this.confirmingDeploymentId = '';
     }

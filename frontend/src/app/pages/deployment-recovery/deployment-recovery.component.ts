@@ -1,9 +1,10 @@
 import { Component, OnInit, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
-import { forkJoin } from 'rxjs';
-import { Artifact, ProjectAuthorizedDeployer, ProjectOverviewViewModel } from '../../models/pusharoo.models';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { firstValueFrom, forkJoin } from 'rxjs';
+import { ProjectAuthorizedDeployer, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { ProjectDeploymentAccessService } from '../../services/project-deployment-access.service';
+import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
@@ -18,10 +19,7 @@ import { ProjectReleaseNavComponent } from '../../components/project-release-nav
 })
 export class DeploymentRecoveryComponent implements OnInit {
   overview: ProjectOverviewViewModel | null = null;
-  artifacts: Artifact[] = [];
-  artifactId = '';
   transactionId = '';
-  notes = '';
   errorMessage = '';
   statusMessage = '';
   isRecovering = false;
@@ -41,20 +39,26 @@ export class DeploymentRecoveryComponent implements OnInit {
     return this.deploymentAccess.canDeployToNetwork(access, this.walletNetwork());
   }
 
+  get hasConfirmedDeploymentOnConnectedNetwork(): boolean {
+    return Boolean(this.deploymentHistory.latestForNetwork(this.overview?.deployments ?? [], this.walletNetwork()));
+  }
+
   get recoveryAccessMessage(): string {
     if (!this.walletAddress() || !this.walletNetwork()) {
-      return 'Connect the wallet assigned to the transaction network to inspect recovery requirements.';
+      return 'Connect the wallet that signed the deployment on the transaction network.';
     }
     if (!this.canInspectRecovery) {
       return `The connected wallet has no deployment access for ${this.deploymentAccess.networkLabel(this.walletNetwork())}.`;
     }
-    return 'Recovery is limited to the authorized deployment attempt that created the transaction.';
+    return 'The connected wallet can recover a deployment transaction it signed on this network.';
   }
 
   constructor(
     private readonly route: ActivatedRoute,
+    private readonly router: Router,
     private readonly api: PusharooApiService,
     private readonly errors: ApiErrorFormatterService,
+    private readonly deploymentHistory: DeploymentHistoryService,
     private readonly deploymentAccess: ProjectDeploymentAccessService,
     readonly wallet: WalletService
   ) {
@@ -79,13 +83,10 @@ export class DeploymentRecoveryComponent implements OnInit {
       next: ({ overview, authorizedDeployers }) => {
         this.overview = overview;
         this.authorizedDeployers = authorizedDeployers;
-        this.artifacts = overview.artifacts ?? [];
-        this.artifactId = this.artifacts[0]?.id ?? '';
         this.isLoading = false;
       },
       error: (error) => {
         this.overview = null;
-        this.artifacts = [];
         this.authorizedDeployers = [];
         this.loadError = this.errors.format(error, 'Could not load this project.');
         this.isLoading = false;
@@ -97,12 +98,38 @@ export class DeploymentRecoveryComponent implements OnInit {
     this.errorMessage = '';
     this.statusMessage = '';
 
+    if (this.hasConfirmedDeploymentOnConnectedNetwork) {
+      this.errorMessage = 'This project already has a confirmed deployment on the connected network.';
+      return;
+    }
+
+    const transactionId = this.transactionId.trim().toLowerCase();
+    if (!/^0x[0-9a-f]{64}$/.test(transactionId)) {
+      this.errorMessage = 'Enter a 0x-prefixed Neo N3 transaction hash.';
+      return;
+    }
     if (!this.canInspectRecovery) {
       this.errorMessage = this.recoveryAccessMessage;
       return;
     }
 
-    this.errorMessage = 'Unbound transaction recovery is not available. Resume the authorized deployment attempt that created the transaction instead.';
+    this.isRecovering = true;
+    try {
+      const authorization = await this.wallet.signDeploymentRecovery(this.projectId, transactionId);
+      this.statusMessage = 'Checking the transaction on Neo...';
+      await firstValueFrom(this.api.recoverDeployment(this.projectId, {
+        network: this.walletNetwork(),
+        transactionId,
+        deployedBy: this.walletAddress(),
+        authorization
+      }));
+      await this.router.navigate(['/projects', this.projectId, 'deployments']);
+    } catch (error) {
+      this.statusMessage = '';
+      this.errorMessage = this.errors.format(error, 'Could not recover this deployment transaction.');
+    } finally {
+      this.isRecovering = false;
+    }
   }
 
 }

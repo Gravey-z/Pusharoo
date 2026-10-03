@@ -271,13 +271,13 @@ dd {
   background: var(--card);
 }
 
-.deployment-list > div:not(.deployment-empty-state) {
+.deployment-list > .deployment-row {
   display: grid;
   grid-template-columns: 100px 130px 110px 1fr 1fr 1fr auto;
   gap: 14px;
   min-height: 48px;
   align-items: center;
-  padding: 0 16px;
+  padding: var(--space-3) 16px;
   border-bottom: 1px solid var(--line);
   color: var(--ink);
   font-size: 14px;
@@ -326,7 +326,7 @@ dd {
   cursor: wait;
 }
 
-.deployment-list > div:not(.deployment-empty-state):last-child {
+.deployment-list > .deployment-row:last-child {
   border-bottom: 0;
 }
 
@@ -516,7 +516,7 @@ dd {
   .metric-grid,
   .network-grid,
   .artifact-list > a,
-  .deployment-list > div:not(.deployment-empty-state) {
+  .deployment-list > .deployment-row {
     grid-template-columns: 1fr;
   }
 

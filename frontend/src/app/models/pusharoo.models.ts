@@ -152,11 +152,10 @@ export interface CreateDeploymentRequest {
 }
 
 export interface RecoverDeploymentRequest {
-  artifactId: string;
   network: string;
   transactionId: string;
   deployedBy: string;
-  notes?: string | null;
+  authorization: WalletActionSignature;
 }
 
 export interface StartDeploymentAttemptRequest {

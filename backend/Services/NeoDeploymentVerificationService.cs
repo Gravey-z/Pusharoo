@@ -33,6 +33,7 @@ public sealed class NeoDeploymentVerificationService(
             request.Network,
             request.TransactionId,
             null,
+            null,
             cancellationToken);
         if (!inspection.IsValid)
         {
@@ -47,11 +48,22 @@ public sealed class NeoDeploymentVerificationService(
     public Task<NeoDeploymentInspectionResult> RecoverAsync(
         ProjectDocument project,
         IReadOnlyList<DeploymentDocument> existingDeployments,
-        RecoverDeploymentRequest request,
-        string? expectedInitiatorScriptHash,
+        DeploymentDocument attempt,
         CancellationToken cancellationToken)
     {
-        return InspectAsync(project, existingDeployments, request.Network, request.TransactionId, expectedInitiatorScriptHash, cancellationToken);
+        return InspectAsync(project, existingDeployments, attempt.Network, attempt.TransactionId,
+            attempt.AuthorizationSnapshot?.InitiatorScriptHash, attempt, cancellationToken);
+    }
+
+    public Task<NeoDeploymentInspectionResult> InspectRecoveredDeployAsync(
+        ProjectDocument project,
+        string network,
+        string transactionId,
+        string signerScriptHash,
+        CancellationToken cancellationToken)
+    {
+        return InspectAsync(project, [], network, transactionId, signerScriptHash, null, cancellationToken,
+            requirePrimarySigner: true);
     }
 
     private async Task<NeoDeploymentInspectionResult> InspectAsync(
@@ -60,7 +72,9 @@ public sealed class NeoDeploymentVerificationService(
         string network,
         string? transactionId,
         string? expectedInitiatorScriptHash,
-        CancellationToken cancellationToken)
+        DeploymentDocument? attempt,
+        CancellationToken cancellationToken,
+        bool requirePrimarySigner = false)
     {
         if (string.IsNullOrWhiteSpace(transactionId))
         {
@@ -81,9 +95,9 @@ public sealed class NeoDeploymentVerificationService(
             return InspectFail($"No Neo RPC endpoint is configured for {network}.");
         }
 
-        var expectedAction = HasExistingNetworkDeployment(existingDeployments, network)
-            ? "Update"
-            : "Deploy";
+        var expectedAction = attempt?.AuthorizationSnapshot?.AuthorizationSchemaVersion == 2
+            ? string.Equals(attempt.Operation, "update", StringComparison.Ordinal) ? "Update" : "Deploy"
+            : HasExistingNetworkDeployment(existingDeployments, network) ? "Update" : "Deploy";
 
         try
         {
@@ -92,7 +106,11 @@ public sealed class NeoDeploymentVerificationService(
                 "getrawtransaction",
                 [transactionId.Trim(), 1],
                 cancellationToken);
-            if (!HasSigner(transaction, expectedSigner))
+            if (requirePrimarySigner && !HasPrimarySigner(transaction, expectedSigner))
+            {
+                return InspectFail("The recovery wallet must be the deployment transaction's first signer.");
+            }
+            if (!requirePrimarySigner && !HasSigner(transaction, expectedSigner))
             {
                 return InspectFail("Deployment transaction was not signed by the authorized deployment initiator.");
             }
@@ -111,20 +129,30 @@ public sealed class NeoDeploymentVerificationService(
                 return InspectFail($"Deployment transaction finished with {Fallback(vmState, "UNKNOWN")}{(string.IsNullOrWhiteSpace(exception) ? "." : $": {exception}")}");
             }
 
-            var notification = FindContractManagementNotification(
+            var notifications = FindContractManagementNotifications(
                 execution,
                 networkOptions.ContractManagementHash,
                 expectedAction);
-            if (notification is null)
+            if (notifications.Length == 0)
             {
                 return InspectFail($"Deployment transaction does not contain the expected ContractManagement {expectedAction} notification.");
             }
+            if (requirePrimarySigner && notifications.Length != 1)
+            {
+                return InspectFail("Recovery requires a transaction with exactly one ContractManagement Deploy notification.");
+            }
 
-            var contractHash = FindHashInStackItem(GetProperty(notification.Value, "state"))
-                ?? FindHashInStackItems(GetArray(execution, "stack"));
-            return string.IsNullOrWhiteSpace(contractHash)
-                ? InspectFail($"Deployment transaction halted, but the {expectedAction} notification did not include a contract hash.")
-                : new NeoDeploymentInspectionResult(true, string.Empty, contractHash);
+            var contractHash = FindHashInStackItem(GetProperty(notifications[0], "state"));
+            if (!requirePrimarySigner)
+            {
+                contractHash ??= FindHashInStackItems(GetArray(execution, "stack"));
+            }
+            if (string.IsNullOrWhiteSpace(contractHash))
+            {
+                return InspectFail($"Deployment transaction halted, but the {expectedAction} notification did not include a contract hash.");
+            }
+
+            return new NeoDeploymentInspectionResult(true, string.Empty, contractHash);
         }
         catch (HttpRequestException ex)
         {
@@ -174,6 +202,12 @@ public sealed class NeoDeploymentVerificationService(
         return false;
     }
 
+    private static bool HasPrimarySigner(JsonElement transaction, string expectedScriptHash)
+    {
+        var signer = GetArray(transaction, "signers").FirstOrDefault();
+        return HashesMatch(GetString(signer, "account"), expectedScriptHash);
+    }
+
     private static JsonElement FirstExecution(JsonElement applicationLog)
     {
         var executions = GetArray(applicationLog, "executions");
@@ -181,27 +215,22 @@ public sealed class NeoDeploymentVerificationService(
         return executions.FirstOrDefault();
     }
 
-    private static JsonElement? FindContractManagementNotification(
+    private static JsonElement[] FindContractManagementNotifications(
         JsonElement execution,
         string contractManagementHash,
         string eventName)
     {
-        foreach (var notification in GetArray(execution, "notifications"))
-        {
-            var notificationContract = GetString(notification, "contract")
-                ?? GetString(notification, "scripthash");
-            var notificationEvent = GetString(notification, "eventname")
-                ?? GetString(notification, "eventName");
-
-            if (!string.IsNullOrWhiteSpace(notificationContract)
-                && HashesMatch(notificationContract, contractManagementHash)
-                && string.Equals(notificationEvent, eventName, StringComparison.Ordinal))
+        return GetArray(execution, "notifications")
+            .Where(notification =>
             {
-                return notification;
-            }
-        }
-
-        return null;
+                var notificationContract = GetString(notification, "contract")
+                    ?? GetString(notification, "scripthash");
+                var notificationEvent = GetString(notification, "eventname")
+                    ?? GetString(notification, "eventName");
+                return HashesMatch(notificationContract, contractManagementHash)
+                    && string.Equals(notificationEvent, eventName, StringComparison.Ordinal);
+            })
+            .ToArray();
     }
 
     private static string? FindHashInStackItems(IEnumerable<JsonElement> items)

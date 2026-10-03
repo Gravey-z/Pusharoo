@@ -127,11 +127,9 @@ public sealed record ConfirmDeploymentAttemptRequest(string AttemptCapability);
 public sealed record FailDeploymentAttemptRequest(string AttemptCapability, string Stage, string Reason);
 
 public sealed record RecoverDeploymentRequest(
-    string ArtifactId,
     string Network,
     string TransactionId,
     string DeployedBy,
-    string? Notes,
     WalletSignatureRequest? Authorization);
 
 public sealed record DeploymentResponse(

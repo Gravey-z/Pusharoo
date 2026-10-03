@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import type { NetworkType } from 'neo-n3-walletkit';
+import type { NetworkType, Signer } from 'neo-n3-walletkit';
 import { firstValueFrom } from 'rxjs';
 import { isPusharooNetwork } from '../config/wallet.config';
 import { RuntimeConfigService } from './runtime-config.service';
@@ -45,9 +45,8 @@ export interface ContractParameter {
   value: unknown;
 }
 
-export interface RpcInvocationSigner {
+export interface RpcInvocationSigner extends Pick<Signer, 'scopes' | 'rules'> {
   account: string;
-  scopes: string | number;
 }
 
 export interface ConfirmedDeployment {

@@ -168,12 +168,15 @@
     <section class="deployment-list" aria-label="Deployments">
       <header class="deployment-list-header">
         <h2>{{ releaseTab === 'overview' ? 'Live deployments' : 'Deployments' }}</h2>
-        @if (overview.artifacts.length && canStartDeploymentToNetwork(overview, wallet.session()?.network || '')) {
+        @if (releaseTab === 'deployments') {
           <div class="deployment-list-actions">
-            @if (releaseTab === 'deployments') {
+            @if (overview.artifacts.length && canStartDeploymentToNetwork(overview, wallet.session()?.network || '')) {
               <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'new']">
                 Deploy Contract
               </a>
+            }
+            @if (!hasConfirmedDeploymentOnConnectedNetwork(overview)) {
+              <a class="secondary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'recovery']">Recover by transaction</a>
             }
           </div>
         }
@@ -190,7 +193,7 @@
       @let displayedDeployments = releaseTab === 'overview' ? liveDeployments(overview) : latestAttemptsByVersion(overview);
       @if (displayedDeployments.length) {
         @for (deployment of displayedDeployments; track deployment.id) {
-          <div [class.has-failure]="!!deployment.failureReason">
+          <div class="deployment-row" [class.has-failure]="!!deployment.failureReason">
             <span data-label="Version">{{ deployment.version }}</span>
             <span
               class="network-pill network-badge"
@@ -247,11 +250,14 @@
                 [disabled]="confirmingDeploymentId === deployment.id"
                 (click)="resumeConfirmation(overview, deployment)"
               >
-                {{ confirmingDeploymentId === deployment.id ? 'Confirming...' : 'Resume Confirmation' }}
+                {{ confirmingDeploymentId === deployment.id ? 'Confirming...' : deployment.status === 'failed' ? 'Retry Confirmation' : 'Resume Confirmation' }}
               </button>
             }
             @if (deployment.failureReason) {
               <span class="deployment-failure" [title]="deployment.failureReason">{{ deployment.failureReason }}</span>
+            }
+            @if (confirmationErrorDeploymentId === deployment.id) {
+              <span class="deployment-failure" role="alert">{{ confirmationError }}</span>
             }
             @if (deployment.deploymentData && deployment.deploymentData.type !== 'Any') {
               <details class="deployment-data-record">

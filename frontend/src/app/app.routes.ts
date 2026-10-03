@@ -34,7 +34,6 @@ export const routes: Routes = [
   },
   {
     path: 'projects/:projectId/deployments/recovery',
-    canActivate: [projectDeploymentAccessGuard],
     loadComponent: () => import('./pages/deployment-recovery/deployment-recovery.component').then((component) => component.DeploymentRecoveryComponent)
   },
   {

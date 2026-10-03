@@ -6,6 +6,7 @@ import type {
   ContractArgs,
   Method,
   NetworkType,
+  Signer,
   WalletProvider,
   WalletSession
 } from 'neo-n3-walletkit';
@@ -232,7 +233,7 @@ export class WalletService {
     );
     return walletKit.wallet.request<string>(
       'invokeFunction',
-      { invocations: [invocation], signers: [walletKit.connectedSigner()] },
+      { invocations: [invocation], signers: [this.deploymentSigner(walletKit, network)] },
       `Deploy ${contractName} with Pusharoo`
     );
   }
@@ -314,7 +315,9 @@ export class WalletService {
       total?: unknown;
     }>('calculateFee', {
       invocations: [invocation],
-      signers: [walletKit.connectedSigner()]
+      signers: [operation === 'deploy'
+        ? this.deploymentSigner(walletKit, network)
+        : walletKit.connectedSigner()]
     }, `Estimate ${operation} fees with Pusharoo`);
 
     const systemFee = this.formatFee(result.systemFee);
@@ -357,7 +360,7 @@ export class WalletService {
       session.provider,
       'hex'
     );
-    const signer = walletKit.connectedSigner();
+    const signer = this.deploymentSigner(walletKit, network);
     const signerAccount = signer.account ?? this.account()?.scriptHash;
     if (!signerAccount) throw new Error('The connected wallet did not provide a signer account for deployment simulation.');
     return this.neoRpc.invokeFunction(
@@ -365,7 +368,7 @@ export class WalletService {
       invocation.scriptHash,
       invocation.operation,
       invocation.args,
-      [{ account: `0x${signerAccount.replace(/^0x/i, '')}`, scopes: signer.scopes }]
+      [{ account: `0x${signerAccount.replace(/^0x/i, '')}`, scopes: signer.scopes, rules: signer.rules }]
     );
   }
 
@@ -537,6 +540,37 @@ export class WalletService {
     return this.toWalletActionSignature(account, session, challenge, signedMessage);
   }
 
+  async signDeploymentRecovery(projectId: string, transactionId: string): Promise<WalletActionSignature> {
+    const session = this.session();
+    const account = this.account();
+    if (!this.walletKit || !session || !account) {
+      throw new Error('Connect the deployment wallet before recovering a transaction.');
+    }
+
+    const context = this.projectCreationMessage.createSignatureContext();
+    const message = [
+      'Pusharoo deployment recovery',
+      'Schema: pusharoo.deployment.recovery.v1',
+      'Action: deployment.recover',
+      `Project ID: ${projectId}`,
+      `Network: ${session.network}`,
+      `Transaction ID: ${transactionId.trim().toLowerCase()}`,
+      `Wallet: ${account.address}`,
+      `Audience: ${context.audience}`,
+      `Origin: ${context.origin}`,
+      `Issued at UTC: ${context.issuedAtUtc}`,
+      `Nonce: ${context.nonce}`
+    ].join('\n');
+    const challenge: WalletActionSignatureChallenge = { ...context, message };
+    const signedMessage = await this.signMessage(
+      session,
+      account.address,
+      message,
+      'Recover Pusharoo deployment transaction'
+    );
+    return this.toWalletActionSignature(account, session, challenge, signedMessage);
+  }
+
   async signFaucetClaim(message: string): Promise<WalletActionSignature> {
     const session = this.session();
     const account = this.account();
@@ -642,6 +676,19 @@ export class WalletService {
       scriptHash: this.runtimeConfig.value.wallet.contractManagement[network],
       operation: 'deploy',
       args: [...codeAndManifest, this.toContractArgument(normalizedData, provider, byteArrayEncoding)]
+    };
+  }
+
+  private deploymentSigner(walletKit: WalletKit, network: PusharooNetwork): Signer {
+    return {
+      ...walletKit.connectedSigner(64),
+      rules: [{
+        action: 'Allow',
+        condition: {
+          type: 'CalledByContract',
+          hash: this.runtimeConfig.value.wallet.contractManagement[network]
+        }
+      }]
     };
   }
 

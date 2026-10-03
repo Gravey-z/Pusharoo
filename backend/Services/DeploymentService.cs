@@ -39,6 +39,34 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
     public Task<DeploymentDocument?> GetByTransactionIdAsync(string transactionId, CancellationToken cancellationToken)
         => deployments.GetByTransactionIdAsync(transactionId, cancellationToken);
 
+    public async Task<DeploymentDocument> CreateRecoveredAsync(
+        string projectId,
+        string network,
+        string transactionId,
+        string deployedBy,
+        string contractHash,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var deployment = new DeploymentDocument
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            ProjectId = projectId,
+            ArtifactId = string.Empty,
+            Version = "Recovered",
+            Network = network,
+            TransactionId = transactionId,
+            DeployedBy = deployedBy,
+            ContractHash = contractHash,
+            Operation = "deploy",
+            Status = "confirmed",
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+        await deployments.InsertAsync(deployment, cancellationToken);
+        return deployment;
+    }
+
     public Task<DeploymentDocument?> GetByIdAsync(string deploymentId, CancellationToken cancellationToken)
         => deployments.GetByIdAsync(deploymentId, cancellationToken);
 
@@ -90,7 +118,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
     {
         var updated = deployment with
         {
-            TransactionId = transactionId.Trim(),
+            TransactionId = transactionId.Trim().ToLowerInvariant(),
             Status = "submitted",
             FailureStage = null,
             FailureReason = null,

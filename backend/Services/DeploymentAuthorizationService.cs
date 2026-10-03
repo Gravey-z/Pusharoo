@@ -33,7 +33,7 @@ public sealed class DeploymentAuthorizationService(
             .ToArray();
         var target = confirmedForNetwork.FirstOrDefault()?.ContractHash;
         var operation = string.IsNullOrWhiteSpace(target) ? "deploy" : "update";
-        var manifestJson = JsonSerializer.Serialize(artifact.Manifest, ManifestJsonOptions);
+        var manifestJson = SerializeManifest(artifact.Manifest);
         return new DeploymentAuthorizationContext(
             project.Id,
             artifact.Id,
@@ -47,6 +47,9 @@ public sealed class DeploymentAuthorizationService(
             string.IsNullOrWhiteSpace(notes) ? string.Empty : notes.Trim(),
             normalizedData ?? deploymentData.Normalize(null));
     }
+
+    public static string SerializeManifest(NeoContractManifest manifest)
+        => JsonSerializer.Serialize(manifest, ManifestJsonOptions);
 
     public string BuildStartMessage(DeploymentAuthorizationContext context, DeploymentAuthorizationChallengeRequest request)
     {
@@ -183,14 +186,14 @@ public sealed class DeploymentAuthorizationService(
 
     public static bool IsValidCapability(DeploymentDocument attempt, string? capability)
     {
-        if (string.IsNullOrWhiteSpace(capability)
-            || string.IsNullOrWhiteSpace(attempt.AttemptCapabilityHash)
-            || attempt.AttemptCapabilityExpiresAtUtc is null
-            || attempt.AttemptCapabilityExpiresAtUtc <= DateTime.UtcNow)
-        {
-            return false;
-        }
+        return attempt.AttemptCapabilityExpiresAtUtc > DateTime.UtcNow
+            && MatchesCapabilityHash(attempt, capability);
+    }
 
+    public static bool MatchesCapabilityHash(DeploymentDocument attempt, string? capability)
+    {
+        if (string.IsNullOrWhiteSpace(capability) || string.IsNullOrWhiteSpace(attempt.AttemptCapabilityHash))
+            return false;
         return CryptographicOperations.FixedTimeEquals(
             Convert.FromHexString(HashAttemptCapability(capability)),
             Convert.FromHexString(attempt.AttemptCapabilityHash));
