@@ -10,19 +10,28 @@ import type {
   WalletSession
 } from 'neo-n3-walletkit';
 import { defaultWalletConfig, isPusharooNetwork, PusharooNetwork } from '../config/wallet.config';
-import { AuthorizedDeployerAction, ProjectCreationSignature, WalletActionSignature } from '../models/pusharoo.models';
+import { AuthorizedDeployerAction, DeploymentDataValue, ProjectCreationSignature, WalletActionSignature } from '../models/pusharoo.models';
 import {
   ProjectCreationSignatureMessageService,
   WalletActionSignatureChallenge,
   WalletSignatureContext
 } from './project-creation-signature-message.service';
 import { RuntimeConfigService } from './runtime-config.service';
+import { DeploymentDataService } from './deployment-data.service';
+import { NeoRpcService } from './neo-rpc.service';
+import type { ContractInvokeResult } from './neo-rpc.service';
 
 type WalletStatus = 'idle' | 'connecting' | 'connected' | 'error';
 type ConnectableWalletProvider = Extract<WalletProvider, 'neoline' | 'onegate' | 'walletconnect'>;
 interface ContractCallParameter {
   type: string;
   value: unknown;
+}
+
+interface BuiltInvocation {
+  scriptHash: string;
+  operation: string;
+  args: ContractArgs;
 }
 
 export interface DeploymentFeeEstimate {
@@ -91,7 +100,9 @@ export class WalletService {
 
   constructor(
     private readonly projectCreationMessage: ProjectCreationSignatureMessageService,
-    private readonly runtimeConfig: RuntimeConfigService
+    private readonly runtimeConfig: RuntimeConfigService,
+    private readonly deploymentData: DeploymentDataService,
+    private readonly neoRpc: NeoRpcService
   ) {}
 
   async restoreSavedSession(): Promise<void> {
@@ -192,7 +203,8 @@ export class WalletService {
     network: NetworkType,
     nefHex: string,
     manifestJson: string,
-    contractName: string
+    contractName: string,
+    initializationData: DeploymentDataValue = { type: 'Any', value: null }
   ): Promise<string> {
     const session = this.session();
     const walletKit = this.walletKit;
@@ -209,21 +221,19 @@ export class WalletService {
       throw new Error(`Pusharoo does not support ${network}. Use Neo N3 testnet or mainnet.`);
     }
 
-    const contractManagementHash = this.runtimeConfig.value.wallet.contractManagement[network];
-    const contractManagement = walletKit.contract(contractManagementHash);
-    const nefValue = session.provider === 'onegate'
-      ? nefHex
-      : this.hexToBase64(nefHex);
-    const args: ContractArgs = [
-      { type: 'ByteArray', value: nefValue },
-      { type: 'String', value: manifestJson },
-      { type: 'Any', value: null }
-    ];
-
-    return await contractManagement.invoke(
+    const invocation = this.buildReleaseInvocation(
+      network,
       'deploy',
-      args,
-      { context: `Deploy ${contractName} with Pusharoo` }
+      nefHex,
+      manifestJson,
+      undefined,
+      initializationData,
+      session.provider
+    );
+    return walletKit.wallet.request<string>(
+      'invokeFunction',
+      { invocations: [invocation], signers: [walletKit.connectedSigner()] },
+      `Deploy ${contractName} with Pusharoo`
     );
   }
 
@@ -270,7 +280,8 @@ export class WalletService {
     operation: 'deploy' | 'update',
     nefHex: string,
     manifestJson: string,
-    contractHash?: string
+    contractHash?: string,
+    initializationData: DeploymentDataValue = { type: 'Any', value: null }
   ): Promise<DeploymentFeeEstimate> {
     const session = this.session();
     const walletKit = this.walletKit;
@@ -283,33 +294,19 @@ export class WalletService {
       throw new Error(`No Neo RPC endpoint is configured for ${network}.`);
     }
 
-    if (session.provider === 'walletconnect' && !session.methods.includes('calculateFee')) {
-      throw new Error('Reconnect the wallet to let Pusharoo request a fee estimate.');
+    if (!session.methods.includes('calculateFee')) {
+      throw new Error(`${session.provider} does not support fee estimation through the connected wallet. Review the final fee shown by your wallet before signing.`);
     }
 
-    const nefValue = session.provider === 'onegate' ? nefHex : this.hexToBase64(nefHex);
-    const invocation = operation === 'update'
-      ? {
-          scriptHash: contractHash,
-          operation: 'update',
-          args: [
-            { type: 'ByteArray', value: nefValue },
-            { type: 'String', value: manifestJson }
-          ]
-        }
-      : {
-          scriptHash: this.runtimeConfig.value.wallet.contractManagement[network],
-          operation: 'deploy',
-          args: [
-            { type: 'ByteArray', value: nefValue },
-            { type: 'String', value: manifestJson },
-            { type: 'Any', value: null }
-          ]
-        };
-
-    if (!invocation.scriptHash) {
-      throw new Error('A target contract is required to estimate an update.');
-    }
+    const invocation = this.buildReleaseInvocation(
+      network,
+      operation,
+      nefHex,
+      manifestJson,
+      contractHash,
+      initializationData,
+      session.provider
+    );
 
     const result = await walletKit.wallet.request<{
       systemFee?: unknown;
@@ -335,6 +332,41 @@ export class WalletService {
       networkFee,
       total: total ?? this.sumFees(systemFee, networkFee)
     };
+  }
+
+  async simulateContractDeployment(
+    network: NetworkType,
+    nefHex: string,
+    manifestJson: string,
+    initializationData: DeploymentDataValue
+  ): Promise<ContractInvokeResult> {
+    const session = this.session();
+    const walletKit = this.walletKit;
+    if (!walletKit || !session) throw new Error('Connect a wallet before simulating a deployment.');
+    if (session.network !== network || !isPusharooNetwork(network)) {
+      throw new Error(`The connected wallet must be on ${network} to simulate this deployment.`);
+    }
+
+    const invocation = this.buildReleaseInvocation(
+      network,
+      'deploy',
+      nefHex,
+      manifestJson,
+      undefined,
+      initializationData,
+      session.provider,
+      'hex'
+    );
+    const signer = walletKit.connectedSigner();
+    const signerAccount = signer.account ?? this.account()?.scriptHash;
+    if (!signerAccount) throw new Error('The connected wallet did not provide a signer account for deployment simulation.');
+    return this.neoRpc.invokeFunction(
+      network,
+      invocation.scriptHash,
+      invocation.operation,
+      invocation.args,
+      [{ account: `0x${signerAccount.replace(/^0x/i, '')}`, scopes: signer.scopes }]
+    );
   }
 
   async estimateContractInvocationFees(
@@ -580,6 +612,73 @@ export class WalletService {
       args as ContractArgs,
       { context: `Call ${contractName}.${methodName} with Pusharoo` }
     );
+  }
+
+  private buildReleaseInvocation(
+    network: NetworkType,
+    operation: 'deploy' | 'update',
+    nefHex: string,
+    manifestJson: string,
+    contractHash: string | undefined,
+    initializationData: DeploymentDataValue,
+    provider: ConnectableWalletProvider,
+    byteArrayEncoding: 'provider' | 'hex' = 'provider'
+  ): BuiltInvocation {
+    const nefValue = byteArrayEncoding === 'hex'
+      ? this.cleanHex(nefHex)
+      : this.encodeByteArrayForProvider(nefHex, provider);
+    const codeAndManifest = [
+      { type: 'ByteArray', value: nefValue },
+      { type: 'String', value: manifestJson }
+    ] as ContractArgs;
+
+    if (operation === 'update') {
+      if (!contractHash) throw new Error('A target contract is required to estimate an update.');
+      return { scriptHash: contractHash, operation: 'update', args: codeAndManifest };
+    }
+
+    const normalizedData = this.deploymentData.normalize(initializationData);
+    return {
+      scriptHash: this.runtimeConfig.value.wallet.contractManagement[network],
+      operation: 'deploy',
+      args: [...codeAndManifest, this.toContractArgument(normalizedData, provider, byteArrayEncoding)]
+    };
+  }
+
+  private toContractArgument(
+    value: DeploymentDataValue,
+    provider: ConnectableWalletProvider,
+    byteArrayEncoding: 'provider' | 'hex'
+  ): ContractArgs[number] {
+    switch (value.type) {
+      case 'Any': return { type: 'Any', value: null } as ContractArgs[number];
+      case 'String': return { type: 'String', value: value.value } as ContractArgs[number];
+      case 'Boolean': return { type: 'Boolean', value: value.value } as ContractArgs[number];
+      case 'Integer': return { type: 'Integer', value: value.value } as ContractArgs[number];
+      case 'Hash160':
+        return { type: 'Hash160', value: `0x${value.value.replace(/^0x/i, '').toLowerCase()}` } as ContractArgs[number];
+      case 'ByteArray':
+        return {
+          type: 'ByteArray',
+          value: byteArrayEncoding === 'hex' ? this.cleanHex(value.value) : this.encodeByteArrayForProvider(value.value, provider)
+        } as ContractArgs[number];
+      case 'Array':
+        return {
+          type: 'Array',
+          value: value.value.map((child) => this.toContractArgument(child, provider, byteArrayEncoding))
+        } as ContractArgs[number];
+      default:
+        throw new Error(`Deployment data type '${(value as { type: string }).type}' is not supported by this wallet.`);
+    }
+  }
+
+  private encodeByteArrayForProvider(value: string, provider: ConnectableWalletProvider): string {
+    const hex = this.cleanHex(value);
+    return provider === 'onegate' ? hex : this.hexToBase64(hex);
+  }
+
+  private cleanHex(value: string): string {
+    return value.trim().replace(/^0x/i, '').toLowerCase();
   }
 
   private hexToBase64(hex: string): string {

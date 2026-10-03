@@ -42,6 +42,8 @@ export class DeploymentCreateComponent implements OnInit {
   mainnetConfirmed = false;
   feeEstimate: DeploymentFeeEstimate | null = null;
   feeEstimateError = '';
+  deploymentSimulationState: 'not-run' | 'passed' | 'fault' | 'unavailable' = 'not-run';
+  deploymentSimulationMessage = '';
   authorizationPreview: DeploymentAuthorizationChallenge | null = null;
   authorizedDeployers: ProjectAuthorizedDeployer[] = [];
   private deniedDeploymentAttempt: { walletAddress: string; network: string } | null = null;
@@ -193,8 +195,8 @@ export class DeploymentCreateComponent implements OnInit {
       return;
     }
 
-    if (this.reviewedContext?.operation === 'deploy' && this.authorizationPreview?.deploymentData.type !== 'Any') {
-      this.errorMessage = 'Custom deployment data can be reviewed here, but transaction submission is not enabled until the remaining deployment-data phases are complete.';
+    if (this.operation === 'deploy' && this.deploymentSimulationState === 'fault') {
+      this.errorMessage = 'The contract initialization simulation failed. Correct the deployment data or signer before submitting.';
       return;
     }
 
@@ -275,7 +277,8 @@ export class DeploymentCreateComponent implements OnInit {
         session.network,
         artifact,
         this.preparedNefHex,
-        manifestJson
+        manifestJson,
+        attempt.deploymentData ?? { type: 'Any', value: null }
       );
 
       this.deployStatus = 'Saving submitted transaction...';
@@ -321,6 +324,8 @@ export class DeploymentCreateComponent implements OnInit {
     this.feeEstimate = null;
     this.mainnetConfirmed = false;
     this.deploymentDataError = '';
+    this.deploymentSimulationState = 'not-run';
+    this.deploymentSimulationMessage = '';
 
     const artifact = this.selectedArtifact;
     const session = this.wallet.session();
@@ -382,10 +387,39 @@ export class DeploymentCreateComponent implements OnInit {
       this.preparedNefHex = nefHex;
       this.preparedArtifactId = artifact.id;
       this.reviewedContext = reviewContext;
+      if (authorizationPreview.operation === 'deploy') {
+        try {
+          const simulation = await this.wallet.simulateContractDeployment(
+            session.network,
+            nefHex,
+            JSON.stringify(artifact.manifest),
+            authorizationPreview.deploymentData
+          );
+          if (!this.contextMatches(reviewContext)) {
+            this.errorMessage = 'The wallet, network, artifact, or deployment action changed during initialization simulation. Review the release again.';
+            return;
+          }
+          if (simulation.state === 'HALT') {
+            this.deploymentSimulationState = 'passed';
+            this.deploymentSimulationMessage = 'Contract initialization simulation passed. The chain state may change before the transaction is submitted.';
+          } else if (simulation.state === 'FAULT') {
+            this.deploymentSimulationState = 'fault';
+            this.deploymentSimulationMessage = simulation.exception?.trim()
+              ? `Contract initialization failed: ${simulation.exception.trim()}`
+              : 'Contract initialization failed during Neo VM simulation.';
+          } else {
+            this.deploymentSimulationState = 'unavailable';
+            this.deploymentSimulationMessage = `Neo returned an unrecognized simulation state (${simulation.state || 'empty'}). Review the contract initialization before submitting.`;
+          }
+        } catch (error) {
+          this.deploymentSimulationState = 'unavailable';
+          this.deploymentSimulationMessage = `Initialization simulation is unavailable: ${this.getErrorMessage(error)}`;
+        }
+      }
       this.isReviewing = true;
 
-      if (authorizationPreview.operation === 'deploy' && authorizationPreview.deploymentData.type !== 'Any') {
-        this.feeEstimateError = 'Fee estimation will be available when custom deployment data is connected to the deploy invocation.';
+      if (this.deploymentSimulationState === 'fault') {
+        this.feeEstimateError = 'Fee estimation was skipped because contract initialization failed during simulation.';
       } else {
         try {
           const feeEstimate = await this.wallet.estimateDeploymentFees(
@@ -393,7 +427,8 @@ export class DeploymentCreateComponent implements OnInit {
             authorizationPreview.operation,
             nefHex,
             JSON.stringify(artifact.manifest),
-            authorizationPreview.expectedTargetContractHash ?? undefined
+            authorizationPreview.expectedTargetContractHash ?? undefined,
+            authorizationPreview.deploymentData
           );
           if (this.contextMatches(reviewContext)) this.feeEstimate = feeEstimate;
         } catch (error) {
@@ -416,6 +451,8 @@ export class DeploymentCreateComponent implements OnInit {
     this.preparedNefHex = '';
     this.preparedArtifactId = '';
     this.reviewedContext = null;
+    this.deploymentSimulationState = 'not-run';
+    this.deploymentSimulationMessage = '';
   }
 
   private getDeploymentDataForReview(): DeploymentDataValue {
@@ -499,7 +536,8 @@ export class DeploymentCreateComponent implements OnInit {
     network: NetworkType,
     artifact: Artifact,
     nefHex: string,
-    manifestJson: string
+    manifestJson: string,
+    deploymentData: DeploymentDataValue
   ): Promise<string> {
     if (!isPusharooNetwork(network)) {
       throw new Error(`Pusharoo does not support ${network}. Use Neo N3 testnet or mainnet.`);
@@ -544,7 +582,8 @@ export class DeploymentCreateComponent implements OnInit {
       network,
       nefHex,
       manifestJson,
-      artifact.contractName
+      artifact.contractName,
+      deploymentData
     );
 
     return transactionId;

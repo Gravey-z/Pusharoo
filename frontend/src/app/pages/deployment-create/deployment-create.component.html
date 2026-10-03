@@ -150,8 +150,10 @@
             </aside>
           }
 
-          @if (operation === 'deploy' && authorizationPreview?.deploymentData?.type !== 'Any') {
-            <aside class="review-stale-warning" role="status">This custom value is available for review, but deployment is disabled until fee estimation, authorization binding, and transaction submission support the same data value.</aside>
+          @if (operation === 'deploy' && deploymentSimulationState !== 'not-run') {
+            <aside class="deployment-simulation-result" [class.simulation-fault]="deploymentSimulationState === 'fault'" [class.simulation-unavailable]="deploymentSimulationState === 'unavailable'" role="status">
+              {{ deploymentSimulationMessage }}
+            </aside>
           }
 
           <section class="fee-estimate" aria-label="Estimated transaction fees">
@@ -202,7 +204,7 @@
               [class.primary-button]="walletNetwork() !== 'neo3:mainnet'"
               [class.mainnet-action-button]="walletNetwork() === 'neo3:mainnet'"
               (click)="save()"
-              [disabled]="isSaving || !reviewedContextIsCurrent || (operation === 'deploy' && authorizationPreview?.deploymentData?.type !== 'Any') || (walletNetwork() === 'neo3:mainnet' && !mainnetConfirmed)"
+              [disabled]="isSaving || !reviewedContextIsCurrent || (operation === 'deploy' && deploymentSimulationState === 'fault') || (walletNetwork() === 'neo3:mainnet' && !mainnetConfirmed)"
             >
               {{ submitLabel }}
             </button>

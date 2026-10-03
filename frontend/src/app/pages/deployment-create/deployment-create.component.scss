@@ -90,6 +90,9 @@
 }
 .deployment-data-review small { color: var(--muted); overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 10px; }
 .review-stale-warning { border: 1px solid var(--warning-border); border-radius: 8px; padding: 12px; background: var(--warning-soft); color: var(--warning); font-size: 13px; line-height: 1.5; }
+.deployment-simulation-result { border: 1px solid var(--success-border); border-radius: 8px; padding: 12px; background: var(--success-soft); color: var(--success); font-size: 13px; line-height: 1.5; }
+.deployment-simulation-result.simulation-fault { border-color: var(--danger-border); background: var(--danger-soft); color: var(--danger); }
+.deployment-simulation-result.simulation-unavailable { border-color: var(--warning-border); background: var(--warning-soft); color: var(--warning); }
 
 .form-flow-section {
   display: grid;

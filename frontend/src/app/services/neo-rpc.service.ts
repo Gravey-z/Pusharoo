@@ -45,6 +45,11 @@ export interface ContractParameter {
   value: unknown;
 }
 
+export interface RpcInvocationSigner {
+  account: string;
+  scopes: string | number;
+}
+
 export interface ConfirmedDeployment {
   transactionId: string;
   vmState: string;
@@ -73,7 +78,8 @@ export class NeoRpcService {
     network: NetworkType,
     contractHash: string,
     methodName: string,
-    parameters: ContractParameter[]
+    parameters: ContractParameter[],
+    signers?: RpcInvocationSigner[]
   ): Promise<ContractInvokeResult> {
     if (!isPusharooNetwork(network)) {
       throw new Error(`No Neo RPC endpoint is configured for ${network}.`);
@@ -84,7 +90,9 @@ export class NeoRpcService {
     const response = await firstValueFrom(this.http.post<RpcResponse<ContractInvokeResult>>(endpoint, {
       jsonrpc: '2.0',
       method: 'invokefunction',
-      params: [contractHash, methodName, parameters],
+      params: signers?.length
+        ? [contractHash, methodName, parameters, signers]
+        : [contractHash, methodName, parameters],
       id: Date.now()
     }));
 
