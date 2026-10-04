@@ -28,6 +28,15 @@ public sealed class MongoDbContext
         FaucetChallenges = database.GetCollection<FaucetChallengeDocument>("faucetChallenges");
         FaucetClaims = database.GetCollection<FaucetClaimDocument>("faucetClaims");
         FaucetDailyFeeBudgets = database.GetCollection<FaucetDailyFeeBudgetDocument>("faucetDailyFeeBudgets");
+        WalletLoginChallenges = database.GetCollection<WalletLoginChallengeDocument>("walletLoginChallenges");
+        WalletLoginSessions = database.GetCollection<WalletLoginSessionDocument>("walletLoginSessions");
+
+        WalletLoginChallenges.Indexes.CreateOne(new CreateIndexModel<WalletLoginChallengeDocument>(
+            Builders<WalletLoginChallengeDocument>.IndexKeys.Ascending(challenge => challenge.ExpiresAtUtc),
+            new CreateIndexOptions { ExpireAfter = TimeSpan.Zero }));
+        WalletLoginSessions.Indexes.CreateOne(new CreateIndexModel<WalletLoginSessionDocument>(
+            Builders<WalletLoginSessionDocument>.IndexKeys.Ascending(session => session.ExpiresAtUtc),
+            new CreateIndexOptions { ExpireAfter = TimeSpan.Zero }));
 
         WebhookAuthorizationNonces.Indexes.CreateOne(
             new CreateIndexModel<WebhookAuthorizationNonceDocument>(
@@ -94,5 +103,9 @@ public sealed class MongoDbContext
     public IMongoCollection<FaucetClaimDocument> FaucetClaims { get; }
 
     public IMongoCollection<FaucetDailyFeeBudgetDocument> FaucetDailyFeeBudgets { get; }
+
+    public IMongoCollection<WalletLoginChallengeDocument> WalletLoginChallenges { get; }
+
+    public IMongoCollection<WalletLoginSessionDocument> WalletLoginSessions { get; }
 
 }

@@ -15,6 +15,12 @@ services:
       NeoRpc__Networks__mainnet__ContractManagementHash: ${PUSHAROO_MAINNET_CONTRACT_MANAGEMENT_HASH:-0xfffdc93764dbaddd97c48f252a53ea4643faa3fd}
       WalletSignatures__Audience: ${PUSHAROO_WALLET_SIGNATURE_AUDIENCE:-pusharoo-web}
       WalletSignatures__AllowedOrigins__0: ${PUSHAROO_APP_ORIGIN:-http://localhost:8080}
+      WalletAuth__PublicOrigin: ${PUSHAROO_APP_ORIGIN:-http://localhost:8080}
+      WalletAuth__AllowInsecureLocalhost: ${PUSHAROO_AUTH_ALLOW_HTTP_LOCALHOST:-true}
+      WalletAuth__ChallengeLifetimeMinutes: ${PUSHAROO_AUTH_CHALLENGE_MINUTES:-5}
+      WalletAuth__SessionLifetimeHours: ${PUSHAROO_AUTH_SESSION_HOURS:-8}
+      WalletAuth__DataProtectionKeyRingPath: /var/lib/pusharoo/data-protection
+      WalletAuth__TrustedProxyAddresses__0: ${PUSHAROO_AUTH_TRUSTED_PROXY_IP:-}
       Faucet__Enabled: ${PUSHAROO_FAUCET_ENABLED:-false}
       Faucet__RelayerEnabled: ${PUSHAROO_FAUCET_RELAYER_ENABLED:-false}
       Faucet__ContractHash: ${PUSHAROO_TESTNET_FAUCET_CONTRACT_HASH:-}
@@ -23,6 +29,8 @@ services:
       FaucetRelayer__Enabled: "false"
     expose:
       - "8080"
+    volumes:
+      - api-data-protection:/var/lib/pusharoo/data-protection
     depends_on:
       - mongo
 
@@ -52,6 +60,8 @@ services:
       - mongo
 
   event-relay-testnet:
+    profiles:
+      - event-relay
     build:
       context: .
       dockerfile: event-relay/Dockerfile
@@ -82,6 +92,8 @@ services:
       - event-relay-testnet-data:/var/lib/pusharoo/data-protection
 
   event-relay-mainnet:
+    profiles:
+      - event-relay
     build:
       context: .
       dockerfile: event-relay/Dockerfile
@@ -136,9 +148,14 @@ services:
       PUSHAROO_TESTNET_RPC_URL: ${PUSHAROO_TESTNET_RPC_URL:-https://testnet1.neo.coz.io:443}
       PUSHAROO_MAINNET_RPC_URL: ${PUSHAROO_MAINNET_RPC_URL:-https://mainnet1.neo.coz.io:443}
     depends_on:
-      - api
-      - event-relay-testnet
-      - event-relay-mainnet
+      api:
+        condition: service_started
+      event-relay-testnet:
+        condition: service_started
+        required: false
+      event-relay-mainnet:
+        condition: service_started
+        required: false
     ports:
       - "${PUSHAROO_HTTP_PORT:-8080}:80"
 
@@ -153,5 +170,6 @@ services:
 
 volumes:
   mongo-data:
+  api-data-protection:
   event-relay-testnet-data:
   event-relay-mainnet-data:
