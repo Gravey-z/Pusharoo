@@ -11,7 +11,7 @@ import type {
   WalletSession
 } from 'neo-n3-walletkit';
 import { defaultWalletConfig, isPusharooNetwork, PusharooNetwork } from '../config/wallet.config';
-import { AuthorizedDeployerAction, DeploymentDataValue, ProjectCreationSignature, WalletActionSignature } from '../models/pusharoo.models';
+import { AuthorizedDeployerAction, DeploymentDataValue, ProjectCreationSignature, WalletActionSignature, WalletLoginChallenge } from '../models/pusharoo.models';
 import {
   ProjectCreationSignatureMessageService,
   WalletActionSignatureChallenge,
@@ -64,6 +64,7 @@ export class WalletService {
   readonly session = signal<WalletSession | null>(null);
   readonly status = signal<WalletStatus>('idle');
   readonly errorMessage = signal('');
+  readonly disconnectEpoch = signal(0);
   readonly selectedProvider = signal<ConnectableWalletProvider | null>(null);
   readonly selectedNetwork = signal<PusharooNetwork>(this.getSavedNetwork());
   readonly walletConnectUri = signal('');
@@ -173,13 +174,17 @@ export class WalletService {
 
   async disconnect(): Promise<void> {
     this.errorMessage.set('');
+    this.disconnectEpoch.update((value) => value + 1);
+    this.account.set(null);
+    this.session.set(null);
+    const walletKit = this.walletKit;
+    this.unsubscribeSession?.();
+    this.unsubscribeSession = null;
+    this.walletKit = null;
 
     try {
-      await this.walletKit?.disconnect();
+      await walletKit?.disconnect();
     } finally {
-      this.unsubscribeSession?.();
-      this.unsubscribeSession = null;
-      this.walletKit = null;
       this.account.set(null);
       this.session.set(null);
       this.walletConnectUri.set('');
@@ -427,6 +432,23 @@ export class WalletService {
       `Create Pusharoo project ${projectName.trim()}`
     );
 
+    return this.toWalletActionSignature(account, session, challenge, signedMessage);
+  }
+
+  async signWalletLogin(challenge: WalletLoginChallenge): Promise<WalletActionSignature> {
+    const session = this.session();
+    const account = this.account();
+    if (!this.walletKit || !session || !account) {
+      throw new Error('Connect a wallet before signing in to Pusharoo.');
+    }
+    if (challenge.origin !== window.location.origin || challenge.audience !== this.runtimeConfig.value.walletSignatureAudience) {
+      throw new Error('The login challenge is for a different Pusharoo application.');
+    }
+    const signedMessage = await this.signMessage(session, account.address, challenge.message, 'Sign in to Pusharoo');
+    if (this.account()?.address !== account.address || this.account()?.scriptHash !== account.scriptHash
+      || this.session()?.network !== session.network) {
+      throw new Error('The wallet changed while signing in. Try again with the connected account.');
+    }
     return this.toWalletActionSignature(account, session, challenge, signedMessage);
   }
 

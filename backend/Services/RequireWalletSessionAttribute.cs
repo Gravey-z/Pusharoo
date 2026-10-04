@@ -21,6 +21,13 @@ public sealed class RequireWalletSessionAttribute : Attribute, IAsyncAuthorizati
             context.Result = Error(401, "login_required", "Sign in to Pusharoo.");
             return;
         }
+        var current = http.RequestServices.GetRequiredService<CurrentWalletSessionAccessor>().Current;
+        var expectedWallet = http.Request.Headers["X-Pusharoo-Expected-Wallet"].ToString();
+        if (current is null || !string.Equals(expectedWallet, current.Address, StringComparison.Ordinal))
+        {
+            context.Result = Error(403, "wallet_mismatch", "The connected wallet does not match the Pusharoo login session.");
+            return;
+        }
         try
         {
             await http.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(http);

@@ -23,6 +23,24 @@ export interface WalletActionSignature {
   messageHex?: string | null;
 }
 
+export interface WalletLoginChallenge {
+  challengeId: string;
+  message: string;
+  origin: string;
+  audience: string;
+  issuedAtUtc: string;
+  nonce: string;
+  expiresAtUtc: string;
+}
+
+export interface WalletLoginSession {
+  authenticated: boolean;
+  address: string | null;
+  scriptHash: string | null;
+  publicKey: string | null;
+  expiresAtUtc: string | null;
+}
+
 export type ProjectCreationSignature = WalletActionSignature;
 
 export type AuthorizedDeployerAction =

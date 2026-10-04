@@ -56,6 +56,29 @@
           </span>
           <strong>{{ wallet.shortAddress() }}</strong>
         </div>
+        <div class="wallet-auth">
+          <strong>Pusharoo login</strong>
+          @if (auth.canUseSession()) {
+            <p>Signed in. Workspace actions can reuse this session until {{ auth.serverSession()?.expiresAtUtc | date:'shortTime' }}.</p>
+            <button type="button" class="wallet-option" (click)="signOut()">Sign out of Pusharoo</button>
+          } @else if (auth.state() === 'checking') {
+            <p>Checking your login session...</p>
+          } @else if (auth.state() === 'logout-pending') {
+            <p>Sign-out is pending. Finish it before signing in again.</p>
+            <button type="button" class="wallet-option" (click)="signOut()">Finish sign-out</button>
+          } @else if (auth.serverSession()?.authenticated) {
+            <p>A different wallet is signed in to Pusharoo. Sign in with this wallet to continue.</p>
+            <button type="button" class="wallet-option" [disabled]="auth.state() === 'signing-in'" (click)="signIn()">Sign in to Pusharoo</button>
+          } @else {
+            <p>Sign once to use protected workspace actions. Wallet transactions still need approval.</p>
+            <button type="button" class="wallet-option" [disabled]="auth.state() === 'signing-in'" (click)="signIn()">
+              {{ auth.state() === 'signing-in' ? 'Waiting for wallet...' : 'Sign in to Pusharoo' }}
+            </button>
+          }
+          @if (auth.errorMessage()) {
+            <p class="wallet-auth-error" role="alert">{{ auth.errorMessage() }}</p>
+          }
+        </div>
         <button type="button" class="wallet-option danger" (click)="disconnect()">Disconnect</button>
       } @else if (dialogView === 'options') {
         <div class="network-choice" role="group" aria-label="Wallet network">

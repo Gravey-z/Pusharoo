@@ -1,11 +1,14 @@
 import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { ClipboardService } from '../../services/clipboard.service';
 import { WalletService } from '../../services/wallet.service';
+import { WalletAuthService } from '../../services/wallet-auth.service';
 
 type WalletDialogView = 'options' | 'neon';
 
 @Component({
   selector: 'app-wallet-connect',
+  imports: [DatePipe],
   templateUrl: './wallet-connect.component.html',
   styleUrl: './wallet-connect.component.scss'
 })
@@ -22,7 +25,8 @@ export class WalletConnectComponent implements OnDestroy {
 
   constructor(
     private readonly clipboard: ClipboardService,
-    readonly wallet: WalletService
+    readonly wallet: WalletService,
+    readonly auth: WalletAuthService
   ) {}
 
   openDialog(): void {
@@ -62,9 +66,29 @@ export class WalletConnectComponent implements OnDestroy {
   }
 
   async disconnect(): Promise<void> {
+    const revoke = this.auth.logout();
     await this.wallet.disconnect();
+    await revoke.catch(() => {});
     this.dialogAnnouncement = 'Wallet disconnected.';
     this.closeDialog();
+  }
+
+  async signIn(): Promise<void> {
+    try {
+      await this.auth.ensureAuthenticated();
+      this.dialogAnnouncement = 'Signed in to Pusharoo.';
+    } catch {
+      this.dialogAnnouncement = this.auth.errorMessage() || 'Could not sign in to Pusharoo.';
+    }
+  }
+
+  async signOut(): Promise<void> {
+    try {
+      await this.auth.logout();
+      this.dialogAnnouncement = 'Signed out of Pusharoo. The wallet remains connected.';
+    } catch {
+      this.dialogAnnouncement = this.auth.errorMessage();
+    }
   }
 
   copyWalletConnectUri(): void {

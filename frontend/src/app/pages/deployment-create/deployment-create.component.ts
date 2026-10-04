@@ -1,4 +1,4 @@
-import { Component, OnInit, computed } from '@angular/core';
+import { Component, OnInit, computed, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { NetworkType } from 'neo-n3-walletkit';
@@ -49,7 +49,8 @@ export class DeploymentCreateComponent implements OnInit {
   private deniedDeploymentAttempt: { walletAddress: string; network: string } | null = null;
   private preparedNefHex = '';
   private preparedArtifactId = '';
-  private reviewedContext: { artifactId: string; wallet: string; network: string; operation: 'deploy' | 'update'; target: string | null } | null = null;
+  private reviewedContext: { artifactId: string; wallet: string; network: string; operation: 'deploy' | 'update'; target: string | null; revision: number } | null = null;
+  private reviewGeneration = 0;
   readonly projectId: string;
   readonly walletAddress = computed(() => this.wallet.account()?.address ?? '');
   readonly walletNetwork = computed(() => this.wallet.session()?.network ?? '');
@@ -147,6 +148,14 @@ export class DeploymentCreateComponent implements OnInit {
     private readonly deploymentDataService: DeploymentDataService
   ) {
     this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
+    let previousWalletContext = `${this.walletAddress()}|${this.walletNetwork()}`;
+    effect(() => {
+      const walletContext = `${this.walletAddress()}|${this.walletNetwork()}`;
+      if (walletContext !== previousWalletContext) {
+        previousWalletContext = walletContext;
+        if (this.isReviewing || this.isPreparingReview || this.authorizationPreview || this.feeEstimate) this.editRelease();
+      }
+    });
   }
 
   ngOnInit(): void {
@@ -319,6 +328,7 @@ export class DeploymentCreateComponent implements OnInit {
   }
 
   async reviewRelease(): Promise<void> {
+    this.reviewGeneration++;
     this.errorMessage = '';
     this.feeEstimateError = '';
     this.feeEstimate = null;
@@ -358,7 +368,8 @@ export class DeploymentCreateComponent implements OnInit {
       wallet: this.walletAddress(),
       network: session.network,
       operation: this.operation,
-      target: this.targetContract
+      target: this.targetContract,
+      revision: this.reviewGeneration
     };
 
     this.isPreparingReview = true;
@@ -412,10 +423,13 @@ export class DeploymentCreateComponent implements OnInit {
             this.deploymentSimulationMessage = `Neo returned an unrecognized simulation state (${simulation.state || 'empty'}). Review the contract initialization before submitting.`;
           }
         } catch (error) {
-          this.deploymentSimulationState = 'unavailable';
-          this.deploymentSimulationMessage = `Initialization simulation is unavailable: ${this.getErrorMessage(error)}`;
+          if (this.contextMatches(reviewContext)) {
+            this.deploymentSimulationState = 'unavailable';
+            this.deploymentSimulationMessage = `Initialization simulation is unavailable: ${this.getErrorMessage(error)}`;
+          }
         }
       }
+      if (!this.contextMatches(reviewContext)) return;
       this.isReviewing = true;
 
       if (this.deploymentSimulationState === 'fault') {
@@ -436,13 +450,15 @@ export class DeploymentCreateComponent implements OnInit {
         }
       }
     } catch (error) {
-      this.errorMessage = this.getErrorMessage(error);
+      if (this.contextMatches(reviewContext)) this.errorMessage = this.getErrorMessage(error);
     } finally {
-      this.isPreparingReview = false;
+      if (this.contextMatches(reviewContext)) this.isPreparingReview = false;
     }
   }
 
   editRelease(): void {
+    this.reviewGeneration++;
+    this.isPreparingReview = false;
     this.isReviewing = false;
     this.mainnetConfirmed = false;
     this.feeEstimate = null;
@@ -462,9 +478,10 @@ export class DeploymentCreateComponent implements OnInit {
     return this.deploymentDataService.normalize(this.deploymentDataDraft);
   }
 
-  private contextMatches(context: { artifactId: string; wallet: string; network: string; operation: 'deploy' | 'update'; target: string | null }): boolean {
+  private contextMatches(context: { artifactId: string; wallet: string; network: string; operation: 'deploy' | 'update'; target: string | null; revision: number }): boolean {
     return context.artifactId === this.artifactId && context.wallet === this.walletAddress() &&
-      context.network === this.walletNetwork() && context.operation === this.operation && context.target === this.targetContract;
+      context.network === this.walletNetwork() && context.operation === this.operation && context.target === this.targetContract
+      && context.revision === this.reviewGeneration;
   }
 
   onDeploymentDataChanged(): void {
