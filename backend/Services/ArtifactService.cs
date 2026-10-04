@@ -36,6 +36,7 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
             Summary = summary,
             Warnings = [],
             IdempotencyKey = upload.IdempotencyKey,
+            IdempotencyPayloadHash = upload.IdempotencyPayloadHash,
             CreatedAt = DateTime.UtcNow
         };
 

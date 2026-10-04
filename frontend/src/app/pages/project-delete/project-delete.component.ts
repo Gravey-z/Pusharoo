@@ -7,6 +7,7 @@ import { ProjectOwnershipService } from '../../services/project-ownership.servic
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
+import { WalletAuthService } from '../../services/wallet-auth.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 
 @Component({
@@ -31,6 +32,7 @@ export class ProjectDeleteComponent implements OnInit {
     private readonly api: PusharooApiService,
     private readonly errors: ApiErrorFormatterService,
     private readonly ownership: ProjectOwnershipService,
+    private readonly auth: WalletAuthService,
     readonly wallet: WalletService
   ) {
     this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
@@ -79,10 +81,9 @@ export class ProjectDeleteComponent implements OnInit {
 
     this.isDeleting = true;
     try {
-      const signature = await this.wallet.signProjectDeletion(this.project.id, this.project.name);
+      await this.auth.ensureAuthenticated();
       await firstValueFrom(this.api.deleteProject(this.project.id, {
-        projectName: this.project.name,
-        signature
+        projectName: this.project.name
       }));
       await this.router.navigate(['/projects']);
     } catch (error) {

@@ -11,12 +11,11 @@ namespace backend.Controllers;
 public sealed class ProjectArtifactsController(
     ProjectService projectService,
     ArtifactService artifactService,
-    ProjectManagementSignatureValidator projectManagementSignatureValidator,
-    SignatureNonceService nonceService) : ControllerBase
+    CurrentWalletSessionAccessor walletSession,
+    ProjectAuthorizationService authorization) : ControllerBase
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     [HttpPost]
+    [RequireWalletSession]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<ArtifactResponse>> UploadAsync(
         string projectId,
@@ -26,6 +25,11 @@ public sealed class ProjectArtifactsController(
         if (project is null)
         {
             return NotFound(new { error = "Project was not found." });
+        }
+        var access = authorization.CanUploadArtifacts(project, walletSession.Current!.Address);
+        if (!access.IsAllowed)
+        {
+            return StatusCode(access.StatusCode, new { error = access.Error });
         }
 
         if (!Request.HasFormContentType)
@@ -53,15 +57,8 @@ public sealed class ProjectArtifactsController(
         {
             return BadRequest(new { error = "Idempotency-Key must be between 1 and 128 characters." });
         }
-        var scopedIdempotencyKey = idempotencyKey is null ? null : $"{projectId}:{idempotencyKey}";
-        if (scopedIdempotencyKey is not null)
-        {
-            var existing = await artifactService.GetByIdempotencyKeyAsync(scopedIdempotencyKey, cancellationToken);
-            if (existing is not null)
-            {
-                return Ok(existing.ToResponse());
-            }
-        }
+        var scopedIdempotencyKey = idempotencyKey is null ? null
+            : WorkspaceIdempotency.Scope(walletSession.Current!.Address, projectId, "artifact.upload", idempotencyKey);
 
         var nefFile = FindNefFile(form.Files);
         if (nefFile is null)
@@ -80,26 +77,18 @@ public sealed class ProjectArtifactsController(
 
         var nefBytes = await ReadBytesAsync(nefFile, cancellationToken);
         var manifestJson = await ReadTextAsync(manifestFile, cancellationToken);
-        var signature = ReadWalletSignature(form);
-        if (!signature.IsValid)
+        var payloadHash = WorkspaceIdempotency.Hash(version.Trim(),
+            string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
+            Path.GetFileName(nefFile.FileName), WorkspaceIdempotency.HashBytes(nefBytes), manifestJson);
+        if (scopedIdempotencyKey is not null)
         {
-            return BadRequest(new { error = signature.Error });
-        }
-
-        var signatureValidation = projectManagementSignatureValidator.ValidateArtifactUpload(
-            project,
-            version,
-            notes,
-            nefBytes,
-            manifestJson,
-            signature.Signature);
-        if (!signatureValidation.IsValid)
-        {
-            return SignatureError(signatureValidation.Error);
-        }
-        if (!await nonceService.TryConsumeAsync(signature.Signature!, cancellationToken))
-        {
-            return Conflict(new { error = "This wallet signature has already been used." });
+            var existing = await artifactService.GetByIdempotencyKeyAsync(scopedIdempotencyKey, cancellationToken);
+            if (existing is not null)
+            {
+                return existing.IdempotencyPayloadHash == payloadHash
+                    ? Ok(existing.ToResponse())
+                    : Conflict(new { error = "Idempotency-Key was already used with different artifact data." });
+            }
         }
 
         try
@@ -112,7 +101,8 @@ public sealed class ProjectArtifactsController(
                     nefFile.FileName,
                     nefBytes,
                     manifestJson,
-                    scopedIdempotencyKey),
+                    scopedIdempotencyKey,
+                    payloadHash),
                 cancellationToken);
 
             return Created($"/api/artifacts/{artifact.Id}", artifact.ToResponse());
@@ -127,6 +117,16 @@ public sealed class ProjectArtifactsController(
         }
         catch (MongoWriteException exception) when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
         {
+            if (scopedIdempotencyKey is not null)
+            {
+                var existing = await artifactService.GetByIdempotencyKeyAsync(scopedIdempotencyKey, cancellationToken);
+                if (existing is not null)
+                {
+                    return existing.IdempotencyPayloadHash == payloadHash
+                        ? Ok(existing.ToResponse())
+                        : Conflict(new { error = "Idempotency-Key was already used with different artifact data." });
+                }
+            }
             return Conflict(new { error = "An artifact with this project version or idempotency key already exists." });
         }
     }
@@ -182,18 +182,6 @@ public sealed class ProjectArtifactsController(
             : Ok(comparison);
     }
 
-    private ActionResult ForbidWithError(string error)
-    {
-        return StatusCode(StatusCodes.Status403Forbidden, new { error });
-    }
-
-    private ActionResult SignatureError(string error)
-    {
-        return error.StartsWith("Only the project creator", StringComparison.Ordinal)
-            ? ForbidWithError(error)
-            : BadRequest(new { error });
-    }
-
     private static IFormFile? FindNefFile(IFormFileCollection files)
     {
         return files.FirstOrDefault(file =>
@@ -206,28 +194,6 @@ public sealed class ProjectArtifactsController(
             file.FileName.EndsWith(".manifest.json", StringComparison.OrdinalIgnoreCase))
             ?? files.FirstOrDefault(file =>
                 file.FileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static WalletSignatureFormResult ReadWalletSignature(IFormCollection form)
-    {
-        var signatureJson = form["signature"].FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(signatureJson))
-        {
-            return new WalletSignatureFormResult(null, false, "Wallet signature is required.");
-        }
-
-        try
-        {
-            var signature = JsonSerializer.Deserialize<WalletSignatureRequest>(signatureJson, JsonOptions);
-
-            return signature is null
-                ? new WalletSignatureFormResult(null, false, "Wallet signature is invalid.")
-                : new WalletSignatureFormResult(signature, true, string.Empty);
-        }
-        catch (JsonException)
-        {
-            return new WalletSignatureFormResult(null, false, "Wallet signature must be valid JSON.");
-        }
     }
 
     private static async Task<byte[]> ReadBytesAsync(IFormFile file, CancellationToken cancellationToken)
@@ -254,8 +220,4 @@ public sealed class ProjectArtifactsController(
         return string.IsNullOrWhiteSpace(value) || value.Length > 128 ? null : value;
     }
 
-    private sealed record WalletSignatureFormResult(
-        WalletSignatureRequest? Signature,
-        bool IsValid,
-        string Error);
 }

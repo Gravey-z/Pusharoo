@@ -19,11 +19,8 @@ import {
   Project,
   ProjectCardViewModel,
   ProjectListItem,
-  ProjectCreationSignature,
   ProjectAuthorizedDeployer,
   ProjectOverviewViewModel,
-  WalletActionSignature,
-  RemoveProjectAuthorizedDeployerRequest,
   UpdateProjectAuthorizedDeployerRequest
 } from '../models/pusharoo.models';
 import { RuntimeConfigService } from './runtime-config.service';
@@ -64,17 +61,20 @@ export class PusharooApiService {
   createProject(
     name: string,
     description: string,
-    signature: ProjectCreationSignature
+    creatorNetwork: string,
+    idempotencyKey: string
   ): Observable<Project> {
     return this.http.post<Project>(`${this.apiBaseUrl}/projects`, {
       name,
       description: description.trim() || null,
-      signature
-    }).pipe(tap(() => this.clearGetCache()));
+      creatorNetwork
+    }, { context: this.walletSessionContext(), headers: { 'Idempotency-Key': idempotencyKey } })
+      .pipe(tap(() => this.clearGetCache()));
   }
 
   deleteProject(projectId: string, request: DeleteProjectRequest): Observable<void> {
-    return this.http.delete<void>(`${this.apiBaseUrl}/projects/${projectId}`, { body: request })
+    return this.http.delete<void>(`${this.apiBaseUrl}/projects/${projectId}`,
+      { body: request, context: this.walletSessionContext() })
       .pipe(tap(() => this.clearGetCache()));
   }
 
@@ -84,7 +84,8 @@ export class PusharooApiService {
   }
 
   addAuthorizedDeployer(projectId: string, request: AddProjectAuthorizedDeployerRequest): Observable<ProjectAuthorizedDeployer> {
-    return this.http.post<ProjectAuthorizedDeployer>(`${this.apiBaseUrl}/projects/${projectId}/authorized-deployers`, request)
+    return this.http.post<ProjectAuthorizedDeployer>(`${this.apiBaseUrl}/projects/${projectId}/authorized-deployers`, request,
+      { context: this.walletSessionContext() })
       .pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
@@ -95,18 +96,18 @@ export class PusharooApiService {
   ): Observable<ProjectAuthorizedDeployer> {
     return this.http.put<ProjectAuthorizedDeployer>(
       `${this.apiBaseUrl}/projects/${projectId}/authorized-deployers/${encodeURIComponent(walletAddress)}`,
-      request
+      request,
+      { context: this.walletSessionContext() }
     ).pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
   removeAuthorizedDeployer(
     projectId: string,
     walletAddress: string,
-    request: RemoveProjectAuthorizedDeployerRequest
   ): Observable<void> {
     return this.http.delete<void>(
       `${this.apiBaseUrl}/projects/${projectId}/authorized-deployers/${encodeURIComponent(walletAddress)}`,
-      { body: request }
+      { context: this.walletSessionContext() }
     ).pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
@@ -114,20 +115,20 @@ export class PusharooApiService {
     projectId: string,
     version: string,
     notes: string,
-    signature: WalletActionSignature,
     nefFile: File,
-    manifestFile: File
+    manifestFile: File,
+    idempotencyKey: string
   ): Observable<Artifact> {
     const formData = new FormData();
     formData.append('version', version);
     formData.append('notes', notes);
-    formData.append('signature', JSON.stringify(signature));
     formData.append('files', nefFile, nefFile.name);
     formData.append('files', manifestFile, manifestFile.name);
 
     return this.http.post<Artifact>(
       `${this.apiBaseUrl}/projects/${projectId}/artifacts`,
-      formData
+      formData,
+      { context: this.walletSessionContext(), headers: { 'Idempotency-Key': idempotencyKey } }
     ).pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 

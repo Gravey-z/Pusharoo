@@ -41,13 +41,6 @@ export interface WalletLoginSession {
   expiresAtUtc: string | null;
 }
 
-export type ProjectCreationSignature = WalletActionSignature;
-
-export type AuthorizedDeployerAction =
-  | 'authorized-deployers.add'
-  | 'authorized-deployers.update'
-  | 'authorized-deployers.remove';
-
 export interface ProjectAuthorizedDeployer {
   walletAddress: string;
   scriptHash: string;
@@ -59,21 +52,14 @@ export interface ProjectAuthorizedDeployer {
 export interface AddProjectAuthorizedDeployerRequest {
   walletAddress: string;
   allowedNetworks: string[];
-  signature: WalletActionSignature;
 }
 
 export interface UpdateProjectAuthorizedDeployerRequest {
   allowedNetworks: string[];
-  signature: WalletActionSignature;
-}
-
-export interface RemoveProjectAuthorizedDeployerRequest {
-  signature: WalletActionSignature;
 }
 
 export interface DeleteProjectRequest {
   projectName: string;
-  signature: WalletActionSignature;
 }
 
 export interface ArtifactSummary {

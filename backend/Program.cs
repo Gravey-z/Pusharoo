@@ -47,7 +47,6 @@ builder.Services.AddSingleton<NeoWalletSignatureVerifier>();
 builder.Services.AddSingleton<NeoWalletAddressValidator>();
 builder.Services.AddSingleton<DeploymentDataService>();
 builder.Services.AddSingleton<WalletSignatureRequestValidator>();
-builder.Services.AddSingleton<ProjectCreationSignatureValidator>();
 builder.Services.AddSingleton<ProjectManagementSignatureValidator>();
 builder.Services.AddSingleton<ProjectOwnershipService>();
 builder.Services.AddSingleton<SignatureNonceService>();
@@ -79,7 +78,6 @@ if (!string.IsNullOrWhiteSpace(authConfiguration.DataProtectionKeyRingPath))
         .PersistKeysToFileSystem(new DirectoryInfo(authConfiguration.DataProtectionKeyRingPath));
 }
 builder.Services.AddScoped<ProjectAuthorizedDeployerInputValidator>();
-builder.Services.AddScoped<ProjectAuthorizedDeployerSignatureValidator>();
 builder.Services.AddScoped<ProjectAuthorizedDeployerService>();
 builder.Services.AddScoped<ProjectAuthorizationService>();
 builder.Services.AddScoped<DeploymentAuthorizationService>();

@@ -8,6 +8,7 @@ import { ProjectOwnershipService } from '../../services/project-ownership.servic
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
+import { WalletAuthService } from '../../services/wallet-auth.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 
@@ -32,6 +33,7 @@ export class ArtifactUploadComponent implements OnInit {
   suggestedVersion = '';
   existingVersions: string[] = [];
   readonly projectId: string;
+  private uploadAttempt: { version: string; notes: string; nef: File; manifest: File; key: string } | null = null;
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -40,6 +42,7 @@ export class ArtifactUploadComponent implements OnInit {
     private readonly errors: ApiErrorFormatterService,
     private readonly manifestAnalyzer: ContractManifestAnalyzerService,
     private readonly ownership: ProjectOwnershipService,
+    private readonly auth: WalletAuthService,
     readonly wallet: WalletService
   ) {
     this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
@@ -137,21 +140,19 @@ export class ArtifactUploadComponent implements OnInit {
     this.isUploading = true;
 
     try {
-      const signature = await this.wallet.signArtifactUpload(
-        this.projectId,
-        this.version.trim(),
-        this.notes,
-        nefFile,
-        manifestFile
-      );
-
+      await this.auth.ensureAuthenticated();
+      const version = this.version.trim();
+      if (!this.uploadAttempt || this.uploadAttempt.version !== version || this.uploadAttempt.notes !== this.notes
+        || this.uploadAttempt.nef !== nefFile || this.uploadAttempt.manifest !== manifestFile) {
+        this.uploadAttempt = { version, notes: this.notes, nef: nefFile, manifest: manifestFile, key: crypto.randomUUID() };
+      }
       await firstValueFrom(this.api.uploadArtifact(
         this.projectId,
-        this.version.trim(),
+        version,
         this.notes,
-        signature,
         nefFile,
-        manifestFile
+        manifestFile,
+        this.uploadAttempt.key
       ));
       await this.router.navigate(['/projects', this.projectId]);
     } catch (error) {

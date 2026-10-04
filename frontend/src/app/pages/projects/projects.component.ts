@@ -6,6 +6,7 @@ import { ProjectListItem } from '../../models/pusharoo.models';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
+import { WalletAuthService } from '../../services/wallet-auth.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 
 @Component({
@@ -26,10 +27,12 @@ export class ProjectsComponent implements OnInit {
   searchTerm = '';
   page = 1;
   readonly pageSize = 9;
+  private createAttempt: { payload: string; key: string } | null = null;
 
   constructor(
     private readonly api: PusharooApiService,
     private readonly errors: ApiErrorFormatterService,
+    private readonly auth: WalletAuthService,
     readonly wallet: WalletService
   ) {}
 
@@ -43,6 +46,7 @@ export class ProjectsComponent implements OnInit {
   }
 
   cancelCreateProject(): void {
+    this.createAttempt = null;
     this.isCreating = false;
     this.newProjectName = '';
     this.newProjectDescription = '';
@@ -65,8 +69,14 @@ export class ProjectsComponent implements OnInit {
     this.errorMessage = '';
 
     try {
-      const signature = await this.wallet.signProjectCreation(name, this.newProjectDescription);
-      await firstValueFrom(this.api.createProject(name, this.newProjectDescription, signature));
+      await this.auth.ensureAuthenticated();
+      const network = this.wallet.session()?.network;
+      if (!network) throw new Error('Connect a wallet before creating a project.');
+      const payload = JSON.stringify([name, this.newProjectDescription.trim(), network, this.wallet.account()?.address]);
+      if (this.createAttempt?.payload !== payload) {
+        this.createAttempt = { payload, key: crypto.randomUUID() };
+      }
+      await firstValueFrom(this.api.createProject(name, this.newProjectDescription, network, this.createAttempt.key));
       this.cancelCreateProject();
       this.loadProjects();
     } catch (error) {

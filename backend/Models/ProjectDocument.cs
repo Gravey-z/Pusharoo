@@ -46,6 +46,10 @@ public sealed class ProjectDocument
     [BsonIgnoreIfNull]
     public string? IdempotencyKey { get; init; }
 
+    [BsonElement("idempotencyPayloadHash")]
+    [BsonIgnoreIfNull]
+    public string? IdempotencyPayloadHash { get; init; }
+
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; init; }
 }

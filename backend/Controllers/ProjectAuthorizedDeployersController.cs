@@ -9,9 +9,9 @@ namespace backend.Controllers;
 public sealed class ProjectAuthorizedDeployersController(
     ProjectService projects,
     ProjectAuthorizedDeployerInputValidator inputValidator,
-    ProjectAuthorizedDeployerSignatureValidator signatureValidator,
     ProjectAuthorizedDeployerService authorizedDeployerService,
-    SignatureNonceService nonceService) : ControllerBase
+    CurrentWalletSessionAccessor walletSession,
+    ProjectAuthorizationService authorization) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<ProjectAuthorizedDeployerResponse>>> GetAllAsync(
@@ -25,6 +25,7 @@ public sealed class ProjectAuthorizedDeployersController(
     }
 
     [HttpPost]
+    [RequireWalletSession]
     public async Task<ActionResult<ProjectAuthorizedDeployerResponse>> AddAsync(
         string projectId,
         AddProjectAuthorizedDeployerRequest request,
@@ -41,28 +42,26 @@ public sealed class ProjectAuthorizedDeployersController(
         {
             return NotFound(new { error = "Project was not found." });
         }
+        var access = authorization.CanAdministerProject(project, walletSession.Current!.Address);
+        if (!access.IsAllowed)
+        {
+            return StatusCode(access.StatusCode, new { error = access.Error });
+        }
 
         if (string.Equals(project.CreatedByWalletAddress, input.WalletAddress, StringComparison.Ordinal))
         {
             return BadRequest(new { error = "The project owner cannot be added as an authorized deployer." });
         }
+        var existing = project.AuthorizedDeployers.FirstOrDefault(item => item.WalletAddress == input.WalletAddress);
+        if (existing is not null)
+        {
+            return existing.AllowedNetworks.Order(StringComparer.Ordinal).SequenceEqual(input.AllowedNetworks)
+                ? Ok(existing.ToResponse())
+                : Conflict(new { error = "This wallet is already an authorized deployer with different network access." });
+        }
         if (project.AuthorizedDeployers.Count >= ProjectAuthorizedDeployerInputValidator.MaxAuthorizedDeployers)
         {
             return Conflict(new { error = $"A project can have at most {ProjectAuthorizedDeployerInputValidator.MaxAuthorizedDeployers} authorized deployers." });
-        }
-        if (project.AuthorizedDeployers.Any(item => item.WalletAddress == input.WalletAddress))
-        {
-            return Conflict(new { error = "This wallet is already an authorized deployer." });
-        }
-
-        var signature = signatureValidator.ValidateAdd(project, input, request.Signature);
-        if (!signature.IsValid)
-        {
-            return StatusCode(signature.StatusCode, new { error = signature.Error });
-        }
-        if (!await nonceService.TryConsumeAsync(request.Signature!, cancellationToken))
-        {
-            return Conflict(new { error = "This authorized-deployer signature has already been used." });
         }
 
         var now = DateTime.UtcNow;
@@ -84,6 +83,7 @@ public sealed class ProjectAuthorizedDeployersController(
     }
 
     [HttpPut("{walletAddress}")]
+    [RequireWalletSession]
     public async Task<ActionResult<ProjectAuthorizedDeployerResponse>> UpdateAsync(
         string projectId,
         string walletAddress,
@@ -101,20 +101,19 @@ public sealed class ProjectAuthorizedDeployersController(
         {
             return NotFound(new { error = "Project was not found." });
         }
+        var access = authorization.CanAdministerProject(project, walletSession.Current!.Address);
+        if (!access.IsAllowed)
+        {
+            return StatusCode(access.StatusCode, new { error = access.Error });
+        }
         var existing = project.AuthorizedDeployers.FirstOrDefault(item => item.WalletAddress == input.WalletAddress);
         if (existing is null)
         {
             return NotFound(new { error = "Authorized deployer was not found." });
         }
-
-        var signature = signatureValidator.ValidateUpdate(project, input, request.Signature);
-        if (!signature.IsValid)
+        if (existing.AllowedNetworks.Order(StringComparer.Ordinal).SequenceEqual(input.AllowedNetworks))
         {
-            return StatusCode(signature.StatusCode, new { error = signature.Error });
-        }
-        if (!await nonceService.TryConsumeAsync(request.Signature!, cancellationToken))
-        {
-            return Conflict(new { error = "This authorized-deployer signature has already been used." });
+            return Ok(existing.ToResponse());
         }
 
         var authorizedDeployer = existing with
@@ -129,10 +128,10 @@ public sealed class ProjectAuthorizedDeployersController(
     }
 
     [HttpDelete("{walletAddress}")]
+    [RequireWalletSession]
     public async Task<IActionResult> RemoveAsync(
         string projectId,
         string walletAddress,
-        RemoveProjectAuthorizedDeployerRequest request,
         CancellationToken cancellationToken)
     {
         var input = inputValidator.ValidateRemove(walletAddress);
@@ -146,20 +145,15 @@ public sealed class ProjectAuthorizedDeployersController(
         {
             return NotFound(new { error = "Project was not found." });
         }
+        var access = authorization.CanAdministerProject(project, walletSession.Current!.Address);
+        if (!access.IsAllowed)
+        {
+            return StatusCode(access.StatusCode, new { error = access.Error });
+        }
         var existing = project.AuthorizedDeployers.FirstOrDefault(item => item.WalletAddress == input.WalletAddress);
         if (existing is null)
         {
-            return NotFound(new { error = "Authorized deployer was not found." });
-        }
-
-        var signature = signatureValidator.ValidateRemove(project, existing, request.Signature);
-        if (!signature.IsValid)
-        {
-            return StatusCode(signature.StatusCode, new { error = signature.Error });
-        }
-        if (!await nonceService.TryConsumeAsync(request.Signature!, cancellationToken))
-        {
-            return Conflict(new { error = "This authorized-deployer signature has already been used." });
+            return NoContent();
         }
 
         var updatedProject = await authorizedDeployerService.RemoveAsync(projectId, existing.WalletAddress, cancellationToken);

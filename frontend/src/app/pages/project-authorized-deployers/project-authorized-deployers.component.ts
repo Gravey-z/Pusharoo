@@ -3,13 +3,14 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { AuthorizedDeployerAction, Project, ProjectAuthorizedDeployer, WalletActionSignature } from '../../models/pusharoo.models';
+import { Project, ProjectAuthorizedDeployer } from '../../models/pusharoo.models';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { ProjectDeploymentAccessService } from '../../services/project-deployment-access.service';
 import { ProjectWorkspaceContextService } from '../../services/project-workspace-context.service';
 import { WalletService } from '../../services/wallet.service';
+import { WalletAuthService } from '../../services/wallet-auth.service';
 
 @Component({
   selector: 'app-project-authorized-deployers',
@@ -43,6 +44,7 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
     private readonly ownership: ProjectOwnershipService,
     private readonly workspace: ProjectWorkspaceContextService,
     private readonly deploymentAccess: ProjectDeploymentAccessService,
+    private readonly auth: WalletAuthService,
     readonly wallet: WalletService
   ) {}
 
@@ -152,13 +154,10 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
 
     this.isMutating = true;
     try {
-      const signature = await this.requestAuthorizedDeployerAuthorization(
-        'authorized-deployers.add', walletAddress, allowedNetworks
-      );
+      await this.auth.ensureAuthenticated();
       await firstValueFrom(this.api.addAuthorizedDeployer(this.projectId, {
         walletAddress,
-        allowedNetworks,
-        signature
+        allowedNetworks
       }));
       this.newWalletAddress = '';
       this.newTestnet = true;
@@ -183,12 +182,9 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
 
     this.isMutating = true;
     try {
-      const signature = await this.requestAuthorizedDeployerAuthorization(
-        'authorized-deployers.update', authorizedDeployer.walletAddress, allowedNetworks
-      );
+      await this.auth.ensureAuthenticated();
       await firstValueFrom(this.api.updateAuthorizedDeployer(this.projectId, authorizedDeployer.walletAddress, {
-        allowedNetworks,
-        signature
+        allowedNetworks
       }));
       this.editingAuthorizedDeployer = null;
       this.actionSuccess = 'Authorized deployer networks were updated.';
@@ -210,10 +206,8 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
 
     this.isMutating = true;
     try {
-      const signature = await this.requestAuthorizedDeployerAuthorization(
-        'authorized-deployers.remove', authorizedDeployer.walletAddress, authorizedDeployer.allowedNetworks
-      );
-      await firstValueFrom(this.api.removeAuthorizedDeployer(this.projectId, authorizedDeployer.walletAddress, { signature }));
+      await this.auth.ensureAuthenticated();
+      await firstValueFrom(this.api.removeAuthorizedDeployer(this.projectId, authorizedDeployer.walletAddress));
       this.removingAuthorizedDeployer = null;
       this.removalConfirmation = '';
       this.actionSuccess = 'Authorized deployer was removed.';
@@ -266,19 +260,6 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
       return;
     }
     this.actionError = this.errors.format(error, fallback);
-  }
-
-  private requestAuthorizedDeployerAuthorization(
-    action: AuthorizedDeployerAction,
-    walletAddress: string,
-    allowedNetworks: string[]
-  ): Promise<WalletActionSignature> {
-    return this.wallet.signAuthorizedDeployerAuthorization(
-      this.projectId,
-      action,
-      walletAddress,
-      allowedNetworks
-    );
   }
 
   private clearActionMessages(): void {

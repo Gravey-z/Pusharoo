@@ -66,7 +66,7 @@
           <label><input type="checkbox" name="newMainnet" [(ngModel)]="newMainnet" /> N3:MainNet</label>
         </fieldset>
         <button class="primary-button" type="button" [disabled]="!canAddDeployer" (click)="addDeployer()">
-          {{ isMutating ? 'Waiting for wallet signature...' : 'Sign and add wallet' }}
+          {{ isMutating ? 'Adding...' : 'Add wallet' }}
         </button>
       </section>
     } @else {
@@ -126,7 +126,7 @@
       <section class="confirmation-panel surface-panel" aria-labelledby="edit-deployer-title">
         <span class="eyebrow">Owner confirmation</span>
         <h2 id="edit-deployer-title">Edit {{ shortAddress(editingAuthorizedDeployer.walletAddress) }}</h2>
-        <p>Choose the permitted networks and sign with the owner wallet.</p>
+        <p>Choose the permitted networks. Pusharoo will check your owner session when you save.</p>
         <fieldset class="network-selector" [disabled]="isMutating">
           <legend>Deployment networks</legend>
           <label><input type="checkbox" name="editTestnet" [(ngModel)]="editTestnet" /> N3:TestNet</label>
@@ -134,7 +134,7 @@
         </fieldset>
         <div class="confirmation-actions">
           <button class="secondary-button" type="button" [disabled]="isMutating" (click)="cancelEdit()">Cancel</button>
-          <button class="primary-button" type="button" [disabled]="!canSaveEdit" (click)="saveEdit()">{{ isMutating ? 'Waiting for wallet signature...' : 'Sign and save' }}</button>
+          <button class="primary-button" type="button" [disabled]="!canSaveEdit" (click)="saveEdit()">{{ isMutating ? 'Saving...' : 'Save networks' }}</button>
         </div>
       </section>
     }
@@ -143,14 +143,14 @@
       <section class="confirmation-panel removal-panel surface-panel" aria-labelledby="remove-deployer-title">
         <span class="eyebrow">Owner confirmation</span>
         <h2 id="remove-deployer-title">Remove {{ shortAddress(removingAuthorizedDeployer.walletAddress) }}?</h2>
-        <p>Type the full wallet address, then sign the removal with the owner wallet.</p>
+        <p>Type the full wallet address to confirm removal.</p>
         <label>
           <span>Wallet address to remove</span>
           <input type="text" name="removalConfirmation" [(ngModel)]="removalConfirmation" autocomplete="off" [disabled]="isMutating" />
         </label>
         <div class="confirmation-actions">
           <button class="secondary-button" type="button" [disabled]="isMutating" (click)="cancelRemove()">Cancel</button>
-          <button class="danger-button" type="button" [disabled]="!canRemoveAuthorizedDeployer" (click)="removeAuthorizedDeployer()">{{ isMutating ? 'Waiting for wallet signature...' : 'Sign and remove' }}</button>
+          <button class="danger-button" type="button" [disabled]="!canRemoveAuthorizedDeployer" (click)="removeAuthorizedDeployer()">{{ isMutating ? 'Removing...' : 'Remove wallet' }}</button>
         </div>
       </section>
     }

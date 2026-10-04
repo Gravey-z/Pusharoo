@@ -9,11 +9,11 @@ namespace backend.Controllers;
 [Route("api/projects")]
 public sealed class ProjectsController(
     ProjectService projectService,
-    ProjectCreationSignatureValidator projectCreationSignatureValidator,
-    ProjectManagementSignatureValidator projectManagementSignatureValidator,
-    SignatureNonceService nonceService) : ControllerBase
+    CurrentWalletSessionAccessor walletSession,
+    ProjectAuthorizationService authorization) : ControllerBase
 {
     [HttpPost]
+    [RequireWalletSession]
     public async Task<ActionResult<ProjectResponse>> CreateAsync(
         CreateProjectRequest request,
         CancellationToken cancellationToken)
@@ -26,41 +26,45 @@ public sealed class ProjectsController(
         {
             return BadRequest(new { error = "Project description must be at most 2000 characters." });
         }
+        if (request.CreatorNetwork is not ("neo3:testnet" or "neo3:mainnet"))
+        {
+            return BadRequest(new { error = "Choose Neo N3 TestNet or MainNet." });
+        }
+
+        var actor = walletSession.Current!;
+        var payloadHash = WorkspaceIdempotency.Hash(request.Name.Trim(),
+            string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(), request.CreatorNetwork);
 
         var idempotencyKey = ReadIdempotencyKey();
         if (idempotencyKey is null && Request.Headers.ContainsKey("Idempotency-Key"))
         {
             return BadRequest(new { error = "Idempotency-Key must be between 1 and 128 characters." });
         }
+        idempotencyKey = idempotencyKey is null ? null
+            : WorkspaceIdempotency.Scope(actor.Address, string.Empty, "project.create", idempotencyKey);
         if (idempotencyKey is not null)
         {
             var existing = await projectService.GetByIdempotencyKeyAsync(idempotencyKey, cancellationToken);
             if (existing is not null)
             {
-                return Ok(existing.ToResponse());
+                return existing.IdempotencyPayloadHash == payloadHash
+                    ? Ok(existing.ToResponse())
+                    : Conflict(new { error = "Idempotency-Key was already used with a different project request." });
             }
-        }
-
-        var signatureValidation = projectCreationSignatureValidator.Validate(request);
-        if (!signatureValidation.IsValid)
-        {
-            return BadRequest(new { error = signatureValidation.Error });
-        }
-        if (!await nonceService.TryConsumeAsync(request.Signature!, cancellationToken))
-        {
-            return Conflict(new { error = "This wallet signature has already been used." });
         }
 
         try
         {
-            var project = await projectService.CreateAsync(request, idempotencyKey, cancellationToken);
+            var project = await projectService.CreateAsync(request, actor, idempotencyKey, payloadHash, cancellationToken);
 
             return Created($"/api/projects/{project.Id}", project.ToResponse());
         }
         catch (MongoWriteException exception) when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey && idempotencyKey is not null)
         {
             var existing = await projectService.GetByIdempotencyKeyAsync(idempotencyKey, cancellationToken);
-            return existing is null ? Conflict() : Ok(existing.ToResponse());
+            return existing?.IdempotencyPayloadHash == payloadHash
+                ? Ok(existing.ToResponse())
+                : Conflict(new { error = "Idempotency-Key was already used with a different project request." });
         }
     }
 
@@ -91,6 +95,7 @@ public sealed class ProjectsController(
     }
 
     [HttpDelete("{projectId}")]
+    [RequireWalletSession]
     public async Task<IActionResult> DeleteAsync(
         string projectId,
         DeleteProjectRequest request,
@@ -102,20 +107,14 @@ public sealed class ProjectsController(
             return NotFound(new { error = "Project was not found." });
         }
 
-        var signatureValidation = projectManagementSignatureValidator.ValidateProjectDeletion(
-            project,
-            request.ProjectName,
-            request.Signature);
-        if (!signatureValidation.IsValid)
+        var access = authorization.CanAdministerProject(project, walletSession.Current!.Address);
+        if (!access.IsAllowed)
         {
-            return signatureValidation.Error.StartsWith("Only the project creator", StringComparison.Ordinal)
-                ? StatusCode(StatusCodes.Status403Forbidden, new { error = signatureValidation.Error })
-                : BadRequest(new { error = signatureValidation.Error });
+            return StatusCode(access.StatusCode, new { error = access.Error });
         }
-
-        if (!await nonceService.TryConsumeAsync(request.Signature!, cancellationToken))
+        if (!string.Equals(project.Name, request.ProjectName?.Trim(), StringComparison.Ordinal))
         {
-            return Conflict(new { error = "This wallet signature has already been used." });
+            return BadRequest(new { error = "Type the exact project name to confirm deletion." });
         }
 
         await projectService.DeleteAsync(projectId, cancellationToken);

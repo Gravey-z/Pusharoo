@@ -11,7 +11,7 @@ import type {
   WalletSession
 } from 'neo-n3-walletkit';
 import { defaultWalletConfig, isPusharooNetwork, PusharooNetwork } from '../config/wallet.config';
-import { AuthorizedDeployerAction, DeploymentDataValue, ProjectCreationSignature, WalletActionSignature, WalletLoginChallenge } from '../models/pusharoo.models';
+import { DeploymentDataValue, WalletActionSignature, WalletLoginChallenge } from '../models/pusharoo.models';
 import {
   ProjectCreationSignatureMessageService,
   WalletActionSignatureChallenge
@@ -407,33 +407,6 @@ export class WalletService {
     return { systemFee, networkFee, total: total ?? this.sumFees(systemFee, networkFee) };
   }
 
-  async signProjectCreation(
-    projectName: string,
-    projectDescription: string
-  ): Promise<ProjectCreationSignature> {
-    const session = this.session();
-    const account = this.account();
-
-    if (!this.walletKit || !session || !account) {
-      throw new Error('Connect a wallet before creating a project.');
-    }
-
-    const challenge = await this.projectCreationMessage.create(
-      projectName,
-      projectDescription,
-      account,
-      session
-    );
-    const signedMessage = await this.signMessage(
-      session,
-      account.address,
-      challenge.message,
-      `Create Pusharoo project ${projectName.trim()}`
-    );
-
-    return this.toWalletActionSignature(account, session, challenge, signedMessage);
-  }
-
   async signWalletLogin(challenge: WalletLoginChallenge): Promise<WalletActionSignature> {
     const session = this.session();
     const account = this.account();
@@ -448,39 +421,6 @@ export class WalletService {
       || this.session()?.network !== session.network) {
       throw new Error('The wallet changed while signing in. Try again with the connected account.');
     }
-    return this.toWalletActionSignature(account, session, challenge, signedMessage);
-  }
-
-  async signArtifactUpload(
-    projectId: string,
-    version: string,
-    notes: string,
-    nefFile: File,
-    manifestFile: File
-  ): Promise<WalletActionSignature> {
-    const session = this.session();
-    const account = this.account();
-
-    if (!this.walletKit || !session || !account) {
-      throw new Error('Connect a wallet before uploading an artifact.');
-    }
-
-    const challenge = await this.projectCreationMessage.createArtifactUpload(
-      projectId,
-      version,
-      notes,
-      nefFile,
-      manifestFile,
-      account,
-      session
-    );
-    const signedMessage = await this.signMessage(
-      session,
-      account.address,
-      challenge.message,
-      `Upload Pusharoo artifact ${version.trim()}`
-    );
-
     return this.toWalletActionSignature(account, session, challenge, signedMessage);
   }
 
@@ -513,30 +453,6 @@ export class WalletService {
     return this.toWalletActionSignature(account, session, challenge, signedMessage);
   }
 
-  async signProjectDeletion(projectId: string, projectName: string): Promise<WalletActionSignature> {
-    const session = this.session();
-    const account = this.account();
-
-    if (!this.walletKit || !session || !account) {
-      throw new Error('Connect the project owner wallet before deleting a project.');
-    }
-
-    const challenge = this.projectCreationMessage.createProjectDeletion(
-      projectId,
-      projectName,
-      account,
-      session
-    );
-    const signedMessage = await this.signMessage(
-      session,
-      account.address,
-      challenge.message,
-      `Delete Pusharoo project ${projectName.trim()}`
-    );
-
-    return this.toWalletActionSignature(account, session, challenge, signedMessage);
-  }
-
   async signFaucetClaim(message: string): Promise<WalletActionSignature> {
     const session = this.session();
     const account = this.account();
@@ -553,37 +469,6 @@ export class WalletService {
       message,
       'Sign a message to request sponsored testnet GAS. Pusharoo pays the transaction fee.'
     );
-    return this.toWalletActionSignature(account, session, challenge, signedMessage);
-  }
-
-  async signAuthorizedDeployerAuthorization(
-    projectId: string,
-    action: AuthorizedDeployerAction,
-    walletAddress: string,
-    allowedNetworks: string[]
-  ): Promise<WalletActionSignature> {
-    const session = this.session();
-    const account = this.account();
-
-    if (!this.walletKit || !session || !account) {
-      throw new Error('Connect the project owner wallet before managing authorized deployers.');
-    }
-
-    const challenge = this.projectCreationMessage.createAuthorizedDeployerAuthorization(
-      projectId,
-      action,
-      walletAddress,
-      allowedNetworks,
-      account,
-      session
-    );
-    const signedMessage = await this.signMessage(
-      session,
-      account.address,
-      challenge.message,
-      'Manage Pusharoo authorized deployers'
-    );
-
     return this.toWalletActionSignature(account, session, challenge, signedMessage);
   }
 

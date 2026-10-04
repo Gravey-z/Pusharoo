@@ -3,11 +3,10 @@ namespace backend.Models;
 public sealed record CreateProjectRequest(
     string Name,
     string? Description,
-    WalletSignatureRequest? Signature);
+    string CreatorNetwork);
 
 public sealed record DeleteProjectRequest(
-    string ProjectName,
-    WalletSignatureRequest? Signature);
+    string ProjectName);
 
 public sealed record WebhookAccessValidationRequest(
     string Operation,
@@ -16,15 +15,10 @@ public sealed record WebhookAccessValidationRequest(
 
 public sealed record AddProjectAuthorizedDeployerRequest(
     string WalletAddress,
-    IReadOnlyList<string>? AllowedNetworks,
-    WalletSignatureRequest? Signature);
+    IReadOnlyList<string>? AllowedNetworks);
 
 public sealed record UpdateProjectAuthorizedDeployerRequest(
-    IReadOnlyList<string>? AllowedNetworks,
-    WalletSignatureRequest? Signature);
-
-public sealed record RemoveProjectAuthorizedDeployerRequest(
-    WalletSignatureRequest? Signature);
+    IReadOnlyList<string>? AllowedNetworks);
 
 public sealed record ProjectAuthorizedDeployerResponse(
     string WalletAddress,
@@ -40,7 +34,8 @@ public sealed record ArtifactUploadInput(
     string NefFileName,
     byte[] Nef,
     string ManifestJson,
-    string? IdempotencyKey);
+    string? IdempotencyKey,
+    string? IdempotencyPayloadHash);
 
 public sealed record ProjectResponse(
     string Id,

@@ -9,21 +9,20 @@ public sealed class ProjectService(
     IProjectRepository projects,
     MongoDbContext db)
 {
-    public async Task<ProjectDocument> CreateAsync(CreateProjectRequest request, string? idempotencyKey, CancellationToken cancellationToken)
+    public async Task<ProjectDocument> CreateAsync(CreateProjectRequest request, WalletSessionIdentity actor,
+        string? idempotencyKey, string? idempotencyPayloadHash, CancellationToken cancellationToken)
     {
-        var signature = request.Signature
-            ?? throw new InvalidOperationException("Project creation requires a wallet signature.");
-
         var project = new ProjectDocument
         {
             Id = ObjectId.GenerateNewId().ToString(),
             Name = request.Name.Trim(),
             Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
-            CreatedByWalletAddress = signature.Address.Trim(),
-            CreatedByWalletScriptHash = signature.ScriptHash.Trim(),
-            CreatedByWalletPublicKey = signature.PublicKey.Trim(),
-            CreatorNetwork = signature.Network.Trim(),
+            CreatedByWalletAddress = actor.Address,
+            CreatedByWalletScriptHash = actor.ScriptHash,
+            CreatedByWalletPublicKey = actor.PublicKey,
+            CreatorNetwork = request.CreatorNetwork,
             IdempotencyKey = idempotencyKey,
+            IdempotencyPayloadHash = idempotencyPayloadHash,
             CreatedAt = DateTime.UtcNow
         };
 
