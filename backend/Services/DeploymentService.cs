@@ -80,7 +80,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
     public async Task<DeploymentDocument> StartAttemptAsync(
         string projectId,
         ArtifactDocument artifact,
-        StartDeploymentAttemptRequest request,
+        StartSessionDeploymentAttemptRequest request,
         string operation,
         DeploymentAuthorizationSnapshot authorizationSnapshot,
         string attemptCapability,
@@ -94,7 +94,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             ArtifactId = artifact.Id,
             Version = artifact.Version,
             Network = request.Network.Trim(),
-            DeployedBy = request.DeployedBy.Trim(),
+            DeployedBy = authorizationSnapshot.InitiatorWalletAddress,
             Notes = TrimToNull(request.Notes),
             Operation = operation,
             Status = "awaiting_wallet",
@@ -129,6 +129,12 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
         await deployments.ReplaceAsync(updated, cancellationToken);
         return updated;
     }
+
+    public Task<DeploymentDocument?> RenewCapabilityAsync(DeploymentDocument deployment,
+        string nextAttemptCapability, CancellationToken cancellationToken)
+        => deployments.RenewCapabilityAsync(deployment,
+            DeploymentAuthorizationService.HashAttemptCapability(nextAttemptCapability),
+            DateTime.UtcNow.AddMinutes(10), cancellationToken);
 
     public async Task<DeploymentDocument> MarkConfirmedAsync(
         DeploymentDocument deployment,

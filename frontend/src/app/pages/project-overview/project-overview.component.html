@@ -175,7 +175,7 @@
                 Deploy Contract
               </a>
             }
-            @if (!hasConfirmedDeploymentOnConnectedNetwork(overview)) {
+            @if (!hasConfirmedDeploymentOnConnectedNetwork(overview) || hasUnrecordedAttemptForConnectedWallet(overview)) {
               <a class="secondary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'recovery']">Recover by transaction</a>
             }
           </div>
@@ -251,6 +251,12 @@
                 (click)="resumeConfirmation(overview, deployment)"
               >
                 {{ confirmingDeploymentId === deployment.id ? 'Confirming...' : deployment.status === 'failed' ? 'Retry Confirmation' : 'Resume Confirmation' }}
+              </button>
+            }
+            @if (canCancelAttempt(deployment)) {
+              <button class="resume-button" type="button" [disabled]="confirmingDeploymentId === deployment.id"
+                (click)="cancelAttempt(overview, deployment)">
+                {{ confirmingDeploymentId === deployment.id ? 'Canceling...' : 'Cancel Attempt' }}
               </button>
             }
             @if (deployment.failureReason) {

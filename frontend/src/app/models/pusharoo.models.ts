@@ -172,16 +172,19 @@ export interface CreateDeploymentRequest {
 export interface RecoverDeploymentRequest {
   network: string;
   transactionId: string;
-  deployedBy: string;
-  authorization: WalletActionSignature;
 }
 
 export interface StartDeploymentAttemptRequest {
   artifactId: string;
   network: string;
-  deployedBy: string;
   notes?: string | null;
-  authorization: WalletActionSignature;
+  expectedOperation: 'deploy' | 'update';
+  expectedTargetContractHash?: string | null;
+  expectedDeploymentRevision: number;
+  artifactNefSha256: string;
+  artifactManifestSha256: string;
+  notesSha256: string;
+  deploymentDataSha256: string;
   deploymentData?: DeploymentDataValue | null;
 }
 
@@ -194,26 +197,25 @@ export type DeploymentDataValue =
   | { type: 'ByteArray'; value: string }
   | { type: 'Array'; value: DeploymentDataValue[] };
 
-export interface DeploymentAuthorizationChallengeRequest {
+export interface DeploymentReviewRequest {
   artifactId: string;
   network: string;
-  deployedBy: string;
   notes?: string | null;
-  origin: string;
-  audience: string;
-  issuedAtUtc: string;
-  nonce: string;
   deploymentData?: DeploymentDataValue | null;
 }
 
-export interface DeploymentAuthorizationChallenge {
-  message: string;
+export interface DeploymentReview {
+  artifactId: string;
+  network: string;
   operation: 'deploy' | 'update';
   expectedTargetContractHash?: string | null;
   expectedDeploymentRevision: number;
   deploymentData: DeploymentDataValue;
   deploymentDataSha256: string;
   deploymentDataFormatVersion: string;
+  artifactNefSha256: string;
+  artifactManifestSha256: string;
+  notesSha256: string;
 }
 
 export interface ArtifactComparison {

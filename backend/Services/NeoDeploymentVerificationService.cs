@@ -95,7 +95,7 @@ public sealed class NeoDeploymentVerificationService(
             return InspectFail($"No Neo RPC endpoint is configured for {network}.");
         }
 
-        var expectedAction = attempt?.AuthorizationSnapshot?.AuthorizationSchemaVersion == 2
+        var expectedAction = attempt?.AuthorizationSnapshot?.AuthorizationSchemaVersion >= 2
             ? string.Equals(attempt.Operation, "update", StringComparison.Ordinal) ? "Update" : "Deploy"
             : HasExistingNetworkDeployment(existingDeployments, network) ? "Update" : "Deploy";
 

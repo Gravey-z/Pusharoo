@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { defer, forkJoin, map, Observable, shareReplay, switchMap, tap } from 'rxjs';
 import {
@@ -11,8 +11,8 @@ import {
   RecoverDeploymentRequest,
   StartDeploymentAttemptRequest,
   Deployment,
-  DeploymentAuthorizationChallenge,
-  DeploymentAuthorizationChallengeRequest,
+  DeploymentReview,
+  DeploymentReviewRequest,
   NeoMethod,
   NeoParameter,
   NeoPermission,
@@ -27,6 +27,7 @@ import {
   UpdateProjectAuthorizedDeployerRequest
 } from '../models/pusharoo.models';
 import { RuntimeConfigService } from './runtime-config.service';
+import { REQUIRE_WALLET_SESSION } from './wallet-auth.interceptor';
 import { PROJECT_DATA_CACHE_TTL_MS } from './project-workspace-context.service';
 
 interface CachedGetRequest {
@@ -158,36 +159,48 @@ export class PusharooApiService {
   ): Observable<Deployment> {
     return this.http.post<Deployment>(
       `${this.apiBaseUrl}/projects/${projectId}/deployments/recover`,
-      request
+      request,
+      { context: this.walletSessionContext() }
     ).pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
   startDeploymentAttempt(projectId: string, request: StartDeploymentAttemptRequest): Observable<Deployment> {
-    return this.http.post<Deployment>(`${this.apiBaseUrl}/projects/${projectId}/deployments/attempts`, request)
+    return this.http.post<Deployment>(`${this.apiBaseUrl}/projects/${projectId}/deployments/attempts`, request,
+      { context: this.walletSessionContext() })
       .pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
-  createDeploymentAuthorizationChallenge(
+  reviewDeployment(
     projectId: string,
-    request: DeploymentAuthorizationChallengeRequest
-  ): Observable<DeploymentAuthorizationChallenge> {
-    return this.http.post<DeploymentAuthorizationChallenge>(
-      `${this.apiBaseUrl}/projects/${projectId}/deployments/authorization-challenge`,
-      request
+    request: DeploymentReviewRequest
+  ): Observable<DeploymentReview> {
+    return this.http.post<DeploymentReview>(
+      `${this.apiBaseUrl}/projects/${projectId}/deployments/review`,
+      request,
+      { context: this.walletSessionContext() }
+    );
+  }
+
+  resumeDeploymentAttempt(projectId: string, deploymentId: string): Observable<Deployment> {
+    return this.http.post<Deployment>(
+      `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/resume`, {},
+      { context: this.walletSessionContext() }
     );
   }
 
   markDeploymentSubmitted(projectId: string, deploymentId: string, transactionId: string, attemptCapability: string): Observable<Deployment> {
     return this.http.post<Deployment>(
       `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/submitted`,
-      { transactionId, attemptCapability }
+      { transactionId, attemptCapability },
+      { context: this.walletSessionContext() }
     ).pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
   confirmDeploymentAttempt(projectId: string, deploymentId: string, attemptCapability: string): Observable<Deployment> {
     return this.http.post<Deployment>(
       `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/confirm`,
-      { attemptCapability }
+      { attemptCapability },
+      { context: this.walletSessionContext() }
     ).pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
@@ -200,13 +213,18 @@ export class PusharooApiService {
   ): Observable<Deployment> {
     return this.http.post<Deployment>(
       `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/failed`,
-      { attemptCapability, stage, reason }
+      { attemptCapability, stage, reason },
+      { context: this.walletSessionContext() }
     ).pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
   getDeployments(projectId: string): Observable<Deployment[]> {
     return this.cachedGet(`project:${projectId}:deployments`, () =>
       this.http.get<Deployment[]>(`${this.apiBaseUrl}/projects/${projectId}/deployments`));
+  }
+
+  private walletSessionContext(): HttpContext {
+    return new HttpContext().set(REQUIRE_WALLET_SESSION, true);
   }
 
   private getArtifacts(projectId: string): Observable<Artifact[]> {

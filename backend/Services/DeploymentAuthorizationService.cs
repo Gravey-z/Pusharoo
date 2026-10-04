@@ -51,6 +51,70 @@ public sealed class DeploymentAuthorizationService(
     public static string SerializeManifest(NeoContractManifest manifest)
         => JsonSerializer.Serialize(manifest, ManifestJsonOptions);
 
+    public DeploymentReviewResponse CreateSessionReview(DeploymentAuthorizationContext context)
+        => new(context.ArtifactId, context.Network,
+            context.Operation, context.ExpectedTargetContractHash, context.ExpectedDeploymentRevision,
+            context.DeploymentData.Value, context.DeploymentData.Sha256, context.DeploymentData.FormatVersion,
+            Sha256Hex(context.Nef), Sha256Hex(context.ManifestJson), Sha256Hex(context.Notes));
+
+    public DeploymentAuthorizationValidationResult ValidateSessionStart(
+        ProjectDocument project,
+        ArtifactDocument artifact,
+        IReadOnlyList<DeploymentDocument> deployments,
+        StartSessionDeploymentAttemptRequest request,
+        WalletSessionIdentity actor)
+    {
+        var permission = authorization.CanDeployToNetwork(project, actor.Address, request.Network);
+        if (!permission.IsAllowed) return Fail(permission.StatusCode, permission.Error);
+
+        NormalizedDeploymentData normalizedData;
+        try { normalizedData = deploymentData.Normalize(request.DeploymentData); }
+        catch (DeploymentDataValidationException exception)
+        { return Fail(StatusCodes.Status400BadRequest, exception.Message); }
+
+        var context = CreateContext(project, artifact, deployments, request.Network, actor.Address,
+            request.Notes, normalizedData);
+        if (context.Operation == "update" && request.DeploymentData is not null)
+            return Fail(StatusCodes.Status400BadRequest,
+                "Deployment initialization data can only be supplied for a new contract deployment.");
+
+        var review = CreateSessionReview(context);
+        if (!string.Equals(request.ExpectedOperation, review.Operation, StringComparison.Ordinal)
+            || !string.Equals(request.ExpectedTargetContractHash, review.ExpectedTargetContractHash, StringComparison.OrdinalIgnoreCase)
+            || request.ExpectedDeploymentRevision != review.ExpectedDeploymentRevision
+            || !string.Equals(request.ArtifactNefSha256, review.ArtifactNefSha256, StringComparison.Ordinal)
+            || !string.Equals(request.ArtifactManifestSha256, review.ArtifactManifestSha256, StringComparison.Ordinal)
+            || !string.Equals(request.NotesSha256, review.NotesSha256, StringComparison.Ordinal)
+            || !string.Equals(request.DeploymentDataSha256, review.DeploymentDataSha256, StringComparison.Ordinal))
+        {
+            return Fail(StatusCodes.Status409Conflict,
+                "The release changed after review. Review it again before opening the wallet.");
+        }
+
+        var snapshot = new DeploymentAuthorizationSnapshot
+        {
+            InitiatorWalletAddress = actor.Address,
+            InitiatorScriptHash = NormalizeScriptHash(actor.ScriptHash),
+            ExpectedDeploymentRevision = context.ExpectedDeploymentRevision,
+            ExpectedTargetContractHash = context.ExpectedTargetContractHash,
+            ArtifactNefSha256 = review.ArtifactNefSha256,
+            ArtifactManifestSha256 = review.ArtifactManifestSha256,
+            AuthorizedAtUtc = DateTime.UtcNow,
+            AuthorizationSchemaVersion = 3,
+            AuthorizationMethod = "wallet-session",
+            SessionReference = actor.SessionHash[..Math.Min(32, actor.SessionHash.Length)],
+            ProjectId = context.ProjectId,
+            ArtifactId = context.ArtifactId,
+            Network = context.Network,
+            Operation = context.Operation,
+            DeploymentData = normalizedData.Value,
+            DeploymentDataSha256 = normalizedData.Sha256,
+            DeploymentDataFormatVersion = normalizedData.FormatVersion
+        };
+        return new DeploymentAuthorizationValidationResult(true, StatusCodes.Status204NoContent,
+            string.Empty, context, snapshot, permission.IsOwner);
+    }
+
     public string BuildStartMessage(DeploymentAuthorizationContext context, DeploymentAuthorizationChallengeRequest request)
     {
         var isDataBoundSchema = request.DeploymentData is not null;

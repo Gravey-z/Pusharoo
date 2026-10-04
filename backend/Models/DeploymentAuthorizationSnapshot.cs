@@ -44,4 +44,28 @@ public sealed record DeploymentAuthorizationSnapshot
     [BsonElement("deploymentDataFormatVersion")]
     [BsonIgnoreIfNull]
     public string? DeploymentDataFormatVersion { get; init; }
+
+    [BsonElement("authorizationMethod")]
+    [BsonIgnoreIfNull]
+    public string? AuthorizationMethod { get; init; }
+
+    [BsonElement("sessionReference")]
+    [BsonIgnoreIfNull]
+    public string? SessionReference { get; init; }
+
+    [BsonElement("projectId")]
+    [BsonIgnoreIfNull]
+    public string? ProjectId { get; init; }
+
+    [BsonElement("artifactId")]
+    [BsonIgnoreIfNull]
+    public string? ArtifactId { get; init; }
+
+    [BsonElement("network")]
+    [BsonIgnoreIfNull]
+    public string? Network { get; init; }
+
+    [BsonElement("operation")]
+    [BsonIgnoreIfNull]
+    public string? Operation { get; init; }
 }

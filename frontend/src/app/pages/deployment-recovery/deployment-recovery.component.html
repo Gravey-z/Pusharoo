@@ -57,7 +57,7 @@
               spellcheck="false"
             />
           </label>
-          <p class="field-help">Use the transaction hash from your wallet or Neo explorer. The connected wallet must be the transaction signer and have deployment access to this project.</p>
+          <p class="field-help">Use the transaction hash from your wallet or Neo explorer. The connected wallet must be the transaction signer. New external deployments also require current project access.</p>
         </section>
 
         <section class="recovery-form-section">
@@ -66,7 +66,7 @@
             <span>Deployment wallet</span>
             <input type="text" name="deploymentWallet" [value]="walletAddress() || 'Connect wallet first'" readonly />
           </label>
-          <p class="field-help">Your wallet will sign one recovery message to attach this transaction to the project. Pusharoo will not request another deployment transaction.</p>
+          <p class="field-help">Pusharoo checks your wallet login and the on-chain transaction signer. Recovery will not submit another transaction.</p>
         </section>
 
         @if (statusMessage) {

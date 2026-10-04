@@ -15,4 +15,7 @@ public interface IDeploymentRepository
     Task<DeploymentDocument?> GetByIdAsync(string deploymentId, CancellationToken cancellationToken);
 
     Task ReplaceAsync(DeploymentDocument deployment, CancellationToken cancellationToken);
+
+    Task<DeploymentDocument?> RenewCapabilityAsync(DeploymentDocument deployment,
+        string capabilityHash, DateTime expiresAtUtc, CancellationToken cancellationToken);
 }

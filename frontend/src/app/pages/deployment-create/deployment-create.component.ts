@@ -4,7 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { NetworkType } from 'neo-n3-walletkit';
 import { firstValueFrom, forkJoin } from 'rxjs';
 import { isPusharooNetwork } from '../../config/wallet.config';
-import { Artifact, Deployment, DeploymentAuthorizationChallenge, DeploymentDataValue, ProjectAuthorizedDeployer, ProjectOverviewViewModel } from '../../models/pusharoo.models';
+import { Artifact, Deployment, DeploymentReview, DeploymentDataValue, ProjectAuthorizedDeployer, ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { DeploymentAttemptCapabilityService } from '../../services/deployment-attempt-capability.service';
 import { NeoRpcService } from '../../services/neo-rpc.service';
@@ -17,6 +17,7 @@ import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 import { DeploymentDataEditorComponent, EditableDeploymentData } from '../../components/deployment-data-editor/deployment-data-editor.component';
 import { DeploymentDataService } from '../../services/deployment-data.service';
+import { WalletAuthService } from '../../services/wallet-auth.service';
 
 @Component({
   selector: 'app-deployment-create',
@@ -44,7 +45,7 @@ export class DeploymentCreateComponent implements OnInit {
   feeEstimateError = '';
   deploymentSimulationState: 'not-run' | 'passed' | 'fault' | 'unavailable' = 'not-run';
   deploymentSimulationMessage = '';
-  authorizationPreview: DeploymentAuthorizationChallenge | null = null;
+  authorizationPreview: DeploymentReview | null = null;
   authorizedDeployers: ProjectAuthorizedDeployer[] = [];
   private deniedDeploymentAttempt: { walletAddress: string; network: string } | null = null;
   private preparedNefHex = '';
@@ -144,6 +145,7 @@ export class DeploymentCreateComponent implements OnInit {
     private readonly neoRpc: NeoRpcService,
     private readonly deploymentAccessService: ProjectDeploymentAccessService,
     private readonly runtimeConfig: RuntimeConfigService,
+    private readonly auth: WalletAuthService,
     readonly wallet: WalletService,
     private readonly deploymentDataService: DeploymentDataService
   ) {
@@ -235,39 +237,28 @@ export class DeploymentCreateComponent implements OnInit {
     let attempt: Deployment | null = null;
     let attemptCapability = '';
     let transactionId = '';
+    let walletReturnedInvalidHash = false;
 
     try {
       const deploymentNotes = this.notes.trim() || null;
-      const authorizationContext = this.wallet.createDeploymentAuthorizationContext();
-      this.deployStatus = 'Authorizing deployment attempt...';
-      const authorizationChallenge = await firstValueFrom(this.api.createDeploymentAuthorizationChallenge(this.projectId, {
-        artifactId: this.artifactId,
-        network: session.network,
-        deployedBy: this.walletAddress(),
-        notes: deploymentNotes,
-        ...(this.reviewedContext?.operation === 'deploy' ? { deploymentData: this.authorizationPreview?.deploymentData } : {}),
-        ...authorizationContext
-      }));
+      this.deployStatus = 'Checking Pusharoo login...';
+      await this.auth.ensureAuthenticated();
+      if (!this.reviewedContextIsCurrent) throw new Error('The wallet or release changed. Review it again before deploying.');
       const reviewed = this.authorizationPreview;
-      if (!reviewed || authorizationChallenge.deploymentDataSha256 !== reviewed.deploymentDataSha256 ||
-          authorizationChallenge.expectedDeploymentRevision !== reviewed.expectedDeploymentRevision ||
-          authorizationChallenge.operation !== reviewed.operation ||
-          authorizationChallenge.expectedTargetContractHash !== reviewed.expectedTargetContractHash) {
-        this.errorMessage = 'This release changed after review. Edit the release and review it again before opening the wallet.';
-        return;
-      }
-      const authorization = await this.wallet.signDeploymentAuthorization(
-        authorizationChallenge.message,
-        authorizationContext
-      );
+      if (!reviewed) throw new Error('Review this release before deploying.');
 
       this.deployStatus = 'Creating deployment attempt...';
       attempt = await firstValueFrom(this.api.startDeploymentAttempt(this.projectId, {
         artifactId: this.artifactId,
         network: session.network,
-        deployedBy: this.walletAddress(),
         notes: deploymentNotes,
-        authorization,
+        expectedOperation: reviewed.operation,
+        expectedTargetContractHash: reviewed.expectedTargetContractHash,
+        expectedDeploymentRevision: reviewed.expectedDeploymentRevision,
+        artifactNefSha256: reviewed.artifactNefSha256,
+        artifactManifestSha256: reviewed.artifactManifestSha256,
+        notesSha256: reviewed.notesSha256,
+        deploymentDataSha256: reviewed.deploymentDataSha256,
         ...(this.reviewedContext?.operation === 'deploy' ? { deploymentData: this.authorizationPreview?.deploymentData } : {})
       }));
       attemptCapability = attempt.attemptCapability ?? '';
@@ -275,20 +266,35 @@ export class DeploymentCreateComponent implements OnInit {
         throw new Error('Pusharoo did not return a deployment attempt capability. Start the release again.');
       }
       this.attemptCapabilities.set(attempt.id, attemptCapability);
-      if (this.reviewedContext?.operation === 'deploy' &&
-          (attempt.deploymentDataSha256 !== this.authorizationPreview?.deploymentDataSha256 ||
-           attempt.deploymentDataFormatVersion !== this.authorizationPreview?.deploymentDataFormatVersion)) {
+      if (attempt.artifactId !== artifact.id || attempt.network !== session.network
+        || attempt.deployedBy !== this.walletAddress() || attempt.operation !== reviewed.operation) {
+        throw new Error('The deployment attempt does not match the reviewed release. The wallet was not opened.');
+      }
+      if (attempt.deploymentDataSha256 !== reviewed.deploymentDataSha256
+        || attempt.deploymentDataFormatVersion !== reviewed.deploymentDataFormatVersion) {
         throw new Error('The deployment attempt did not retain the data from the reviewed release. The attempt was stopped before opening the wallet.');
+      }
+      if (!this.reviewedContextIsCurrent || !this.auth.canUseSession()) {
+        throw new Error('The wallet or Pusharoo login changed. The attempt was stopped before opening the wallet.');
       }
 
       const manifestJson = JSON.stringify(artifact.manifest);
-      transactionId = await this.deployOrUpdateContract(
+      const walletTransactionId = await this.deployOrUpdateContract(
         session.network,
         artifact,
         this.preparedNefHex,
         manifestJson,
-        attempt.deploymentData ?? { type: 'Any', value: null }
+        attempt.deploymentData ?? { type: 'Any', value: null },
+        attempt.operation,
+        reviewed.expectedTargetContractHash ?? null
       );
+      try {
+        transactionId = this.requireTransactionId(walletTransactionId);
+      } catch (error) {
+        walletReturnedInvalidHash = true;
+        throw error;
+      }
+      this.attemptCapabilities.setTransactionId(attempt.id, transactionId);
 
       this.deployStatus = 'Saving submitted transaction...';
       const submitted = await firstValueFrom(this.api.markDeploymentSubmitted(
@@ -310,8 +316,10 @@ export class DeploymentCreateComponent implements OnInit {
 
       await this.router.navigate(['/projects', this.projectId]);
     } catch (error) {
-      this.errorMessage = this.getErrorMessage(error);
-      if (attempt && !transactionId && attemptCapability) {
+      this.errorMessage = transactionId && attempt
+        ? `Transaction ${transactionId} was submitted. Open Deployments and choose Resume Confirmation. ${this.getErrorMessage(error)}`
+        : this.getErrorMessage(error);
+      if (attempt && !transactionId && !walletReturnedInvalidHash && attemptCapability) {
         const stage = this.deployStatus.includes('wallet') ? 'wallet' : 'preparing';
         void firstValueFrom(this.api.markDeploymentFailed(
           this.projectId,
@@ -319,7 +327,9 @@ export class DeploymentCreateComponent implements OnInit {
           attemptCapability,
           stage,
           this.errorMessage
-        )).then(() => this.attemptCapabilities.remove(attempt!.id));
+        )).then(() => this.attemptCapabilities.remove(attempt!.id)).catch(() => {
+          this.errorMessage += ' If this attempt remains active, open Deployments and cancel it with the same wallet.';
+        });
       }
     } finally {
       this.isSaving = false;
@@ -375,20 +385,22 @@ export class DeploymentCreateComponent implements OnInit {
     this.isPreparingReview = true;
 
     try {
-      const authorizationContext = this.wallet.createDeploymentAuthorizationContext();
-      const authorizationPreview = await firstValueFrom(this.api.createDeploymentAuthorizationChallenge(this.projectId, {
+      await this.auth.ensureAuthenticated();
+      if (!this.contextMatches(reviewContext)) return;
+      const authorizationPreview = await firstValueFrom(this.api.reviewDeployment(this.projectId, {
         artifactId: artifact.id,
         network: session.network,
-        deployedBy: this.walletAddress(),
         notes: this.notes.trim() || null,
-        ...(this.operation === 'deploy' ? { deploymentData } : {}),
-        ...authorizationContext
+        ...(this.operation === 'deploy' ? { deploymentData } : {})
       }));
+      if (authorizationPreview.artifactId !== artifact.id || authorizationPreview.network !== session.network) {
+        throw new Error('Pusharoo returned a release review for a different artifact or network. Review again.');
+      }
       if (!this.contextMatches(reviewContext)) {
         this.errorMessage = 'The wallet, network, artifact, or deployment action changed while preparing review. Review the release again.';
         return;
       }
-      this.authorizationPreview = JSON.parse(JSON.stringify(authorizationPreview)) as DeploymentAuthorizationChallenge;
+      this.authorizationPreview = JSON.parse(JSON.stringify(authorizationPreview)) as DeploymentReview;
       const nefHex = await firstValueFrom(this.api.getArtifactNefHex(artifact.id));
       if (!this.contextMatches(reviewContext)) {
         this.errorMessage = 'The wallet, network, artifact, or deployment action changed while preparing review. Review the release again.';
@@ -545,6 +557,18 @@ export class DeploymentCreateComponent implements OnInit {
     }
   }
 
+  private requireTransactionId(value: unknown): string {
+    if (typeof value !== 'string') {
+      throw new Error('The wallet did not return a transaction hash. Find it in the wallet or Neo explorer and recover it by transaction.');
+    }
+    const transactionId = value.trim().toLowerCase();
+    const normalized = /^[0-9a-f]{64}$/.test(transactionId) ? `0x${transactionId}` : transactionId;
+    if (!/^0x[0-9a-f]{64}$/.test(normalized)) {
+      throw new Error('The wallet submitted a transaction but did not return a valid transaction hash. Find its hash in the wallet or Neo explorer and recover it by transaction.');
+    }
+    return normalized;
+  }
+
   private getExistingDeployment(network: string) {
     return this.deploymentHistory.latestForNetwork(this.overview?.deployments ?? [], network);
   }
@@ -554,45 +578,27 @@ export class DeploymentCreateComponent implements OnInit {
     artifact: Artifact,
     nefHex: string,
     manifestJson: string,
-    deploymentData: DeploymentDataValue
+    deploymentData: DeploymentDataValue,
+    operation: Deployment['operation'],
+    targetContract: string | null
   ): Promise<string> {
     if (!isPusharooNetwork(network)) {
       throw new Error(`Pusharoo does not support ${network}. Use Neo N3 testnet or mainnet.`);
     }
 
-    const deployments = this.overview?.deployments ?? [];
-    const existingDeployment = this.deploymentHistory.latestForNetwork(deployments, network);
-    const networkDeployments = this.deploymentHistory.forNetwork(deployments, network);
-    const submittedAttempt = networkDeployments.find((deployment) =>
-      ['submitted', 'confirming'].includes(deployment.status) && deployment.transactionId
-    );
-    const incompleteLegacyDeployment = networkDeployments.find((deployment) =>
-      (!deployment.status || deployment.status === 'confirmed') && !deployment.contractHash
-    );
-
     this.deployStatus = 'Waiting for wallet approval...';
 
-    if (existingDeployment?.contractHash) {
+    if (operation === 'update') {
+      if (!targetContract) throw new Error('The reviewed update target is missing. Review the release again.');
       const transactionId = await this.wallet.updateContract(
         network,
-        existingDeployment.contractHash,
+        targetContract,
         nefHex,
         manifestJson,
         artifact.contractName
       );
 
       return transactionId;
-    }
-
-    if (submittedAttempt) {
-      throw new Error(
-        `A ${network} deployment transaction is already submitted but not confirmed. ` +
-        'Open Deployments and select Resume Confirmation instead of creating another transaction.'
-      );
-    }
-
-    if (incompleteLegacyDeployment) {
-      throw new Error(`A deployment already exists on ${network}, but it has no contract hash. Pusharoo cannot update without the deployed contract hash.`);
     }
 
     const transactionId = await this.wallet.deployContract(

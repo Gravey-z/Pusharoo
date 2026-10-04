@@ -8,6 +8,8 @@ import { DeploymentHistoryService } from '../../services/deployment-history.serv
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
+import { WalletAuthService } from '../../services/wallet-auth.service';
+import { DeploymentAttemptCapabilityService } from '../../services/deployment-attempt-capability.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 
@@ -36,11 +38,18 @@ export class DeploymentRecoveryComponent implements OnInit {
 
   get canInspectRecovery(): boolean {
     const access = this.deploymentAccess.resolve(this.overview?.project, this.authorizedDeployers, this.walletAddress());
-    return this.deploymentAccess.canDeployToNetwork(access, this.walletNetwork());
+    return this.deploymentAccess.canDeployToNetwork(access, this.walletNetwork()) || this.hasUnrecordedAttempt;
   }
 
   get hasConfirmedDeploymentOnConnectedNetwork(): boolean {
-    return Boolean(this.deploymentHistory.latestForNetwork(this.overview?.deployments ?? [], this.walletNetwork()));
+    return !this.hasUnrecordedAttempt
+      && Boolean(this.deploymentHistory.latestForNetwork(this.overview?.deployments ?? [], this.walletNetwork()));
+  }
+
+  get hasUnrecordedAttempt(): boolean {
+    return Boolean(this.walletAddress() && this.walletNetwork() && this.overview?.deployments.some((deployment) =>
+      deployment.network === this.walletNetwork() && deployment.deployedBy === this.walletAddress()
+      && ['preparing', 'awaiting_wallet'].includes(deployment.status) && !deployment.transactionId));
   }
 
   get recoveryAccessMessage(): string {
@@ -60,6 +69,8 @@ export class DeploymentRecoveryComponent implements OnInit {
     private readonly errors: ApiErrorFormatterService,
     private readonly deploymentHistory: DeploymentHistoryService,
     private readonly deploymentAccess: ProjectDeploymentAccessService,
+    private readonly auth: WalletAuthService,
+    private readonly attemptCapabilities: DeploymentAttemptCapabilityService,
     readonly wallet: WalletService
   ) {
     this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
@@ -115,14 +126,18 @@ export class DeploymentRecoveryComponent implements OnInit {
 
     this.isRecovering = true;
     try {
-      const authorization = await this.wallet.signDeploymentRecovery(this.projectId, transactionId);
+      const walletAddress = this.walletAddress();
+      const network = this.walletNetwork();
+      await this.auth.ensureAuthenticated();
+      if (this.walletAddress() !== walletAddress || this.walletNetwork() !== network) {
+        throw new Error('The connected wallet or network changed. Try recovery again.');
+      }
       this.statusMessage = 'Checking the transaction on Neo...';
-      await firstValueFrom(this.api.recoverDeployment(this.projectId, {
-        network: this.walletNetwork(),
-        transactionId,
-        deployedBy: this.walletAddress(),
-        authorization
+      const recovered = await firstValueFrom(this.api.recoverDeployment(this.projectId, {
+        network,
+        transactionId
       }));
+      this.attemptCapabilities.remove(recovered.id);
       await this.router.navigate(['/projects', this.projectId, 'deployments']);
     } catch (error) {
       this.statusMessage = '';

@@ -45,4 +45,19 @@ public sealed class DeploymentRepository(MongoDbContext db) : IDeploymentReposit
             deployment,
             cancellationToken: cancellationToken);
     }
+
+    public async Task<DeploymentDocument?> RenewCapabilityAsync(DeploymentDocument deployment,
+        string capabilityHash, DateTime expiresAtUtc, CancellationToken cancellationToken)
+    {
+        var filter = Builders<DeploymentDocument>.Filter.Where(item => item.Id == deployment.Id
+            && item.ProjectId == deployment.ProjectId
+            && item.AttemptCapabilityHash == deployment.AttemptCapabilityHash
+            && item.Status == deployment.Status);
+        var update = Builders<DeploymentDocument>.Update
+            .Set(item => item.AttemptCapabilityHash, capabilityHash)
+            .Set(item => item.AttemptCapabilityExpiresAtUtc, expiresAtUtc);
+        return await db.Deployments.FindOneAndUpdateAsync(filter, update,
+            new FindOneAndUpdateOptions<DeploymentDocument> { ReturnDocument = ReturnDocument.After },
+            cancellationToken);
+    }
 }

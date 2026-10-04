@@ -14,8 +14,7 @@ import { defaultWalletConfig, isPusharooNetwork, PusharooNetwork } from '../conf
 import { AuthorizedDeployerAction, DeploymentDataValue, ProjectCreationSignature, WalletActionSignature, WalletLoginChallenge } from '../models/pusharoo.models';
 import {
   ProjectCreationSignatureMessageService,
-  WalletActionSignatureChallenge,
-  WalletSignatureContext
+  WalletActionSignatureChallenge
 } from './project-creation-signature-message.service';
 import { RuntimeConfigService } from './runtime-config.service';
 import { DeploymentDataService } from './deployment-data.service';
@@ -535,61 +534,6 @@ export class WalletService {
       `Delete Pusharoo project ${projectName.trim()}`
     );
 
-    return this.toWalletActionSignature(account, session, challenge, signedMessage);
-  }
-
-  createDeploymentAuthorizationContext(): WalletSignatureContext {
-    return this.projectCreationMessage.createSignatureContext();
-  }
-
-  async signDeploymentAuthorization(
-    message: string,
-    context: WalletSignatureContext
-  ): Promise<WalletActionSignature> {
-    const session = this.session();
-    const account = this.account();
-    if (!this.walletKit || !session || !account) {
-      throw new Error('Connect a wallet before authorizing a deployment.');
-    }
-
-    const challenge: WalletActionSignatureChallenge = { ...context, message };
-    const signedMessage = await this.signMessage(
-      session,
-      account.address,
-      message,
-      'Authorize Pusharoo deployment attempt'
-    );
-    return this.toWalletActionSignature(account, session, challenge, signedMessage);
-  }
-
-  async signDeploymentRecovery(projectId: string, transactionId: string): Promise<WalletActionSignature> {
-    const session = this.session();
-    const account = this.account();
-    if (!this.walletKit || !session || !account) {
-      throw new Error('Connect the deployment wallet before recovering a transaction.');
-    }
-
-    const context = this.projectCreationMessage.createSignatureContext();
-    const message = [
-      'Pusharoo deployment recovery',
-      'Schema: pusharoo.deployment.recovery.v1',
-      'Action: deployment.recover',
-      `Project ID: ${projectId}`,
-      `Network: ${session.network}`,
-      `Transaction ID: ${transactionId.trim().toLowerCase()}`,
-      `Wallet: ${account.address}`,
-      `Audience: ${context.audience}`,
-      `Origin: ${context.origin}`,
-      `Issued at UTC: ${context.issuedAtUtc}`,
-      `Nonce: ${context.nonce}`
-    ].join('\n');
-    const challenge: WalletActionSignatureChallenge = { ...context, message };
-    const signedMessage = await this.signMessage(
-      session,
-      account.address,
-      message,
-      'Recover Pusharoo deployment transaction'
-    );
     return this.toWalletActionSignature(account, session, challenge, signedMessage);
   }
 
