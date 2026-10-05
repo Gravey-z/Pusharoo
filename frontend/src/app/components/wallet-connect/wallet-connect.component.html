@@ -56,7 +56,7 @@
           </span>
           <strong>{{ wallet.shortAddress() }}</strong>
         </div>
-        <div class="wallet-auth">
+        <div #loginSection class="wallet-auth" tabindex="-1">
           <strong>Pusharoo login</strong>
           @if (auth.canUseSession()) {
             <p>Signed in. Workspace actions can reuse this session until {{ auth.serverSession()?.expiresAtUtc | date:'shortTime' }}.</p>

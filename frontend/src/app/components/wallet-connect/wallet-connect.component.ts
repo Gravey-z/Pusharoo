@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, ViewChild, effect } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { ClipboardService } from '../../services/clipboard.service';
 import { WalletService } from '../../services/wallet.service';
@@ -15,6 +15,7 @@ type WalletDialogView = 'options' | 'neon';
 export class WalletConnectComponent implements OnDestroy {
   @ViewChild('walletTrigger') private walletTrigger?: ElementRef<HTMLButtonElement>;
   @ViewChild('walletDialog') private walletDialog?: ElementRef<HTMLElement>;
+  @ViewChild('loginSection') private loginSection?: ElementRef<HTMLElement>;
 
   isDialogOpen = false;
   dialogView: WalletDialogView = 'options';
@@ -27,7 +28,14 @@ export class WalletConnectComponent implements OnDestroy {
     private readonly clipboard: ClipboardService,
     readonly wallet: WalletService,
     readonly auth: WalletAuthService
-  ) {}
+  ) {
+    effect(() => {
+      if (this.wallet.account() && this.wallet.session()?.provider === 'walletconnect' && this.isDialogOpen) {
+        this.dialogAnnouncement = 'Neon Wallet connected. Pusharoo login is available.';
+        this.focusLoginSection();
+      }
+    });
+  }
 
   openDialog(): void {
     this.isDialogOpen = true;
@@ -145,9 +153,15 @@ export class WalletConnectComponent implements OnDestroy {
     await this.wallet.connect(provider);
 
     if (this.wallet.account()) {
-      this.dialogAnnouncement = `${label} connected.`;
-      this.closeDialog();
+      this.dialogAnnouncement = `${label} connected. Pusharoo login is available.`;
+      this.focusLoginSection();
     }
+  }
+
+  private focusLoginSection(): void {
+    requestAnimationFrame(() => {
+      if (this.isDialogOpen) this.loginSection?.nativeElement.focus();
+    });
   }
 
   private focusFirstDialogElement(): void {
