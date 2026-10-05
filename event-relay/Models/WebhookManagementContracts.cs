@@ -1,7 +1,5 @@
 namespace Pusharoo.EventRelay.Models;
 
-public sealed record WebhookAccessRequest(WalletSignatureRequest? Signature, string? SessionToken = null);
-
 public sealed record CreateSubscriptionRequest(
     string Name,
     string ContractHash,
@@ -10,8 +8,7 @@ public sealed record CreateSubscriptionRequest(
     string WebhookUrl,
     string? Secret,
     Dictionary<string, string>? Headers,
-    bool IsEnabled,
-    WalletSignatureRequest? Signature);
+    bool IsEnabled);
 
 public sealed record UpdateSubscriptionRequest(
     string Name,
@@ -21,8 +18,7 @@ public sealed record UpdateSubscriptionRequest(
     string WebhookUrl,
     string? Secret,
     Dictionary<string, string>? Headers,
-    bool IsEnabled,
-    WalletSignatureRequest? Signature);
+    bool IsEnabled);
 
 public sealed record SubscriptionResponse(
     string Id,
@@ -38,8 +34,7 @@ public sealed record SubscriptionResponse(
     DateTime UpdatedAt,
     WebhookDeliveryDocument? LatestDelivery);
 
-public sealed record CreatePaymentIntentRequest(WalletSignatureRequest? Signature);
-public sealed record ConfirmPaymentRequest(string IntentId, string TransactionId, WalletSignatureRequest? Signature);
+public sealed record ConfirmPaymentRequest(string IntentId, string TransactionId);
 public sealed record PaymentIntentResponse(string Id, string ProjectId, string Network, string RecipientAddress, string RecipientScriptHash, long RequiredGasDatoshis, string Status, DateTime CreatedAt, DateTime ExpiresAt, string? ConfirmedTransactionId, string? SubmittedTransactionId);
 public sealed record PaymentResponse(string TransactionId, string IntentId, string Status, DateTime? EntitlementEndsAt, string? Message = null);
 public sealed record PaymentHistoryResponse(IReadOnlyList<PaymentResponse> Payments, IReadOnlyList<EntitlementHistoryResponse> Entitlements, IReadOnlyList<PaymentIntentResponse> PendingIntents);

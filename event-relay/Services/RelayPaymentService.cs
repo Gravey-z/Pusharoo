@@ -22,14 +22,14 @@ public sealed class RelayPaymentService(
 
     public bool IsMainNet => string.Equals(neoSettings.Network, "neo3:mainnet", StringComparison.Ordinal);
 
-    public async Task<PaymentIntentResponse> CreateIntentAsync(string projectId, WalletSignatureRequest signature, CancellationToken ct)
+    public async Task<PaymentIntentResponse> CreateIntentAsync(string projectId, string payerAddress, string payerScriptHash, CancellationToken ct)
     {
         var recipientScriptHash = GetRecipientScriptHash();
         var now = DateTime.UtcNow;
         var intent = new RelayPaymentIntentDocument
         {
-            Id = Guid.NewGuid().ToString("n"), ProjectId = projectId.Trim(), PayerAddress = signature.Address.Trim(),
-            PayerScriptHash = NormalizeHash(signature.ScriptHash), RecipientAddress = settings.PaymentRecipientAddress.Trim(),
+            Id = Guid.NewGuid().ToString("n"), ProjectId = projectId.Trim(), PayerAddress = payerAddress,
+            PayerScriptHash = NormalizeHash(payerScriptHash), RecipientAddress = settings.PaymentRecipientAddress.Trim(),
             RecipientScriptHash = recipientScriptHash, RequiredGasDatoshis = settings.PaidPlanGasDatoshis,
             CreatedAt = now, ExpiresAt = now.AddMinutes(settings.PaymentIntentMinutes)
         };

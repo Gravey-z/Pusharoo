@@ -18,7 +18,6 @@ builder.Services.AddScoped<IWebhookDeliveryRepository, WebhookDeliveryRepository
 builder.Services.AddScoped<IEventCheckpointRepository, EventCheckpointRepository>();
 builder.Services.AddSingleton<WebhookDestinationValidator>();
 builder.Services.AddSingleton<WebhookSecretProtector>();
-builder.Services.AddSingleton<WebhookSessionService>();
 builder.Services.AddSingleton<RelayOperationsService>();
 builder.Services.AddScoped<RelayEntitlementService>();
 builder.Services.AddScoped<RelayPaymentService>();
@@ -29,7 +28,6 @@ if (!string.IsNullOrWhiteSpace(keyRingPath))
     dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
 }
 builder.Services.AddHttpClient<NeoRpcClient>();
-builder.Services.AddHttpClient<ProjectAccessClient>();
 builder.Services.AddHttpClient<WebhookDeliveryService>()
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
     {
@@ -54,21 +52,6 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true
             }));
 });
-var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?.Where(origin => Uri.TryCreate(origin, UriKind.Absolute, out _))
-    .Distinct(StringComparer.OrdinalIgnoreCase)
-    .ToArray() ?? [];
-if (allowedCorsOrigins.Length > 0)
-{
-    builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
-    {
-        policy
-            .WithOrigins(allowedCorsOrigins)
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .WithExposedHeaders("X-Pusharoo-Webhook-Session");
-    }));
-}
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
@@ -163,10 +146,6 @@ app.MapGet("/metrics", async (
     }) + "\n";
     return Results.Text(metric, "text/plain; version=0.0.4");
 });
-if (allowedCorsOrigins.Length > 0)
-{
-    app.UseCors("Frontend");
-}
 app.UseRateLimiter();
 app.MapControllers();
 

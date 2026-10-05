@@ -100,40 +100,6 @@ export class ProjectCreationSignatureMessageService {
     };
   }
 
-  createWebhookAdministration(
-    projectId: string,
-    operation: string,
-    requestHash: string,
-    account: ConnectedAccount,
-    session: WalletSession
-  ): WalletActionSignatureChallenge {
-    const origin = window.location.origin;
-    const audience = this.runtimeConfig.value.walletSignatureAudience;
-    const issuedAtUtc = new Date().toISOString();
-    const nonce = this.createNonce();
-    const message = [
-      'Pusharoo webhook administration',
-      `Project ID: ${projectId.trim()}`,
-      `Operation: ${operation.trim()}`,
-      `Request SHA-256: ${requestHash.trim().toLowerCase()}`,
-      `Wallet: ${account.address}`,
-      `Script hash: ${account.scriptHash}`,
-      `Network: ${session.network}`,
-      `Origin: ${origin}`,
-      `Audience: ${audience}`,
-      `Issued at UTC: ${issuedAtUtc}`,
-      `Nonce: ${nonce}`
-    ].join('\n');
-
-    return {
-      origin,
-      audience,
-      issuedAtUtc,
-      nonce,
-      message
-    };
-  }
-
   createProjectDeletion(
     projectId: string,
     projectName: string,

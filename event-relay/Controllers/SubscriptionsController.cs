@@ -10,14 +10,13 @@ using Pusharoo.EventRelay.Services;
 namespace Pusharoo.EventRelay.Controllers;
 
 [ApiController]
+[RequireApiService]
 [EnableRateLimiting("WebhookManagement")]
 [Route("api/projects/{projectId}/subscriptions")]
 public sealed class SubscriptionsController(
     IWebhookSubscriptionRepository subscriptions,
     IWebhookDeliveryRepository deliveries,
     WebhookDeliveryService webhookDelivery,
-    WebhookSessionService sessions,
-    ProjectAccessClient projectAccess,
     WebhookDestinationValidator destinationValidator,
     WebhookSecretProtector secretProtector,
     RelayEntitlementService entitlements,
@@ -47,19 +46,8 @@ public sealed class SubscriptionsController(
     [HttpPost("query")]
     public async Task<ActionResult<IReadOnlyList<SubscriptionResponse>>> GetAll(
         string projectId,
-        WebhookAccessRequest request,
         CancellationToken cancellationToken)
     {
-        var authorization = await AuthorizeAsync(
-            projectId,
-            "subscriptions.read",
-            WebhookManagementRequestHasher.Hash(projectId, "subscriptions.read"),
-            request.Signature,
-            cancellationToken);
-        if (authorization is not null)
-        {
-            return authorization;
-        }
         var items = await subscriptions.GetByProjectIdAsync(projectId, cancellationToken);
         var latestDeliveries = await deliveries.GetLatestBySubscriptionIdsAsync(
             items.Select(subscription => subscription.Id).ToArray(),
@@ -77,17 +65,6 @@ public sealed class SubscriptionsController(
         CreateSubscriptionRequest request,
         CancellationToken cancellationToken)
     {
-        var authorization = await AuthorizeAsync(
-            projectId,
-            "subscriptions.create",
-            WebhookManagementRequestHasher.HashCreate(projectId, request),
-            request.Signature,
-            cancellationToken);
-        if (authorization is not null)
-        {
-            return authorization;
-        }
-
         var entitlement = await entitlements.GetAsync(projectId, request.Network.Trim(), cancellationToken);
         if (entitlement.Status != "active" || entitlement.PeriodEndsAt <= DateTime.UtcNow)
         {
@@ -132,10 +109,8 @@ public sealed class SubscriptionsController(
     }
 
     [HttpPost("usage")]
-    public async Task<IActionResult> Usage(string projectId, WebhookAccessRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Usage(string projectId, CancellationToken cancellationToken)
     {
-        var authorization = await AuthorizeAsync(projectId, "subscriptions.read", WebhookManagementRequestHasher.Hash(projectId, "subscriptions.read"), request.Signature, cancellationToken);
-        if (authorization is not null) return authorization;
         var entitlement = await entitlements.GetAsync(projectId, neoRpcOptions.Value.Network, cancellationToken);
         var active = (await subscriptions.GetByProjectIdAsync(projectId, cancellationToken)).Count(x => x.IsEnabled && (entitlement.Plan == "paid" || x.Network == neoRpcOptions.Value.Network));
         return Ok(new { entitlement.Plan, entitlement.Status, entitlement.PeriodStart, entitlement.PeriodEndsAt, entitlement.GraceEndsAt, entitlement.MaxActiveSubscriptions, activeSubscriptions = active, entitlement.MaxEvents, entitlement.EventsUsed, eventsRemaining = Math.Max(0, entitlement.MaxEvents - entitlement.EventsUsed) });
@@ -152,17 +127,6 @@ public sealed class SubscriptionsController(
         if (existing is null)
         {
             return NotFound();
-        }
-
-        var authorization = await AuthorizeAsync(
-            projectId,
-            "subscriptions.update",
-            WebhookManagementRequestHasher.HashUpdate(projectId, subscriptionId, request),
-            request.Signature,
-            cancellationToken);
-        if (authorization is not null)
-        {
-            return authorization;
         }
 
         var entitlement = await entitlements.GetAsync(projectId, request.Network.Trim(), cancellationToken);
@@ -212,24 +176,12 @@ public sealed class SubscriptionsController(
     public async Task<IActionResult> Delete(
         string projectId,
         string subscriptionId,
-        WebhookAccessRequest request,
         CancellationToken cancellationToken)
     {
         var existing = await GetProjectSubscriptionAsync(projectId, subscriptionId, cancellationToken);
         if (existing is null)
         {
             return NotFound();
-        }
-
-        var authorization = await AuthorizeAsync(
-            projectId,
-            "subscriptions.delete",
-            WebhookManagementRequestHasher.Hash(projectId, "subscriptions.delete", subscriptionId),
-            request.Signature,
-            cancellationToken);
-        if (authorization is not null)
-        {
-            return authorization;
         }
 
         await subscriptions.DeleteAsync(subscriptionId, cancellationToken);
@@ -240,24 +192,12 @@ public sealed class SubscriptionsController(
     public async Task<ActionResult<IReadOnlyList<WebhookDeliveryDocument>>> GetDeliveries(
         string projectId,
         string subscriptionId,
-        WebhookAccessRequest request,
         CancellationToken cancellationToken)
     {
         var existing = await GetProjectSubscriptionAsync(projectId, subscriptionId, cancellationToken);
         if (existing is null)
         {
             return NotFound();
-        }
-
-        var authorization = await AuthorizeAsync(
-            projectId,
-            "deliveries.read",
-            WebhookManagementRequestHasher.Hash(projectId, "deliveries.read", subscriptionId),
-            request.Signature,
-            cancellationToken);
-        if (authorization is not null)
-        {
-            return authorization;
         }
 
         var history = await deliveries.GetBySubscriptionAsync(subscriptionId, cancellationToken);
@@ -270,67 +210,22 @@ public sealed class SubscriptionsController(
     }
 
     [HttpPost("{subscriptionId}/test")]
-    public async Task<IActionResult> Test(string projectId, string subscriptionId, WebhookAccessRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Test(string projectId, string subscriptionId, CancellationToken cancellationToken)
     {
         var subscription = await GetProjectSubscriptionAsync(projectId, subscriptionId, cancellationToken);
         if (subscription is null) return NotFound();
-        var authorization = await AuthorizeAsync(projectId, "deliveries.test",
-            WebhookManagementRequestHasher.Hash(projectId, "deliveries.test", subscriptionId), request.Signature, cancellationToken);
-        if (authorization is not null) return authorization;
         var delivery = await webhookDelivery.QueueTestAsync(subscription, cancellationToken);
         return Accepted(delivery);
     }
 
     [HttpPost("{subscriptionId}/deliveries/{deliveryId}/redeliver")]
-    public async Task<IActionResult> Redeliver(string projectId, string subscriptionId, string deliveryId, WebhookAccessRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Redeliver(string projectId, string subscriptionId, string deliveryId, CancellationToken cancellationToken)
     {
         var subscription = await GetProjectSubscriptionAsync(projectId, subscriptionId, cancellationToken);
         var delivery = await deliveries.GetByIdAsync(deliveryId, cancellationToken);
         if (subscription is null || delivery?.SubscriptionId != subscriptionId) return NotFound();
-        var authorization = await AuthorizeAsync(projectId, "deliveries.redeliver",
-            WebhookManagementRequestHasher.Hash(projectId, "deliveries.redeliver", $"{subscriptionId}:{deliveryId}"), request.Signature, cancellationToken);
-        if (authorization is not null) return authorization;
         await webhookDelivery.RedeliverAsync(subscription, delivery, cancellationToken);
         return Ok(await deliveries.GetLatestBySubscriptionAsync(subscriptionId, cancellationToken));
-    }
-
-    private async Task<ActionResult?> AuthorizeAsync(
-        string projectId,
-        string operation,
-        string requestHash,
-        WalletSignatureRequest? signature,
-        CancellationToken cancellationToken)
-    {
-        if (Request.Headers.TryGetValue("X-Pusharoo-Webhook-Session", out var session))
-        {
-            if (sessions.IsValid(session.ToString(), projectId, neoRpcOptions.Value.Network))
-            {
-                return null;
-            }
-
-            // The browser only sends a session token when it is attempting to
-            // reuse a previous wallet authorization. Make expiry observable so it
-            // can request one fresh approval, rather than treating it as a bad
-            // management request or failing silently.
-            if (signature is null)
-            {
-                return Unauthorized(new { error = "Webhook session expired. Approve this action again to continue." });
-            }
-        }
-        var result = await projectAccess.ValidateAsync(
-            projectId,
-            operation,
-            requestHash,
-            signature,
-            cancellationToken);
-
-        if (!result.IsAllowed)
-        {
-            return StatusCode(result.StatusCode, new { error = result.Error });
-        }
-
-        Response.Headers.Append("X-Pusharoo-Webhook-Session", sessions.Create(projectId, neoRpcOptions.Value.Network));
-        return null;
     }
 
     private async Task<WebhookSubscriptionDocument?> GetProjectSubscriptionAsync(

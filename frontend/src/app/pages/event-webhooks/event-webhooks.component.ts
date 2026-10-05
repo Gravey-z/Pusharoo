@@ -10,8 +10,6 @@ import {
   Deployment,
   ProjectOverviewViewModel,
   WebhookDelivery,
-  WebhookManagementOperation,
-  WalletActionSignature,
   WebhookSubscription,
   RelayUsage,
   RelayPaymentHistory,
@@ -23,6 +21,7 @@ import { EventRelayApiService } from '../../services/event-relay-api.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
+import { WalletAuthService } from '../../services/wallet-auth.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 import { ProjectWorkspaceContextService } from '../../services/project-workspace-context.service';
@@ -113,7 +112,7 @@ export class EventWebhooksComponent implements OnInit {
   }
 
   get isRelayConnected(): boolean {
-    return this.api.hasWebhookSession(this.projectId, 'neo3:mainnet');
+    return this.auth.canUseSession() && this.canManageProject;
   }
 
   constructor(
@@ -123,6 +122,7 @@ export class EventWebhooksComponent implements OnInit {
     private readonly errors: ApiErrorFormatterService,
     private readonly deploymentHistory: DeploymentHistoryService,
     private readonly ownership: ProjectOwnershipService,
+    readonly auth: WalletAuthService,
     private readonly wallet: WalletService
   ) {
     this.projectId = (this.route.parent ?? this.route).snapshot.paramMap.get('projectId') ?? '';
@@ -170,20 +170,14 @@ export class EventWebhooksComponent implements OnInit {
         headers: {},
         isEnabled: true
       };
-      const operation: WebhookManagementOperation = this.editingSubscriptionId
-        ? 'subscriptions.update'
-        : 'subscriptions.create';
       const network = this.selectedDeployment.network;
       if (this.editingSubscriptionId) {
-        await this.executeWebhookRequest(network, operation, {
-          subscriptionId: this.editingSubscriptionId,
-          subscription: subscriptionRequest
-        }, (signature) => this.api.updateWebhookSubscription(
-          this.projectId, network, this.editingSubscriptionId, subscriptionRequest, signature
+        await this.executeWebhookRequest(() => this.api.updateWebhookSubscription(
+          this.projectId, network, this.editingSubscriptionId, subscriptionRequest
         ));
       } else {
-        await this.executeWebhookRequest(network, operation, { subscription: subscriptionRequest }, (signature) =>
-          this.api.createWebhookSubscription(this.projectId, network, subscriptionRequest, signature)
+        await this.executeWebhookRequest(() =>
+          this.api.createWebhookSubscription(this.projectId, network, subscriptionRequest)
         );
       }
 
@@ -231,8 +225,8 @@ export class EventWebhooksComponent implements OnInit {
 
     this.errorMessage = '';
     try {
-      await this.executeWebhookRequest(subscription.network, 'subscriptions.delete', { subscriptionId: subscription.id },
-        (signature) => this.api.deleteWebhookSubscription(this.projectId, subscription.network, subscription.id, signature));
+      await this.executeWebhookRequest(() =>
+        this.api.deleteWebhookSubscription(this.projectId, subscription.network, subscription.id));
       this.formStatus = 'Webhook deleted.';
       if (this.editingSubscriptionId === subscription.id) {
         this.resetForm();
@@ -247,8 +241,8 @@ export class EventWebhooksComponent implements OnInit {
     this.errorMessage = '';
     this.loadingDeliveryHistoryFor = subscription.id;
     try {
-      this.deliveryHistory = await this.executeWebhookRequest(subscription.network, 'deliveries.read', { subscriptionId: subscription.id },
-        (signature) => this.api.getWebhookDeliveries(this.projectId, subscription.network, subscription.id, signature));
+      this.deliveryHistory = await this.executeWebhookRequest(() =>
+        this.api.getWebhookDeliveries(this.projectId, subscription.network, subscription.id));
       this.deliveryHistoryFor = subscription.id;
     } catch (error) {
       this.deliveryHistory = [];
@@ -260,13 +254,13 @@ export class EventWebhooksComponent implements OnInit {
   }
 
   async sendTest(subscription: WebhookSubscription): Promise<void> {
-    await this.runDeliveryAction(subscription, 'deliveries.test', undefined, 'Sending test event...',
-      (signature) => this.api.sendWebhookTest(this.projectId, subscription.network, subscription.id, signature));
+    await this.runDeliveryAction(subscription, undefined, 'Sending test event...',
+      () => this.api.sendWebhookTest(this.projectId, subscription.network, subscription.id));
   }
 
   async redeliver(subscription: WebhookSubscription, delivery: WebhookDelivery): Promise<void> {
-    await this.runDeliveryAction(subscription, 'deliveries.redeliver', delivery.id, 'Redelivering event...',
-      (signature) => this.api.redeliverWebhook(this.projectId, subscription.network, subscription.id, delivery.id, signature));
+    await this.runDeliveryAction(subscription, delivery.id, 'Redelivering event...',
+      () => this.api.redeliverWebhook(this.projectId, subscription.network, subscription.id, delivery.id));
   }
 
   async renewRelay(): Promise<void> {
@@ -283,9 +277,8 @@ export class EventWebhooksComponent implements OnInit {
     }
     this.renewingRelay = true;
     try {
-      const intentHash = await this.api.getPaymentIntentRequestHash(this.projectId);
-      const intentSignature = await this.wallet.signWebhookAdministration(this.projectId, 'payments.create', intentHash);
-      await firstValueFrom(this.api.createRelayPaymentIntent(this.projectId, intentSignature));
+      await this.auth.ensureAuthenticated();
+      await firstValueFrom(this.api.createRelayPaymentIntent(this.projectId));
       await this.loadPaymentHistory();
       this.formStatus = 'Payment intent created. Review the recipient and amount, then approve the GAS transfer in your wallet.';
     } catch (error) {
@@ -302,21 +295,14 @@ export class EventWebhooksComponent implements OnInit {
       this.errorMessage = 'Only the project owner can connect to N3:Mainnet Relay.';
       return;
     }
-    if (this.wallet.session()?.network !== 'neo3:mainnet') {
-      this.errorMessage = 'Connect the project owner wallet on N3:Mainnet first.';
-      return;
-    }
-
     this.connectingRelay = true;
     try {
-      // Loading payment history establishes the signed MainNet Relay session.
-      await this.loadPaymentHistory();
-      await this.loadUsage('neo3:mainnet');
-      if (this.webhookNetwork === 'neo3:mainnet' && this.deploymentOptions.length) {
-        await this.loadSubscriptions('neo3:mainnet');
-      }
+      await this.auth.ensureAuthenticated();
+      await this.loadUsage(this.webhookNetwork);
+      if (this.deploymentOptions.length) await this.loadSubscriptions(this.webhookNetwork);
+      if (this.webhookNetwork === 'neo3:mainnet') await this.loadPaymentHistory();
     } catch (error) {
-      this.errorMessage = this.errors.format(error, 'Could not connect to N3:Mainnet Relay.');
+      this.errorMessage = this.errors.format(error, 'Could not open the Relay workspace.');
     } finally {
       this.connectingRelay = false;
     }
@@ -331,6 +317,7 @@ export class EventWebhooksComponent implements OnInit {
     this.errorMessage = '';
     this.payingIntentId = intent.id;
     try {
+      await this.auth.ensureAuthenticated();
       const transactionId = await this.wallet.invokeContract(
         'neo3:mainnet',
         '0xd2a4cff31913016155e38e474a2c06d08be276cf',
@@ -418,19 +405,20 @@ export class EventWebhooksComponent implements OnInit {
         catch (error: unknown) { this.relayStatuses[network] = (error as { status?: number })?.status === 503 ? 'degraded' : 'offline'; }
       }));
 
-      // Listing subscriptions is wallet-authorized. Do not prompt for a signature
-      // when this project has nothing deployed on the network the relay monitors.
+      await this.auth.restore();
+
+      // Keep page loading read-only; sign in only after an explicit owner action.
       if (!this.deploymentOptions.length) {
         return;
       }
 
-      if (!this.isWalletConnected) {
+      if (!this.isWalletConnected || !this.auth.canUseSession() || !this.canManageProject) {
         return;
       }
 
       await this.loadSubscriptions();
       await this.loadUsage(this.relayNetwork);
-      if (this.api.hasWebhookSession(this.projectId, 'neo3:mainnet')) {
+      if (this.auth.canUseSession()) {
         await Promise.all([this.loadUsage('neo3:mainnet'), this.loadPaymentHistory()]);
       }
     } catch (error) {
@@ -439,8 +427,8 @@ export class EventWebhooksComponent implements OnInit {
   }
 
   private async loadSubscriptions(network = this.relayNetwork): Promise<void> {
-    const subscriptions = await this.executeWebhookRequest(network, 'subscriptions.read', {}, (signature) =>
-      this.api.getWebhookSubscriptions(this.projectId, network, signature));
+    const subscriptions = await this.executeWebhookRequest(() =>
+      this.api.getWebhookSubscriptions(this.projectId, network));
     this.subscriptionsByNetwork[network] = subscriptions;
     if (network === this.relayNetwork) {
       this.subscriptions = subscriptions;
@@ -448,24 +436,16 @@ export class EventWebhooksComponent implements OnInit {
   }
 
   private async loadUsage(network: string): Promise<void> {
-    this.relayUsageByNetwork[network] = await this.executeWebhookRequest(network, 'subscriptions.read', {}, signature => this.api.getRelayUsage(this.projectId, network, signature));
+    this.relayUsageByNetwork[network] = await this.executeWebhookRequest(() => this.api.getRelayUsage(this.projectId, network));
   }
 
   private async loadPaymentHistory(): Promise<void> {
-    this.paymentHistory = await this.executeWebhookRequest('neo3:mainnet', 'payments.read', {}, signature => this.api.getRelayPaymentHistory(this.projectId, signature));
+    this.paymentHistory = await this.executeWebhookRequest(() => this.api.getRelayPaymentHistory(this.projectId));
   }
 
   private async confirmPayment(intentId: string, transactionId: string) {
-    const network = 'neo3:mainnet';
-    try {
-      return await firstValueFrom(this.api.confirmRelayPayment(this.projectId, intentId, transactionId));
-    } catch (error) {
-      if (!this.api.isWebhookSessionExpired(error)) throw error;
-      this.api.clearWebhookSession(this.projectId, network);
-      const requestHash = await this.api.getPaymentConfirmationRequestHash(this.projectId, intentId, transactionId);
-      const signature = await this.wallet.signWebhookAdministration(this.projectId, 'payments.confirm', requestHash);
-      return await firstValueFrom(this.api.confirmRelayPayment(this.projectId, intentId, transactionId, signature));
-    }
+    await this.auth.ensureAuthenticated();
+    return firstValueFrom(this.api.confirmRelayPayment(this.projectId, intentId, transactionId));
   }
 
   private async updateSubscription(
@@ -485,11 +465,8 @@ export class EventWebhooksComponent implements OnInit {
       ...changes
     };
     try {
-      await this.executeWebhookRequest(subscription.network, 'subscriptions.update', {
-        subscriptionId: subscription.id,
-        subscription: request
-      }, (signature) => this.api.updateWebhookSubscription(
-        this.projectId, subscription.network, subscription.id, request, signature
+      await this.executeWebhookRequest(() => this.api.updateWebhookSubscription(
+        this.projectId, subscription.network, subscription.id, request
       ));
       this.formStatus = request.isEnabled ? 'Webhook enabled.' : 'Webhook disabled.';
       await this.loadSubscriptions(subscription.network);
@@ -507,17 +484,15 @@ export class EventWebhooksComponent implements OnInit {
 
   private async runDeliveryAction(
     subscription: WebhookSubscription,
-    operation: WebhookManagementOperation,
     deliveryId: string | undefined,
     status: string,
-    action: (signature?: WalletActionSignature) => Observable<WebhookDelivery>
+    action: () => Observable<WebhookDelivery>
   ): Promise<void> {
     this.errorMessage = '';
     this.formStatus = status;
     this.sendingFor = `${subscription.id}:${deliveryId ?? 'test'}`;
     try {
-      const signedId = deliveryId ? `${subscription.id}:${deliveryId}` : subscription.id;
-      await this.executeWebhookRequest(subscription.network, operation, { subscriptionId: signedId }, action);
+      await this.executeWebhookRequest(action);
       this.formStatus = deliveryId ? 'Failed event redelivered.' : 'Test event queued.';
       await this.loadSubscriptions(subscription.network);
       await this.showDeliveryHistory(subscription);
@@ -549,7 +524,7 @@ export class EventWebhooksComponent implements OnInit {
       this.selectDeployment();
     }
     this.subscriptions = this.subscriptionsByNetwork[network] ?? [];
-    if (network === 'neo3:mainnet' && !this.isRelayConnected) {
+    if (!this.isRelayConnected) {
       return;
     }
     if (!this.subscriptionsByNetwork[network] && this.deploymentOptions.length) {
@@ -563,27 +538,9 @@ export class EventWebhooksComponent implements OnInit {
     this.webhookNetwork = network;
   }
 
-  private async executeWebhookRequest<T>(
-    network: string,
-    operation: WebhookManagementOperation,
-    content: { subscriptionId?: string; subscription?: CreateWebhookSubscriptionRequest },
-    request: (signature?: WalletActionSignature) => Observable<T>
-  ): Promise<T> {
-    if (this.api.hasWebhookSession(this.projectId, network)) {
-      try {
-        return await firstValueFrom(request());
-      } catch (error) {
-        if (!this.api.isWebhookSessionExpired(error)) {
-          throw error;
-        }
-
-        this.api.clearWebhookSession(this.projectId, network);
-      }
-    }
-
-    const requestHash = await this.api.getWebhookManagementRequestHash(this.projectId, operation, content);
-    const signature = await this.wallet.signWebhookAdministration(this.projectId, operation, requestHash);
-    return await firstValueFrom(request(signature));
+  private async executeWebhookRequest<T>(request: () => Observable<T>): Promise<T> {
+    await this.auth.ensureAuthenticated();
+    return firstValueFrom(request());
   }
 
   private toDeploymentOptions(deployments: Deployment[]): DeploymentOption[] {

@@ -244,18 +244,6 @@ export interface CreateWebhookSubscriptionRequest {
   isEnabled: boolean;
 }
 
-export type WebhookManagementOperation =
-  | 'subscriptions.read'
-  | 'subscriptions.create'
-  | 'subscriptions.update'
-  | 'subscriptions.delete'
-  | 'deliveries.read'
-  | 'deliveries.test'
-  | 'deliveries.redeliver'
-  | 'payments.create'
-  | 'payments.confirm'
-  | 'payments.read';
-
 export interface WebhookDelivery {
   id: string;
   subscriptionId: string;

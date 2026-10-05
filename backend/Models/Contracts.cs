@@ -8,11 +8,6 @@ public sealed record CreateProjectRequest(
 public sealed record DeleteProjectRequest(
     string ProjectName);
 
-public sealed record WebhookAccessValidationRequest(
-    string Operation,
-    string RequestHash,
-    WalletSignatureRequest? Signature);
-
 public sealed record AddProjectAuthorizedDeployerRequest(
     string WalletAddress,
     IReadOnlyList<string>? AllowedNetworks);

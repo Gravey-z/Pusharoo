@@ -26,6 +26,7 @@ builder.Services.Configure<WalletSignatureOptions>(builder.Configuration.GetSect
 builder.Services.Configure<WalletAuthOptions>(builder.Configuration.GetSection(WalletAuthOptions.SectionName));
 builder.Services.Configure<FaucetOptions>(builder.Configuration.GetSection(FaucetOptions.SectionName));
 builder.Services.Configure<FaucetRelayerOptions>(builder.Configuration.GetSection(FaucetRelayerOptions.SectionName));
+builder.Services.Configure<RelayGatewayOptions>(builder.Configuration.GetSection(RelayGatewayOptions.SectionName));
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<IArtifactRepository, ArtifactRepository>();
@@ -47,9 +48,7 @@ builder.Services.AddSingleton<NeoWalletSignatureVerifier>();
 builder.Services.AddSingleton<NeoWalletAddressValidator>();
 builder.Services.AddSingleton<DeploymentDataService>();
 builder.Services.AddSingleton<WalletSignatureRequestValidator>();
-builder.Services.AddSingleton<ProjectManagementSignatureValidator>();
 builder.Services.AddSingleton<ProjectOwnershipService>();
-builder.Services.AddSingleton<SignatureNonceService>();
 builder.Services.AddSingleton<WalletAuthService>();
 builder.Services.AddSingleton<WalletAuthCookies>();
 builder.Services.AddHttpContextAccessor();
@@ -80,6 +79,8 @@ if (!string.IsNullOrWhiteSpace(authConfiguration.DataProtectionKeyRingPath))
 builder.Services.AddScoped<ProjectAuthorizedDeployerInputValidator>();
 builder.Services.AddScoped<ProjectAuthorizedDeployerService>();
 builder.Services.AddScoped<ProjectAuthorizationService>();
+builder.Services.AddHttpClient<RelayGatewayService>(client => client.Timeout = TimeSpan.FromSeconds(25))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false });
 builder.Services.AddScoped<DeploymentAuthorizationService>();
 builder.Services.AddHostedService<ProjectOwnershipMigrationService>();
 var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()

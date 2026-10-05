@@ -16,5 +16,6 @@ backend-run.out.log
 .env
 .env.*
 !.env.example
+docker-compose.override.yml
 /*.md
 */*.md

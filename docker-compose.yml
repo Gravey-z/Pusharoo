@@ -21,6 +21,10 @@ services:
       WalletAuth__SessionLifetimeHours: ${PUSHAROO_AUTH_SESSION_HOURS:-8}
       WalletAuth__DataProtectionKeyRingPath: /var/lib/pusharoo/data-protection
       WalletAuth__TrustedProxyAddresses__0: ${PUSHAROO_AUTH_TRUSTED_PROXY_IP:-}
+      RelayGateway__Testnet__Endpoint: http://event-relay-testnet:8080
+      RelayGateway__Testnet__ServiceToken: ${PUSHAROO_RELAY_TESTNET_SERVICE_TOKEN:-}
+      RelayGateway__Mainnet__Endpoint: http://event-relay-mainnet:8080
+      RelayGateway__Mainnet__ServiceToken: ${PUSHAROO_RELAY_MAINNET_SERVICE_TOKEN:-}
       Faucet__Enabled: ${PUSHAROO_FAUCET_ENABLED:-false}
       Faucet__RelayerEnabled: ${PUSHAROO_FAUCET_RELAYER_ENABLED:-false}
       Faucet__ContractHash: ${PUSHAROO_TESTNET_FAUCET_CONTRACT_HASH:-}
@@ -81,7 +85,7 @@ services:
       EventRelay__DeliveryWorkerStallSeconds: ${PUSHAROO_RELAY_WORKER_STALL_SECONDS:-120}
       EventRelay__MaxScannerLagBlocks: ${PUSHAROO_RELAY_MAX_SCANNER_LAG_BLOCKS:-30}
       EventRelay__MaxQueueDepth: ${PUSHAROO_RELAY_MAX_QUEUE_DEPTH:-1000}
-      PusharooApi__Endpoint: http://api:8080
+      PusharooApi__ServiceToken: ${PUSHAROO_RELAY_TESTNET_SERVICE_TOKEN:-}
       DataProtection__KeyRingPath: /var/lib/pusharoo/data-protection
     expose:
       - "8080"
@@ -121,7 +125,7 @@ services:
       EventRelay__PaidMaxEvents: ${EVENT_RELAY_PAID_MAX_EVENTS:-10000}
       EventRelay__PaymentIntentMinutes: ${EVENT_RELAY_PAYMENT_INTENT_MINUTES:-15}
       EventRelay__PaymentConfirmationBlocks: ${EVENT_RELAY_PAYMENT_CONFIRMATION_BLOCKS:-2}
-      PusharooApi__Endpoint: http://api:8080
+      PusharooApi__ServiceToken: ${PUSHAROO_RELAY_MAINNET_SERVICE_TOKEN:-}
       DataProtection__KeyRingPath: /var/lib/pusharoo/data-protection
     expose: ["8080"]
     depends_on: [mongo, api]
@@ -136,9 +140,7 @@ services:
     environment:
       PUSHAROO_API_BASE_URL: /api
       PUSHAROO_WALLET_SIGNATURE_AUDIENCE: ${PUSHAROO_WALLET_SIGNATURE_AUDIENCE:-pusharoo-web}
-      PUSHAROO_TESTNET_EVENT_RELAY_BASE_URL: /relay/testnet/api
       PUSHAROO_TESTNET_EVENT_RELAY_HEALTH_URL: /relay/testnet/health
-      PUSHAROO_MAINNET_EVENT_RELAY_BASE_URL: /relay/mainnet/api
       PUSHAROO_MAINNET_EVENT_RELAY_HEALTH_URL: /relay/mainnet/health
       PUSHAROO_DEFAULT_NETWORK: ${PUSHAROO_DEFAULT_NETWORK:-neo3:testnet}
       PUSHAROO_WALLETCONNECT_PROJECT_ID: ${PUSHAROO_WALLETCONNECT_PROJECT_ID}

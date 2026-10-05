@@ -84,7 +84,9 @@ dotnet run --project backend/backend.csproj
 dotnet run --project event-relay/event-relay.csproj
 ```
 
-The relay exposes subscription management at `http://localhost:5001/api/subscriptions` and stores subscriptions, delivery attempts, and scan checkpoints in MongoDB.
+The Relay stores subscriptions, delivery attempts, and scan checkpoints in MongoDB. Webhook and payment management goes through the Pusharoo API using the wallet login session; the Relay accepts those requests only with its private API service token. Its `/health` endpoint remains public.
+
+For Compose, set distinct 32-character-or-longer `PUSHAROO_RELAY_TESTNET_SERVICE_TOKEN` and `PUSHAROO_RELAY_MAINNET_SERVICE_TOKEN` values, then start the optional services with `docker compose --profile event-relay up --build`. Keep the tokens outside source control. A local, Git-ignored `docker-compose.override.yml` can supply matching `RelayGateway__*__ServiceToken` values to the API and `PusharooApi__ServiceToken` to each Relay.
 
 By default it uses the public Neo mainnet RPC endpoint in `event-relay/appsettings.json`, polls every 15 seconds, and starts at the current chain height when no checkpoint exists. Set `NeoRpc:StartBlock` to replay from a specific block.
 
@@ -122,16 +124,20 @@ GET    /api/artifacts/{artifactId}/summary
 ### Event Relay API
 
 ```text
-POST   /api/subscriptions
-GET    /api/subscriptions
-GET    /api/subscriptions/{subscriptionId}
-PUT    /api/subscriptions/{subscriptionId}
-DELETE /api/subscriptions/{subscriptionId}
-GET    /api/subscriptions/{subscriptionId}/deliveries
-GET    /health
+POST   /api/projects/{projectId}/relay/{testnet|mainnet}/subscriptions/query
+POST   /api/projects/{projectId}/relay/{testnet|mainnet}/subscriptions/usage
+POST   /api/projects/{projectId}/relay/{testnet|mainnet}/subscriptions
+PUT    /api/projects/{projectId}/relay/{testnet|mainnet}/subscriptions/{subscriptionId}
+DELETE /api/projects/{projectId}/relay/{testnet|mainnet}/subscriptions/{subscriptionId}
+POST   /api/projects/{projectId}/relay/{testnet|mainnet}/subscriptions/{subscriptionId}/deliveries/query
+POST   /api/projects/{projectId}/relay/{testnet|mainnet}/subscriptions/{subscriptionId}/test
+POST   /api/projects/{projectId}/relay/{testnet|mainnet}/subscriptions/{subscriptionId}/deliveries/{deliveryId}/redeliver
+POST   /api/projects/{projectId}/relay/mainnet/payments/intents
+POST   /api/projects/{projectId}/relay/mainnet/payments/confirm
+POST   /api/projects/{projectId}/relay/mainnet/payments/history/query
 ```
 
-Create a subscription:
+These routes require the project owner's wallet login session. Create a subscription with:
 
 ```json
 {
@@ -139,7 +145,7 @@ Create a subscription:
   "contractHash": "0x1234...",
   "eventName": "Transfer",
   "webhookUrl": "https://example.com/neo-events",
-  "projectId": "optional-pusharoo-project-id",
+  "network": "neo3:testnet",
   "secret": "optional-signing-secret",
   "headers": {
     "X-Integration": "pusharoo"

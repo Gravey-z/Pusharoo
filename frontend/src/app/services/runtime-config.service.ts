@@ -4,9 +4,8 @@ import { defaultWalletConfig } from '../config/wallet.config';
 export interface RuntimeConfig {
   apiBaseUrl: string;
   walletSignatureAudience: string;
-  eventRelayBaseUrl: string;
   eventRelayHealthUrl: string;
-  eventRelays?: Record<string, { baseUrl: string; healthUrl: string }>;
+  eventRelays?: Record<string, { healthUrl: string }>;
   faucet: {
     testnetContractHash: string;
   };
@@ -21,11 +20,10 @@ export interface RuntimeConfig {
 const defaultConfig: RuntimeConfig = {
   apiBaseUrl: '/api',
   walletSignatureAudience: 'pusharoo-web',
-  eventRelayBaseUrl: 'http://localhost:5001/api',
   eventRelayHealthUrl: 'http://localhost:5001/health',
   eventRelays: {
-    'neo3:testnet': { baseUrl: 'http://localhost:5001/api', healthUrl: 'http://localhost:5001/health' },
-    'neo3:mainnet': { baseUrl: 'http://localhost:5002/api', healthUrl: 'http://localhost:5002/health' }
+    'neo3:testnet': { healthUrl: 'http://localhost:5001/health' },
+    'neo3:mainnet': { healthUrl: 'http://localhost:5002/health' }
   },
   faucet: { testnetContractHash: '' },
   wallet: {

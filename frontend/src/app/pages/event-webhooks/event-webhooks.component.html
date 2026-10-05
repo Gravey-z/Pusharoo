@@ -65,10 +65,10 @@
     <section class="relay-plan surface-panel" aria-label="N3:Mainnet Relay connection">
       <div>
         <h2>Pusharoo Relay</h2>
-        <p>Connect your project-owner wallet to view and manage N3:Mainnet Relay access.</p>
+        <p>Sign in with the project-owner wallet to view and manage N3:Mainnet Relay access.</p>
       </div>
       <button class="primary-button" type="button" (click)="connectRelay()" [disabled]="connectingRelay || !canManageProject" title="Only the project owner can connect to Relay">
-        {{ connectingRelay ? 'Waiting for wallet...' : 'Connect' }}
+        {{ connectingRelay ? 'Connecting...' : 'Open Relay workspace' }}
       </button>
     </section>
   } @else if (relayUsageByNetwork['neo3:mainnet']; as mainnetUsage) {
@@ -91,7 +91,7 @@
       </div>
       <button class="secondary-button" type="button" (click)="showPaymentHistory()" [disabled]="!canManageProject">Payment history</button>
       <button class="relay-payment-button" type="button" (click)="renewRelay()" [disabled]="renewingRelay || !canManageProject" title="Only the project owner can renew Relay">
-        {{ renewingRelay ? 'Waiting for wallet…' : mainnetUsage.plan === 'paid' ? 'Renew: 5 GAS' : 'Unlock Relay: 5 GAS' }}
+        {{ renewingRelay ? 'Creating intent…' : mainnetUsage.plan === 'paid' ? 'Renew: 5 GAS' : 'Unlock Relay: 5 GAS' }}
       </button>
     </section>
   } @else {
@@ -102,7 +102,7 @@
       </div>
       <button class="secondary-button" type="button" (click)="showPaymentHistory()" [disabled]="!canManageProject">Payment history</button>
       <button class="relay-payment-button" type="button" (click)="renewRelay()" [disabled]="renewingRelay || !canManageProject" title="Only the project owner can renew Relay">
-        {{ renewingRelay ? 'Waiting for wallet…' : 'Unlock Relay: 5 GAS' }}
+        {{ renewingRelay ? 'Creating intent…' : 'Unlock Relay: 5 GAS' }}
       </button>
     </section>
   }
@@ -157,6 +157,11 @@
         <p>Use up to 5 active webhooks and 1,000 matched events every 7 days. This is a free N3:Testnet-only trial.</p>
         <p class="relay-plan-warning">Each N3:Testnet webhook and its delivery history are automatically removed seven days after that webhook is created.</p>
       </div>
+      @if (!isRelayConnected && isWalletConnected && canManageProject) {
+        <button class="primary-button" type="button" (click)="connectRelay()" [disabled]="connectingRelay">
+          {{ connectingRelay ? 'Connecting...' : 'Open Relay workspace' }}
+        </button>
+      }
     </section>
   }
 

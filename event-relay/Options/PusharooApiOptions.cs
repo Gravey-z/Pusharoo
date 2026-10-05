@@ -4,5 +4,5 @@ public sealed class PusharooApiOptions
 {
     public const string SectionName = "PusharooApi";
 
-    public string Endpoint { get; init; } = "http://localhost:5000";
+    public string ServiceToken { get; init; } = string.Empty;
 }
