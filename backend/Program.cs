@@ -186,5 +186,23 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapPost("/api/faucet/challenges", (HttpContext context) =>
+{
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.Json(new { code = "client_outdated", error = "Pusharoo was updated. Reload this page and sign in again." },
+        statusCode: StatusCodes.Status410Gone);
+});
+app.MapPost("/api/projects/{projectId}/deployments/authorization-challenge", (HttpContext context) =>
+{
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.Json(new { code = "client_outdated", error = "Pusharoo was updated. Reload this page and sign in again." },
+        statusCode: StatusCodes.Status410Gone);
+});
+app.MapPost("/api/projects/{projectId}/webhook-access/validate", (HttpContext context) =>
+{
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.Json(new { code = "client_outdated", error = "Pusharoo was updated. Reload this page and sign in again." },
+        statusCode: StatusCodes.Status410Gone);
+});
 
 app.Run();

@@ -21,23 +21,48 @@ The app is split into:
 
 ## Wallet Key Isolation
 
-Pusharoo is non-custodial. It never requests, receives, stores, logs, imports, or
-exports private keys, WIFs, seed phrases, mnemonics, keystores, or wallet
-passwords. Wallet connections expose only the selected public account and
-network. Message signatures and transaction approvals are requested through
-NeoLine, OneGate, or WalletConnect and signing remains inside the wallet.
+Pusharoo never requests users' private keys, WIFs, seed phrases, mnemonics,
+keystores, or wallet passwords. Wallet connections expose only the selected
+public account and network. Message signatures and transaction approvals are
+requested through NeoLine, OneGate, or WalletConnect and signing remains inside
+the user's wallet. The optional testnet faucet relayer uses a separate operator
+WIF configured on the server; it is never sent to the browser.
 
-The browser stores only the preferred wallet provider and network for silent
-reconnection. The backend stores public wallet identity, public keys, signatures,
-nonces, transaction IDs, contract hashes, and project/release data; none of these
-can be used as a wallet private key.
+The browser stores the preferred wallet provider and network for reconnection,
+and pending transaction/claim references for recovery. The backend stores public
+wallet identity, public keys, login challenges, hashed session tokens, legacy
+authorization audit fields, transaction IDs, contract hashes, and project/release
+data; none of these can be used as a user's wallet private key.
+
+## Wallet login
+
+Connecting a wallet identifies the account in the browser; it does not sign in
+to the Pusharoo API. The first protected workspace action asks for one **Sign in
+to Pusharoo** message signature. Later permitted actions reuse the same login
+for up to eight hours by default, even when switching between N3 TestNet and
+MainNet with the same wallet. The session does not approve blockchain actions:
+deployments, updates, direct faucet claims, and Relay payments still require
+their own wallet transaction approval. Browsing projects and the faucet does
+not require login.
+
+Sign out revokes the server session and leaves the wallet connected; disconnecting
+the wallet also signs out. If the API is unavailable, sign-out stays pending
+until revocation can finish. An expired session, account change, or logout requires
+a new login signature for the next protected action. A page reload can restore
+an unexpired session for the same wallet. Login challenges last five minutes by
+default; sessions have an absolute eight-hour lifetime with no silent extension.
+
+The API uses a same-origin `/api` route, an HttpOnly session cookie, and an
+antiforgery token for protected writes. Public HTTPS deployments use Secure,
+SameSite=Lax, host-only cookies; explicit HTTP localhost development uses
+separate cookie names. Keep `PUSHAROO_APP_ORIGIN` equal to the browser's exact
+origin, preserve the API Data Protection key volume across restarts and replicas,
+and configure only trusted reverse-proxy addresses. See the
+[wallet-session rollout guide](docs/wallet-session-rollout.md) for deployment
+order and acceptance checks.
 
 ## Planned
 
-- Deployment tracking, including which artifact version is currently deployed.
-- Easy deployment of previous artifact versions.
-- Contract Interaction Console for invoking contract methods from the site and viewing results.
-- Blockchain event subscriptions for monitoring, notifications, and webhooks.
 - Public and private artifacts/contracts.
 
 ## Structure
@@ -65,7 +90,7 @@ docker compose up --build
 
 The app runs at `http://localhost:8080` by default (change
 `PUSHAROO_HTTP_PORT` in `.env`). MongoDB, the API, and the relay are not exposed
-to the host. See [the production deployment guide](docs/production-deployment.md)
+to the host. See [the wallet-session rollout guide](docs/wallet-session-rollout.md)
 before making the service public.
 
 ## Run Locally
@@ -85,6 +110,8 @@ dotnet run --project event-relay/event-relay.csproj
 ```
 
 The Relay stores subscriptions, delivery attempts, and scan checkpoints in MongoDB. Webhook and payment management goes through the Pusharoo API using the wallet login session; the Relay accepts those requests only with its private API service token. Its `/health` endpoint remains public.
+
+For Compose, set distinct 32-character-or-longer `PUSHAROO_RELAY_TESTNET_SERVICE_TOKEN` and `PUSHAROO_RELAY_MAINNET_SERVICE_TOKEN` values before enabling the optional Relay services. The API and each Relay receive their matching token through Compose; keep the values outside source control. Start the Relays with `docker compose --profile event-relay up -d --build` after the API gateway is deployed.
 
 By default it uses the public Neo mainnet RPC endpoint in `event-relay/appsettings.json`, polls every 15 seconds, and starts at the current chain height when no checkpoint exists. Set `NeoRpc:StartBlock` to replay from a specific block.
 

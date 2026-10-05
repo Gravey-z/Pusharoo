@@ -12,10 +12,6 @@ import type {
 } from 'neo-n3-walletkit';
 import { defaultWalletConfig, isPusharooNetwork, PusharooNetwork } from '../config/wallet.config';
 import { DeploymentDataValue, WalletActionSignature, WalletLoginChallenge } from '../models/pusharoo.models';
-import {
-  ProjectCreationSignatureMessageService,
-  WalletActionSignatureChallenge
-} from './project-creation-signature-message.service';
 import { RuntimeConfigService } from './runtime-config.service';
 import { DeploymentDataService } from './deployment-data.service';
 import { NeoRpcService } from './neo-rpc.service';
@@ -100,7 +96,6 @@ export class WalletService {
   }
 
   constructor(
-    private readonly projectCreationMessage: ProjectCreationSignatureMessageService,
     private readonly runtimeConfig: RuntimeConfigService,
     private readonly deploymentData: DeploymentDataService,
     private readonly neoRpc: NeoRpcService
@@ -593,7 +588,7 @@ export class WalletService {
   private toWalletActionSignature(
     account: ConnectedAccount,
     session: WalletSession,
-    challenge: WalletActionSignatureChallenge,
+    challenge: WalletLoginChallenge,
     signedMessage: SignedMessageResponse
   ): WalletActionSignature {
     return {

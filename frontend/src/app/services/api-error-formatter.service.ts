@@ -14,6 +14,10 @@ export class ApiErrorFormatterService {
         return 'Pusharoo could not be reached. Check that the API is running and try again.';
       }
 
+      if (error.status === 410) {
+        return 'Pusharoo was updated. Reload this page and sign in again.';
+      }
+
       if (error.status === 401 || error.status === 403) {
         return 'You do not have permission to perform this action with the connected wallet.';
       }

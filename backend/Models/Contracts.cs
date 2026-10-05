@@ -82,26 +82,6 @@ public sealed record CreateDeploymentRequest(
     string DeployedBy,
     string? Notes);
 
-public sealed record DeploymentAuthorizationChallengeRequest(
-    string ArtifactId,
-    string Network,
-    string DeployedBy,
-    string? Notes,
-    string Origin,
-    string Audience,
-    string IssuedAtUtc,
-    string Nonce,
-    DeploymentDataValue? DeploymentData = null);
-
-public sealed record DeploymentAuthorizationChallengeResponse(
-    string Message,
-    string Operation,
-    string? ExpectedTargetContractHash,
-    long ExpectedDeploymentRevision,
-    DeploymentDataValue DeploymentData,
-    string DeploymentDataSha256,
-    string DeploymentDataFormatVersion);
-
 public sealed record DeploymentReviewRequest(string ArtifactId, string Network, string? Notes,
     DeploymentDataValue? DeploymentData = null);
 
@@ -117,14 +97,6 @@ public sealed record StartSessionDeploymentAttemptRequest(string ArtifactId, str
     string DeploymentDataSha256, DeploymentDataValue? DeploymentData = null);
 
 public sealed record ResumeDeploymentAttemptRequest();
-
-public sealed record StartDeploymentAttemptRequest(
-    string ArtifactId,
-    string Network,
-    string DeployedBy,
-    string? Notes,
-    WalletSignatureRequest? Authorization,
-    DeploymentDataValue? DeploymentData = null);
 
 public sealed record SubmitDeploymentAttemptRequest(string TransactionId, string AttemptCapability);
 
