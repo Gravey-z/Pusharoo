@@ -1,4 +1,9 @@
 .git/
+.env
+.env.*
+docker-compose.override.yml
+.agents/
+.codex/
 .vs/
 .vscode/
 frontend/
