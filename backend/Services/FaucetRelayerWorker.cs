@@ -108,9 +108,9 @@ public sealed class FaucetRelayerWorker(
         }
 
         var status = await rpc.SendAsync(network.Endpoint, "invokefunction", [faucet.ContractHash, "getStatus", Array.Empty<object>()], cancellationToken);
-        var statusStack = status.GetProperty("stack");
-        var configuredRelayer = FaucetRpcService.StackValue(statusStack[8]);
-        if (!string.Equals(NormalizeHash(configuredRelayer), NormalizeHash(sender.ToString()), StringComparison.OrdinalIgnoreCase))
+        var statusStack = FaucetRpcService.StackArray(status);
+        var configuredRelayer = FaucetRpcService.StackHash160(statusStack[8]);
+        if (configuredRelayer != sender)
         {
             await SetStateAsync(claim.Id, "NeedsReview", "Configured signing key is not the contract relayer account.", cancellationToken, release: true);
             return;
@@ -233,15 +233,15 @@ public sealed class FaucetRelayerWorker(
             if (string.Equals(contract, NormalizeHash(faucet.ContractHash), StringComparison.OrdinalIgnoreCase)
                 && string.Equals(eventName, "Claimed", StringComparison.Ordinal)
                 && state.GetArrayLength() >= 2
-                && string.Equals(NormalizeHash(FaucetRpcService.StackValue(state[0])), NormalizeHash(recipientScriptHash), StringComparison.OrdinalIgnoreCase))
+                && FaucetRpcService.StackHash160(state[0]) == UInt160.Parse(recipientScriptHash))
             {
                 claimedAmount = FaucetRpcService.StackInteger(state[1]);
             }
             else if (string.Equals(contract, NormalizeHash("0xd2a4cff31913016155e38e474a2c06d08be276cf"), StringComparison.OrdinalIgnoreCase)
                 && string.Equals(eventName, "Transfer", StringComparison.Ordinal)
                 && state.GetArrayLength() >= 3
-                && string.Equals(NormalizeHash(FaucetRpcService.StackValue(state[0])), NormalizeHash(faucet.ContractHash), StringComparison.OrdinalIgnoreCase)
-                && string.Equals(NormalizeHash(FaucetRpcService.StackValue(state[1])), NormalizeHash(recipientScriptHash), StringComparison.OrdinalIgnoreCase))
+                && FaucetRpcService.StackHash160(state[0]) == UInt160.Parse(faucet.ContractHash)
+                && FaucetRpcService.StackHash160(state[1]) == UInt160.Parse(recipientScriptHash))
             {
                 transferAmount = FaucetRpcService.StackInteger(state[2]);
             }
@@ -298,13 +298,33 @@ public sealed class FaucetRelayerWorker(
         }
     }
 
-    private Task SetStateAsync(string id, string state, string? error, CancellationToken cancellationToken, bool release, string? transactionHash = null)
+    private async Task SetStateAsync(string id, string state, string? error, CancellationToken cancellationToken, bool release, string? transactionHash = null)
     {
+        var claim = await db.FaucetClaims.Find(x => x.Id == id).FirstOrDefaultAsync(cancellationToken);
         var update = Builders<FaucetClaimDocument>.Update.Set(x => x.State, state).Set(x => x.Error, error)
             .Set(x => x.UpdatedAt, DateTime.UtcNow).Unset(x => x.LeaseUntil);
         if (release) update = update.Unset(x => x.ActiveWalletKey);
         if (transactionHash is not null) update = update.Set(x => x.TransactionHash, transactionHash);
-        return db.FaucetClaims.UpdateOneAsync(x => x.Id == id, update, cancellationToken: cancellationToken);
+        await db.FaucetClaims.UpdateOneAsync(x => x.Id == id, update, cancellationToken: cancellationToken);
+        if (!release || claim?.ClientIpAddress is null) return;
+
+        if (state == "Confirmed")
+        {
+            await db.FaucetIpClaims.UpdateOneAsync(
+                x => x.IpAddress == claim.ClientIpAddress && x.ClaimId == id,
+                Builders<FaucetIpClaimDocument>.Update.Set(x => x.ExpiresAt, DateTime.UtcNow.AddHours(24)),
+                cancellationToken: cancellationToken);
+        }
+        else
+        {
+            await db.FaucetIpClaims.DeleteOneAsync(
+                x => x.IpAddress == claim.ClientIpAddress && x.ClaimId == id,
+                cancellationToken);
+        }
+        await db.FaucetClaims.UpdateOneAsync(
+            x => x.Id == id,
+            Builders<FaucetClaimDocument>.Update.Unset(x => x.ClientIpAddress),
+            cancellationToken: cancellationToken);
     }
 
     private static string NormalizeHash(string value) => value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? value[2..] : value;

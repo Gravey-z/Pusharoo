@@ -4,7 +4,7 @@ import { FaucetClaim, PendingFaucetClaim, FaucetStatus } from '../../models/fauc
 import { FaucetApiService } from '../../services/faucet-api.service';
 import { NeoRpcService, ContractInvokeResult } from '../../services/neo-rpc.service';
 import { RuntimeConfigService } from '../../services/runtime-config.service';
-import { DeploymentFeeEstimate, WalletService } from '../../services/wallet.service';
+import { WalletService } from '../../services/wallet.service';
 import { WalletAuthService } from '../../services/wallet-auth.service';
 import { HttpErrorResponse } from '@angular/common/http';
 
@@ -35,7 +35,6 @@ export class FaucetComponent implements OnDestroy {
   activityMessage = '';
   successMessage = '';
   busy = '';
-  feeEstimate: DeploymentFeeEstimate | null = null;
   pendingClaim: PendingFaucetClaim | null = null;
   receivedAmount = '';
   private contextKey = '';
@@ -59,7 +58,6 @@ export class FaucetComponent implements OnDestroy {
       this.successMessage = '';
       this.receivedAmount = '';
       this.pendingClaim = null;
-      this.feeEstimate = null;
       void this.onWalletContextChanged(context, version);
     });
   }
@@ -78,16 +76,8 @@ export class FaucetComponent implements OnDestroy {
     return this.runtimeConfig.value.faucet.testnetContractHash.trim();
   }
 
-  get registered(): boolean | null {
-    return this.status?.registered ?? null;
-  }
-
-  get canClaimSponsored(): boolean {
-    return this.isTestnetWallet && this.status?.sponsoredAvailable === true && this.status.sponsoredEligible === true && !this.busy && !this.pendingClaim;
-  }
-
-  get canClaimDirect(): boolean {
-    return this.isTestnetWallet && Boolean(this.testnetContractHash) && this.status?.directEligible === true && !this.busy && !this.pendingClaim;
+  get claimAvailable(): boolean {
+    return this.isTestnetWallet && this.status?.sponsoredAvailable === true && this.status.sponsoredEligible === true;
   }
 
   get isTestnetWallet(): boolean {
@@ -106,9 +96,10 @@ export class FaucetComponent implements OnDestroy {
     }
     if (this.statusLoading) return 'Checking the faucet on testnet…';
     if (this.statusError) return this.statusError;
-    if (this.registered === false) return 'Your first claim must go through Pusharoo. That claim registers this wallet for future direct claims.';
-    if (this.registered === true && this.status?.directEligible) return 'Your wallet is registered and can claim now.';
-    if (this.registered === true) return this.reasonText(this.status?.directIneligibleReason ?? this.status?.sponsoredIneligibleReason);
+    if (this.claimAvailable) return 'You can claim test GAS now.';
+    if (this.status?.sponsoredAvailable === false) return this.status.sponsoredReason || 'Sponsored claiming is unavailable.';
+    if (this.status?.sponsoredEligible === false)
+      return this.reasonText(this.status.sponsoredIneligibleReason);
     return 'Wallet claim status is not available.';
   }
 
@@ -195,67 +186,9 @@ export class FaucetComponent implements OnDestroy {
     }
   }
 
-  async claimDirect(): Promise<void> {
-    const context = this.readWalletContext();
-    if (!this.requireTestnetContext(context)) return;
-    if (!this.testnetContractHash) {
-      this.operationError = 'The faucet contract address has not been configured in Pusharoo yet.';
-      return;
-    }
-
-    this.busy = 'direct';
-    this.operationError = '';
-    this.successMessage = '';
-    this.activityMessage = 'Verifying the testnet endpoint and refreshing claim status.';
-    try {
-      await this.neoRpc.verifyTestnetContract(this.testnetContractHash);
-      await this.refreshStatus(context, this.contextVersion, true);
-      this.assertSameContext(context);
-      if (!this.status?.directEligible) throw new Error(this.reasonText(this.status?.directIneligibleReason));
-
-      this.activityMessage = 'Estimating the direct transaction fee.';
-      const args = [{ type: 'Hash160', value: context.scriptHash! }];
-      this.feeEstimate = await this.wallet.estimateContractInvocationFees(
-        'neo3:testnet', this.testnetContractHash, 'claim', args
-      );
-      const balance = BigInt(await this.neoRpc.getGasBalanceDatoshi(context.scriptHash!));
-      const required = this.gasLabelToDatoshi(this.feeEstimate.total);
-      if (required !== null && balance < required) {
-        throw new Error(`This wallet has ${this.formatDatoshi(balance.toString())} GAS, less than the estimated ${this.feeEstimate.total} transaction fee.`);
-      }
-
-      this.assertSameContext(context);
-      this.activityMessage = `Review the estimated ${this.feeEstimate.total} fee in your wallet and approve the direct claim.`;
-      await this.neoRpc.verifyTestnetContract(this.testnetContractHash);
-      this.assertSameContext(context);
-      const transactionHash = await this.wallet.invokeContract(
-        'neo3:testnet', this.testnetContractHash, 'claim', args, 'Pusharoo Testnet Faucet'
-      );
-      const pending: PendingFaucetClaim = {
-        accountAddress: context.address!,
-        scriptHash: context.scriptHash!,
-        network: 'neo3:testnet',
-        route: 'direct',
-        transactionHash,
-        submittedAt: new Date().toISOString()
-      };
-      this.savePending(pending);
-      if (this.isCurrentWallet(pending)) {
-        this.pendingClaim = pending;
-        this.activityMessage = 'Transaction submitted. Waiting for testnet confirmation.';
-      }
-      void this.trackDirectClaim(pending);
-    } catch (error) {
-      this.operationError = this.errorText(error, 'Could not submit the direct claim.');
-      this.activityMessage = '';
-    } finally {
-      this.busy = '';
-    }
-  }
-
   reasonText(reason: string | null | undefined): string {
     switch (reason) {
-      case 'firstSponsoredClaim': return 'Your first claim must go through Pusharoo.';
+      case 'firstSponsoredClaim': return 'Use the faucet button to claim with this wallet.';
       case 'cooldown': return `This wallet can claim again at ${this.nextClaimDate}.`;
       case 'dailyCapReached': return `The faucet's daily allocation is used up. It resets at ${this.dailyResetDate}.`;
       case 'insufficientBalance': return 'The faucet does not have enough GAS to pay a claim right now.';
@@ -576,13 +509,6 @@ export class FaucetComponent implements OnDestroy {
       return result.toString();
     }
     throw new Error('The faucet contract returned an invalid number.');
-  }
-
-  private gasLabelToDatoshi(label: string): bigint | null {
-    const value = label.replace(/\s*GAS$/i, '').trim();
-    if (!/^\d+(\.\d{1,8})?$/.test(value)) return null;
-    const [whole, fraction = ''] = value.split('.');
-    return BigInt(whole) * 100_000_000n + BigInt(fraction.padEnd(8, '0') || '0');
   }
 
   private errorText(error: unknown, fallback: string): string {

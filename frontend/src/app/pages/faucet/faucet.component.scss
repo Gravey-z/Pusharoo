@@ -143,18 +143,7 @@
 
 .claim-button:hover:not(:disabled) { filter: brightness(1.08); }
 .claim-button:disabled { cursor: wait; opacity: 0.6; }
-.claim-button--direct { border-color: var(--testnet-border); background: var(--testnet-soft); color: var(--testnet); }
 .button-note { margin: 6px 0 var(--space-4); color: var(--text-subtle); font-size: var(--font-size-caption); }
-
-.claim-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 var(--space-5);
-  margin-top: var(--space-4);
-}
-
-.claim-actions .claim-button,
-.claim-actions .route-unavailable { width: 100%; }
 
 .route-unavailable {
   display: grid;
@@ -169,8 +158,6 @@
 }
 
 .route-unavailable span { color: var(--text-muted); font-size: var(--font-size-label); }
-.fee-estimate { margin: var(--space-4) 0 0; color: var(--text-muted); }
-.fee-estimate strong { color: var(--text); }
 .activity-message { margin: var(--space-4) 0 0; color: var(--testnet); line-height: var(--line-height-body); }
 .pending-link { overflow-wrap: anywhere; color: var(--text-muted); font-size: var(--font-size-caption); }
 .pending-link a { color: var(--testnet); }
@@ -211,6 +198,5 @@
   .claim-panel { padding: var(--space-4); }
   .claim-panel-heading { align-items: flex-start; flex-direction: column; }
   .wallet-address { max-width: 100%; }
-  .claim-actions { grid-template-columns: 1fr; }
   .notice { align-items: flex-start; flex-direction: column; }
 }

@@ -3,7 +3,7 @@
     <div>
       <p class="eyebrow">NEO N3 TESTNET</p>
       <h2>Get GAS for testing</h2>
-      <p>Claim test GAS for your wallet. Your first claim is sponsored by Pusharoo; after that, you can claim through Pusharoo or directly from the contract.</p>
+      <p>Claim test GAS for your wallet here. Pusharoo covers the transaction fee for faucet claims.</p>
     </div>
     <span class="network-badge">N3:Testnet only</span>
   </section>
@@ -64,50 +64,24 @@
           <p class="wallet-guidance">{{ walletStatusText }}</p>
         } @else {
           <div class="registration-line">
-            <span class="state-dot" [class.state-dot--ready]="registered === true"></span>
-            <strong>{{ registered === true ? 'Wallet registered' : registered === false ? 'First claim required' : 'Registration not checked' }}</strong>
+            <span class="state-dot" [class.state-dot--ready]="claimAvailable"></span>
+            <strong>{{ claimAvailable ? 'Claim available' : 'Claim status' }}</strong>
             <button type="button" class="refresh-status" [disabled]="statusLoading || !!busy" (click)="refresh()">Refresh status</button>
           </div>
           <p class="wallet-guidance">{{ walletStatusText }}</p>
 
-          @if (registered === false) {
-            @if (canClaimSponsored) {
-              <button type="button" class="claim-button" [disabled]="!!busy || !!pendingClaim" (click)="claimSponsored()">
-                {{ busy === 'sponsored' ? 'Preparing claim…' : 'Claim through faucet' }}
-              </button>
-              <p class="button-note">Pusharoo pays the transaction fee. This first successful claim registers your wallet.</p>
-            } @else if (!status.sponsoredAvailable) {
-              <div class="route-unavailable"><strong>Sponsored claiming is unavailable.</strong><span>{{ status.sponsoredReason || 'Try again later.' }}</span></div>
-            } @else {
-              <div class="route-unavailable">{{ reasonText(status.sponsoredIneligibleReason) }}</div>
-            }
-          } @else if (registered === true && status.directEligible) {
-            <div class="claim-actions">
-              @if (status.sponsoredAvailable && status.sponsoredEligible) {
-                <button type="button" class="claim-button" [disabled]="!!busy || !!pendingClaim" (click)="claimSponsored()">
-                  {{ busy === 'sponsored' ? 'Preparing claim…' : 'Claim through faucet' }}
-                </button>
-                <p class="button-note">Pusharoo pays the transaction fee.</p>
-              } @else {
-                <div class="route-unavailable"><strong>Sponsored claiming is unavailable.</strong><span>{{ status.sponsoredReason || reasonText(status.sponsoredIneligibleReason) }}</span></div>
-              }
-              @if (testnetContractHash) {
-                <button type="button" class="claim-button claim-button--direct" [disabled]="!!busy || !!pendingClaim" (click)="claimDirect()">
-                  {{ busy === 'direct' ? 'Checking fee…' : 'Claim directly' }}
-                </button>
-                <p class="button-note">Your wallet pays the estimated transaction fee.</p>
-              } @else {
-                <div class="route-unavailable"><strong>Direct claiming is not configured.</strong><span>The testnet contract address will be added after deployment.</span></div>
-              }
-            </div>
-          } @else if (registered === true) {
-            <div class="route-unavailable">{{ reasonText(status.directIneligibleReason || status.sponsoredIneligibleReason) }}</div>
+          @if (isTestnetWallet && status.sponsoredAvailable && status.sponsoredEligible) {
+            <button type="button" class="claim-button" [disabled]="!!busy || !!pendingClaim" (click)="claimSponsored()">
+              {{ busy === 'sponsored' ? 'Preparing claim…' : 'Claim through faucet' }}
+            </button>
+            <p class="button-note">Pusharoo pays the transaction fee.</p>
+          } @else if (!status.sponsoredAvailable) {
+            <div class="route-unavailable"><strong>Sponsored claiming is unavailable.</strong><span>{{ status.sponsoredReason || 'Try again later.' }}</span></div>
+          } @else if (!status.sponsoredEligible) {
+            <div class="route-unavailable">{{ reasonText(status.sponsoredIneligibleReason) }}</div>
           }
         }
 
-        @if (feeEstimate) {
-          <p class="fee-estimate">Estimated direct transaction fee: <strong>{{ feeEstimate.total }}</strong></p>
-        }
         @if (activityMessage) {
           <p class="activity-message" role="status" aria-live="polite">{{ activityMessage }}</p>
         }
@@ -124,8 +98,8 @@
     }
 
     <section class="faucet-rules">
-      <div><strong>One claim every 24 hours</strong><p>Sponsored and direct claims share the same cooldown.</p></div>
-      <div><strong>First claim goes through Pusharoo</strong><p>A successful sponsored claim registers your wallet for direct claims later.</p></div>
+      <div><strong>One claim every 24 hours</strong><p>Wallets share the same cooldown across claim methods. Sponsored claims are also limited to one per public IP.</p></div>
+      <div><strong>Transaction fees</strong><p>Pusharoo pays the fee when you claim here. Direct contract calls use your wallet's GAS.</p></div>
       <div><strong>Testnet GAS only</strong><p>These funds have no mainnet value. Pusharoo never asks for your seed phrase or private key.</p></div>
     </section>
   }

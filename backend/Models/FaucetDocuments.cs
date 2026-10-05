@@ -11,6 +11,7 @@ public sealed class FaucetClaimDocument
     public string ScriptHash { get; set; } = string.Empty;
     public string State { get; set; } = "Queued";
     public string? ActiveWalletKey { get; set; }
+    public string? ClientIpAddress { get; set; }
     public string? TransactionHash { get; set; }
     public string? Error { get; set; }
     public DateTime CreatedAt { get; set; }

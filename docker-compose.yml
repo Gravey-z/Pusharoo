@@ -25,12 +25,14 @@ services:
       RelayGateway__Testnet__ServiceToken: ${PUSHAROO_RELAY_TESTNET_SERVICE_TOKEN:-}
       RelayGateway__Mainnet__Endpoint: http://event-relay-mainnet:8080
       RelayGateway__Mainnet__ServiceToken: ${PUSHAROO_RELAY_MAINNET_SERVICE_TOKEN:-}
-      Faucet__Enabled: ${PUSHAROO_FAUCET_ENABLED:-false}
-      Faucet__RelayerEnabled: ${PUSHAROO_FAUCET_RELAYER_ENABLED:-false}
       Faucet__ContractHash: ${PUSHAROO_TESTNET_FAUCET_CONTRACT_HASH:-}
       Faucet__NetworkMagic: 894710606
       Faucet__TrustedProxyAddresses__0: ${PUSHAROO_FAUCET_TRUSTED_PROXY_IP:-}
+      Faucet__TrustedProxyNetworks__0: ${PUSHAROO_FAUCET_TRUSTED_PROXY_NETWORK:-172.16.0.0/12}
       FaucetRelayer__Enabled: "false"
+      FaucetRelayer__KeyConfigured: ${PUSHAROO_FAUCET_RELAYER_WIF:+true}
+      FaucetRelayer__MaximumTransactionFeeGas: ${PUSHAROO_FAUCET_MAX_TRANSACTION_FEE_GAS:-0.5}
+      FaucetRelayer__DailyFeeBudgetGas: ${PUSHAROO_FAUCET_DAILY_FEE_BUDGET_GAS:-5}
     expose:
       - "8080"
     volumes:
@@ -50,13 +52,11 @@ services:
       MongoDb__DatabaseName: ${MONGO_DATABASE:-Pusharoo}
       NeoRpc__Networks__testnet__Endpoint: ${PUSHAROO_TESTNET_RPC_URL:-https://testnet1.neo.coz.io:443}
       Faucet__ContractHash: ${PUSHAROO_TESTNET_FAUCET_CONTRACT_HASH:-}
-      Faucet__Enabled: ${PUSHAROO_FAUCET_ENABLED:-false}
-      Faucet__RelayerEnabled: ${PUSHAROO_FAUCET_RELAYER_ENABLED:-false}
       Faucet__NetworkMagic: 894710606
-      FaucetRelayer__Enabled: ${PUSHAROO_FAUCET_RELAYER_ENABLED:-false}
+      FaucetRelayer__Enabled: "true"
       FaucetRelayer__PrivateKeyWif: ${PUSHAROO_FAUCET_RELAYER_WIF:-}
-      FaucetRelayer__MaximumTransactionFeeGas: ${PUSHAROO_FAUCET_MAX_TRANSACTION_FEE_GAS:-0}
-      FaucetRelayer__DailyFeeBudgetGas: ${PUSHAROO_FAUCET_DAILY_FEE_BUDGET_GAS:-0}
+      FaucetRelayer__MaximumTransactionFeeGas: ${PUSHAROO_FAUCET_MAX_TRANSACTION_FEE_GAS:-0.5}
+      FaucetRelayer__DailyFeeBudgetGas: ${PUSHAROO_FAUCET_DAILY_FEE_BUDGET_GAS:-5}
       FaucetRelayer__PollIntervalSeconds: 3
       FaucetRelayer__ProtocolSettings__Network: 894710606
       FaucetRelayer__ProtocolSettings__AddressVersion: 53

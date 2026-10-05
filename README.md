@@ -61,6 +61,12 @@ and configure only trusted reverse-proxy addresses. See the
 [wallet-session rollout guide](docs/wallet-session-rollout.md) for deployment
 order and acceptance checks.
 
+## Faucet IP limit
+
+The API reserves the public IP of each accepted sponsored claim in MongoDB.
+Successful claims keep that IP reserved for 24 hours after confirmation; known
+failed claims release it.
+
 ## Planned
 
 - Public and private artifacts/contracts.

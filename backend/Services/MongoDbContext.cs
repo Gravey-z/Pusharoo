@@ -25,6 +25,7 @@ public sealed class MongoDbContext
         RelayPayments = database.GetCollection<BsonDocument>("relayPayments");
         RelayEntitlementHistory = database.GetCollection<BsonDocument>("relayEntitlementHistory");
         FaucetClaims = database.GetCollection<FaucetClaimDocument>("faucetClaims");
+        FaucetIpClaims = database.GetCollection<FaucetIpClaimDocument>("faucetIpClaims");
         FaucetDailyFeeBudgets = database.GetCollection<FaucetDailyFeeBudgetDocument>("faucetDailyFeeBudgets");
         WalletLoginChallenges = database.GetCollection<WalletLoginChallengeDocument>("walletLoginChallenges");
         WalletLoginSessions = database.GetCollection<WalletLoginSessionDocument>("walletLoginSessions");
@@ -43,6 +44,9 @@ public sealed class MongoDbContext
             new CreateIndexModel<FaucetClaimDocument>(
                 Builders<FaucetClaimDocument>.IndexKeys.Descending(claim => claim.CreatedAt))
         ]);
+        FaucetIpClaims.Indexes.CreateOne(new CreateIndexModel<FaucetIpClaimDocument>(
+            Builders<FaucetIpClaimDocument>.IndexKeys.Ascending(claim => claim.ExpiresAt),
+            new CreateIndexOptions { ExpireAfter = TimeSpan.Zero }));
         Projects.Indexes.CreateOne(new CreateIndexModel<ProjectDocument>(
             Builders<ProjectDocument>.IndexKeys.Ascending(project => project.IdempotencyKey),
             new CreateIndexOptions { Unique = true, Sparse = true }));
@@ -88,6 +92,7 @@ public sealed class MongoDbContext
     public IMongoCollection<BsonDocument> RelayEntitlementHistory { get; }
 
     public IMongoCollection<FaucetClaimDocument> FaucetClaims { get; }
+    public IMongoCollection<FaucetIpClaimDocument> FaucetIpClaims { get; }
 
     public IMongoCollection<FaucetDailyFeeBudgetDocument> FaucetDailyFeeBudgets { get; }
 

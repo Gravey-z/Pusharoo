@@ -9,13 +9,12 @@ using Neo.SmartContract.Framework.Services;
 namespace Pusharoo.Faucet;
 
 [DisplayName("PusharooTestnetFaucet")]
-[ContractVersion("1.1.0")]
+[ContractVersion("1.1.1")]
 [ContractDescription("Testnet-only GAS faucet")]
 [ContractPermission("0xd2a4cff31913016155e38e474a2c06d08be276cf", "balanceOf")]
 [ContractPermission("0xd2a4cff31913016155e38e474a2c06d08be276cf", "transfer")]
 [ContractPermission("0xfffdc93764dbaddd97c48f252a53ea4643faa3fd", "getContract")]
 [ContractPermission("0xfffdc93764dbaddd97c48f252a53ea4643faa3fd", "update")]
-[ContractPermission("0xfffdc93764dbaddd97c48f252a53ea4643faa3fd", "destroy")]
 public class FaucetContract : SmartContract
 {
     private const long GasUnit = 100_000_000;
@@ -248,13 +247,6 @@ public class FaucetContract : SmartContract
         RequireAdmin();
         if (!IsPaused()) throw new Exception("Pause the faucet before upgrading it.");
         ContractManagement.Update(nefFile, manifest, null);
-    }
-
-    [DisplayName("destroy")]
-    public static bool Destroy()
-    {
-        ContractManagement.Destroy();
-        return true;
     }
 
     [DisplayName("withdraw")]

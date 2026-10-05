@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.Numerics;
+using System.Text;
 using System.Text.Json;
 using backend.Options;
 using Microsoft.Extensions.Options;
+using Neo;
 
 namespace backend.Services;
 
@@ -60,6 +62,8 @@ public sealed class FaucetRpcService(
     {
         if (item.TryGetProperty("value", out var value))
         {
+            if (item.GetProperty("type").GetString() is "ByteString" or "Buffer")
+                return Encoding.UTF8.GetString(Convert.FromBase64String(value.GetString() ?? string.Empty));
             return value.ValueKind switch
             {
                 JsonValueKind.String => value.GetString() ?? string.Empty,
@@ -74,10 +78,38 @@ public sealed class FaucetRpcService(
 
     public static BigInteger StackInteger(JsonElement item)
     {
-        var raw = StackValue(item);
-        if (BigInteger.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number)) return number;
-        var bytes = Convert.FromHexString(raw);
-        return new BigInteger(bytes, isUnsigned: false, isBigEndian: false);
+        var type = item.GetProperty("type").GetString();
+        var raw = item.GetProperty("value").GetString() ?? string.Empty;
+        if (type == "Integer" && BigInteger.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number))
+            return number;
+        if (type is "ByteString" or "Buffer")
+            return new BigInteger(Convert.FromBase64String(raw), isUnsigned: false, isBigEndian: false);
+        throw new FormatException($"Expected a Neo integer stack item, got {type}.");
+    }
+
+    public static JsonElement StackArray(JsonElement result)
+    {
+        var stack = result.GetProperty("stack");
+        if (stack.ValueKind != JsonValueKind.Array || stack.GetArrayLength() != 1
+            || stack[0].GetProperty("type").GetString() != "Array"
+            || !stack[0].TryGetProperty("value", out var items) || items.ValueKind != JsonValueKind.Array)
+            throw new FormatException("Neo returned an invalid faucet status array.");
+        return items;
+    }
+
+    public static UInt160? StackHash160(JsonElement item)
+    {
+        var type = item.GetProperty("type").GetString();
+        if (type == "Any") return null;
+
+        var value = item.GetProperty("value").GetString() ?? string.Empty;
+        if (type == "Hash160") return UInt160.Parse(value);
+        if (type is not ("ByteString" or "Buffer"))
+            throw new FormatException($"Expected a Neo Hash160 stack item, got {type}.");
+
+        var bytes = Convert.FromBase64String(value);
+        if (bytes.Length != 20) throw new FormatException("Neo Hash160 stack item must contain 20 bytes.");
+        return new UInt160(bytes);
     }
 
     private static bool IsScriptHash(string value)

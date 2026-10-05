@@ -8,7 +8,7 @@ namespace backend.Controllers;
 [ApiController]
 [Route("api/faucet")]
 [EnableRateLimiting("FaucetIp")]
-public sealed class FaucetController(FaucetService faucet, CurrentWalletSessionAccessor currentWallet) : ControllerBase
+public sealed class FaucetController(FaucetService faucet, CurrentWalletSessionAccessor currentWallet, FaucetClientIpResolver clientIpResolver) : ControllerBase
 {
     [HttpGet("status")]
     public async Task<ActionResult<FaucetStatusResponse>> GetStatus([FromQuery] string? address, CancellationToken cancellationToken)
@@ -35,7 +35,7 @@ public sealed class FaucetController(FaucetService faucet, CurrentWalletSessionA
     {
         try
         {
-            return Accepted(await faucet.SubmitClaimAsync(request, currentWallet.Current!, cancellationToken));
+            return Accepted(await faucet.SubmitClaimAsync(request, currentWallet.Current!, clientIpResolver.Resolve(HttpContext), cancellationToken));
         }
         catch (FaucetRequestException exception)
         {

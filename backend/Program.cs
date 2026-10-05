@@ -38,6 +38,7 @@ builder.Services.AddScoped<DeploymentService>();
 builder.Services.AddScoped<DeploymentWorkflowService>();
 builder.Services.AddHttpClient<NeoRpcClient>(client => client.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddSingleton<FaucetRpcService>();
+builder.Services.AddSingleton<FaucetClientIpResolver>();
 builder.Services.AddScoped<FaucetService>();
 if (builder.Configuration.GetValue<bool>($"{FaucetRelayerOptions.SectionName}:Enabled"))
 {
@@ -127,7 +128,7 @@ builder.Services.AddRateLimiter(options =>
             AutoReplenishment = true
         }));
     options.AddPolicy("FaucetIp", context => RateLimitPartition.GetFixedWindowLimiter(
-        partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        partitionKey: context.RequestServices.GetRequiredService<FaucetClientIpResolver>().Resolve(context)?.ToString() ?? "unknown",
         factory: _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = 12,
@@ -143,6 +144,13 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     foreach (var address in builder.Configuration.GetSection("Faucet:TrustedProxyAddresses").Get<string[]>() ?? [])
     {
         if (IPAddress.TryParse(address, out var parsed)) options.KnownProxies.Add(parsed);
+    }
+    foreach (var range in builder.Configuration.GetSection("Faucet:TrustedProxyNetworks").Get<string[]>() ?? [])
+    {
+        if (!System.Net.IPNetwork.TryParse(range, out var parsed)) continue;
+        options.KnownIPNetworks.Add(parsed);
+        if (parsed.BaseAddress.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+            options.KnownIPNetworks.Add(new System.Net.IPNetwork(parsed.BaseAddress.MapToIPv6(), parsed.PrefixLength + 96));
     }
     foreach (var address in authConfiguration.TrustedProxyAddresses)
     {
@@ -177,6 +185,12 @@ if (builder.Configuration.GetValue<bool>("Https:RedirectEnabled"))
 {
     app.UseHttpsRedirection();
 }
+app.Use((context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/faucet"))
+        context.RequestServices.GetRequiredService<FaucetClientIpResolver>().CaptureDirectCloudflareIp(context);
+    return next(context);
+});
 app.UseForwardedHeaders();
 if (allowedCorsOrigins.Length > 0)
 {
