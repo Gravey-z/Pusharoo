@@ -25,7 +25,6 @@ public sealed class MongoDbContext
         RelayPayments = database.GetCollection<BsonDocument>("relayPayments");
         RelayEntitlementHistory = database.GetCollection<BsonDocument>("relayEntitlementHistory");
         WebhookAuthorizationNonces = database.GetCollection<WebhookAuthorizationNonceDocument>("webhookAuthorizationNonces");
-        FaucetChallenges = database.GetCollection<FaucetChallengeDocument>("faucetChallenges");
         FaucetClaims = database.GetCollection<FaucetClaimDocument>("faucetClaims");
         FaucetDailyFeeBudgets = database.GetCollection<FaucetDailyFeeBudgetDocument>("faucetDailyFeeBudgets");
         WalletLoginChallenges = database.GetCollection<WalletLoginChallengeDocument>("walletLoginChallenges");
@@ -42,9 +41,6 @@ public sealed class MongoDbContext
             new CreateIndexModel<WebhookAuthorizationNonceDocument>(
                 Builders<WebhookAuthorizationNonceDocument>.IndexKeys.Ascending(nonce => nonce.ExpiresAt),
                 new CreateIndexOptions { ExpireAfter = TimeSpan.Zero }));
-        FaucetChallenges.Indexes.CreateOne(new CreateIndexModel<FaucetChallengeDocument>(
-            Builders<FaucetChallengeDocument>.IndexKeys.Ascending(challenge => challenge.ExpiresAt),
-            new CreateIndexOptions { ExpireAfter = TimeSpan.Zero }));
         FaucetClaims.Indexes.CreateMany([
             new CreateIndexModel<FaucetClaimDocument>(
                 Builders<FaucetClaimDocument>.IndexKeys.Ascending(claim => claim.ActiveWalletKey),
@@ -97,8 +93,6 @@ public sealed class MongoDbContext
     public IMongoCollection<BsonDocument> RelayEntitlementHistory { get; }
 
     public IMongoCollection<WebhookAuthorizationNonceDocument> WebhookAuthorizationNonces { get; }
-
-    public IMongoCollection<FaucetChallengeDocument> FaucetChallenges { get; }
 
     public IMongoCollection<FaucetClaimDocument> FaucetClaims { get; }
 

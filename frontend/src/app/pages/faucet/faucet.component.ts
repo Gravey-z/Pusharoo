@@ -1,10 +1,12 @@
 import { Component, OnDestroy, effect } from '@angular/core';
 import { PageShellComponent } from '../page-shell/page-shell.component';
-import { PendingFaucetClaim, FaucetStatus } from '../../models/faucet.models';
+import { FaucetClaim, PendingFaucetClaim, FaucetStatus } from '../../models/faucet.models';
 import { FaucetApiService } from '../../services/faucet-api.service';
 import { NeoRpcService, ContractInvokeResult } from '../../services/neo-rpc.service';
 import { RuntimeConfigService } from '../../services/runtime-config.service';
 import { DeploymentFeeEstimate, WalletService } from '../../services/wallet.service';
+import { WalletAuthService } from '../../services/wallet-auth.service';
+import { HttpErrorResponse } from '@angular/common/http';
 
 interface WalletContext {
   address: string | null;
@@ -44,6 +46,7 @@ export class FaucetComponent implements OnDestroy {
   constructor(
     readonly wallet: WalletService,
     private readonly api: FaucetApiService,
+    private readonly auth: WalletAuthService,
     private readonly neoRpc: NeoRpcService,
     private readonly runtimeConfig: RuntimeConfigService
   ) {
@@ -141,28 +144,49 @@ export class FaucetComponent implements OnDestroy {
       if (!this.status?.sponsoredAvailable) throw new Error(this.status?.sponsoredReason || 'Sponsored claims are unavailable.');
       if (!this.status.sponsoredEligible) throw new Error(this.reasonText(this.status?.sponsoredIneligibleReason));
 
-      this.activityMessage = 'Requesting a one-time wallet signature. Pusharoo pays the transaction fee.';
-      const challenge = await this.api.createChallenge(context.address!);
+      this.activityMessage = 'Signing in to Pusharoo if needed. Pusharoo pays the transaction fee.';
+      await this.auth.ensureAuthenticated();
       this.assertSameContext(context);
-      const signature = await this.wallet.signFaucetClaim(challenge.message);
-      this.assertSameContext(context);
-      this.activityMessage = 'Submitting the signed claim to Pusharoo.';
-      const claim = await this.api.submitClaim({ challengeId: challenge.challengeId, signature });
+      const requestId = crypto.randomUUID().replace(/-/g, '');
       const pending: PendingFaucetClaim = {
         accountAddress: context.address!,
         scriptHash: context.scriptHash!,
         network: 'neo3:testnet',
         route: 'sponsored',
-        requestId: claim.requestId,
-        transactionHash: claim.transactionHash ?? undefined,
+        requestId,
         submittedAt: new Date().toISOString()
       };
       this.savePending(pending);
+      this.pendingClaim = pending;
+      this.activityMessage = 'Submitting your sponsored claim to Pusharoo.';
+      let claim: FaucetClaim;
+      try {
+        claim = await this.api.submitClaim({ requestId });
+      } catch (submitError) {
+        try {
+          claim = await this.api.getClaim(requestId);
+        } catch (lookupError) {
+          if (lookupError instanceof HttpErrorResponse && lookupError.status === 404
+            && submitError instanceof HttpErrorResponse && submitError.status > 0) {
+            this.removePending(pending);
+            if (this.isCurrentWallet(pending)) this.pendingClaim = null;
+            throw submitError;
+          }
+          if (this.isCurrentWallet(pending)) {
+            this.activityMessage = 'The claim response is uncertain. Pusharoo will keep checking this request; refresh the page to resume.';
+          }
+          void this.trackSponsoredClaim(pending);
+          return;
+        }
+      }
+      const updated = { ...pending, requestId: claim.requestId, transactionHash: claim.transactionHash ?? undefined };
+      if (updated.requestId !== pending.requestId) this.removePending(pending);
+      this.savePending(updated);
       if (this.isCurrentWallet(pending)) {
-        this.pendingClaim = pending;
+        this.pendingClaim = updated;
         this.activityMessage = this.sponsoredStateText(claim.state);
       }
-      void this.trackSponsoredClaim(pending);
+      void this.trackSponsoredClaim(updated);
     } catch (error) {
       this.operationError = this.errorText(error, 'Could not submit the sponsored claim.');
       this.activityMessage = '';
@@ -383,10 +407,12 @@ export class FaucetComponent implements OnDestroy {
 
   private async trackSponsoredClaim(pending: PendingFaucetClaim): Promise<void> {
     if (!pending.requestId) return;
+    let notFoundCount = 0;
     for (let attempt = 0; attempt < 60; attempt += 1) {
       if (this.destroyed) return;
       try {
         const claim = await this.api.getClaim(pending.requestId);
+        notFoundCount = 0;
         const updated: PendingFaucetClaim = { ...pending, transactionHash: claim.transactionHash ?? pending.transactionHash };
         this.savePending(updated);
         if (this.isCurrentWallet(pending)) {
@@ -426,7 +452,16 @@ export class FaucetComponent implements OnDestroy {
           return;
         }
         if (claim.state.toLowerCase() === 'needsreview') return;
-      } catch {
+      } catch (error) {
+        if (error instanceof HttpErrorResponse && error.status === 404 && ++notFoundCount >= 3) {
+          this.removePending(pending);
+          if (this.isCurrentWallet(pending)) {
+            this.pendingClaim = null;
+            this.activityMessage = '';
+            this.operationError = 'Pusharoo did not receive this claim. You can request it again.';
+          }
+          return;
+        }
         // Keep the request locally so polling can resume after a refresh or API recovery.
       }
       await this.delay(3000);

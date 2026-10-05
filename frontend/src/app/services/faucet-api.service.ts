@@ -1,8 +1,9 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { FaucetChallenge, FaucetClaim, FaucetClaimRequest, FaucetStatus } from '../models/faucet.models';
+import { FaucetClaim, FaucetClaimRequest, FaucetStatus } from '../models/faucet.models';
 import { RuntimeConfigService } from './runtime-config.service';
+import { REQUIRE_WALLET_SESSION } from './wallet-auth.interceptor';
 
 @Injectable({ providedIn: 'root' })
 export class FaucetApiService {
@@ -17,12 +18,9 @@ export class FaucetApiService {
     return firstValueFrom(this.http.get<FaucetStatus>(`${this.apiBaseUrl}/faucet/status${query}`));
   }
 
-  createChallenge(address: string): Promise<FaucetChallenge> {
-    return firstValueFrom(this.http.post<FaucetChallenge>(`${this.apiBaseUrl}/faucet/challenges`, { address }));
-  }
-
   submitClaim(request: FaucetClaimRequest): Promise<FaucetClaim> {
-    return firstValueFrom(this.http.post<FaucetClaim>(`${this.apiBaseUrl}/faucet/claims`, request));
+    return firstValueFrom(this.http.post<FaucetClaim>(`${this.apiBaseUrl}/faucet/claims`, request,
+      { context: new HttpContext().set(REQUIRE_WALLET_SESSION, true) }));
   }
 
   getClaim(requestId: string): Promise<FaucetClaim> {

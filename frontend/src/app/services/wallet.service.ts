@@ -424,25 +424,6 @@ export class WalletService {
     return this.toWalletActionSignature(account, session, challenge, signedMessage);
   }
 
-  async signFaucetClaim(message: string): Promise<WalletActionSignature> {
-    const session = this.session();
-    const account = this.account();
-    if (!this.walletKit || !session || !account) throw new Error('Connect a wallet before claiming testnet GAS.');
-    if (session.network !== 'neo3:testnet') throw new Error('Faucet claims are available on N3:Testnet only.');
-
-    const challenge: WalletActionSignatureChallenge = {
-      ...this.projectCreationMessage.createSignatureContext(),
-      message
-    };
-    const signedMessage = await this.signMessage(
-      session,
-      account.address,
-      message,
-      'Sign a message to request sponsored testnet GAS. Pusharoo pays the transaction fee.'
-    );
-    return this.toWalletActionSignature(account, session, challenge, signedMessage);
-  }
-
   async invokeContract(
     network: NetworkType,
     contractHash: string,

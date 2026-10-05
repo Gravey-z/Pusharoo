@@ -1,9 +1,7 @@
-using System.Security.Cryptography;
 using backend.Models;
 using backend.Options;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
-using Pusharoo.Contracts;
 
 namespace backend.Services;
 
@@ -11,12 +9,8 @@ public sealed class FaucetService(
     MongoDbContext db,
     FaucetRpcService rpc,
     NeoWalletAddressValidator addressValidator,
-    WalletSignatureRequestValidator signatureRequestValidator,
-    NeoWalletSignatureVerifier signatureVerifier,
-    IOptions<WalletSignatureOptions> walletOptions,
     IOptions<FaucetOptions> faucetOptions)
 {
-    private readonly WalletSignatureOptions wallet = walletOptions.Value;
     private readonly FaucetOptions faucet = faucetOptions.Value;
 
     public async Task<FaucetStatusResponse> GetStatusAsync(string? address, CancellationToken cancellationToken)
@@ -69,81 +63,40 @@ public sealed class FaucetService(
             FaucetRpcService.StackInteger(status[6]).ToString());
     }
 
-    public async Task<FaucetChallengeResponse> CreateChallengeAsync(string address, string? origin, CancellationToken cancellationToken)
+    public async Task<FaucetClaimResponse> SubmitClaimAsync(
+        FaucetClaimRequest request,
+        WalletSessionIdentity actor,
+        CancellationToken cancellationToken)
     {
+        if (request is null || !Guid.TryParseExact(request.RequestId, "N", out _))
+            throw new FaucetRequestException(400, "Claim request ID must be a UUID without separators.");
+        var recipient = addressValidator.Validate(actor.Address);
+        if (!recipient.IsValid || !string.Equals(NormalizeHash(recipient.ScriptHash), NormalizeHash(actor.ScriptHash), StringComparison.OrdinalIgnoreCase))
+            throw new FaucetRequestException(403, "The signed-in wallet identity is invalid.");
+        var requestId = request.RequestId.ToLowerInvariant();
+        var activeKey = $"neo3:testnet:{recipient.ScriptHash.ToLowerInvariant()}";
+        var previous = await db.FaucetClaims.Find(x => x.Id == requestId).FirstOrDefaultAsync(cancellationToken);
+        if (previous is not null) return MapForActor(previous, recipient.ScriptHash);
+        var existing = await db.FaucetClaims.Find(x => x.ActiveWalletKey == activeKey).FirstOrDefaultAsync(cancellationToken);
+        if (existing is not null) return Map(existing);
+
         EnsureConfigured();
         var availability = await rpc.GetAvailabilityAsync(cancellationToken);
         if (!availability.Available) throw new FaucetUnavailableException(availability.Reason ?? "Faucet unavailable.");
-
-        var recipient = addressValidator.Validate(address);
-        if (!recipient.IsValid) throw new FaucetRequestException(400, recipient.Error);
         var current = await rpc.InvokeAsync("getClaimStatus", recipient.ScriptHash, cancellationToken);
         var claimStatus = current.GetProperty("stack");
         if (!ParseStackBoolean(claimStatus[1]))
             throw new FaucetRequestException(409, $"This wallet is not currently eligible for a sponsored claim ({FaucetRpcService.StackValue(claimStatus[4])}).");
 
-        if (string.IsNullOrWhiteSpace(origin)) throw new FaucetRequestException(400, "Request origin is required.");
-        if (!IsConfiguredOrigin(origin)) throw new FaucetRequestException(403, "Request origin is not allowed for this Pusharoo application.");
-        var id = Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant();
-        var expires = DateTime.UtcNow.AddSeconds(Math.Clamp(faucet.ChallengeLifetimeSeconds, 30, 300));
-        var message = BuildMessage(recipient.WalletAddress, recipient.ScriptHash, origin, id, expires);
-        await db.FaucetChallenges.InsertOneAsync(new FaucetChallengeDocument
-        {
-            Id = id,
-            Recipient = recipient.WalletAddress,
-            ScriptHash = recipient.ScriptHash,
-            Message = message,
-            CreatedAt = DateTime.UtcNow,
-            ExpiresAt = expires
-        }, cancellationToken: cancellationToken);
-        return new FaucetChallengeResponse(id, message, expires);
-    }
-
-    public async Task<FaucetClaimResponse> SubmitClaimAsync(
-        FaucetClaimRequest request,
-        string? origin,
-        CancellationToken cancellationToken)
-    {
-        EnsureConfigured();
-        var availability = await rpc.GetAvailabilityAsync(cancellationToken);
-        if (!availability.Available) throw new FaucetUnavailableException(availability.Reason ?? "Faucet unavailable.");
-        if (request.Signature is null) throw new FaucetRequestException(400, "A wallet signature is required.");
-        if (string.IsNullOrWhiteSpace(request.ChallengeId) || request.ChallengeId.Length > 64) throw new FaucetRequestException(400, "Challenge ID is invalid.");
-
-        var challenge = await db.FaucetChallenges.Find(x => x.Id == request.ChallengeId).FirstOrDefaultAsync(cancellationToken);
-        if (challenge is null || challenge.ConsumedAt is not null || challenge.ExpiresAt <= DateTime.UtcNow)
-            throw new FaucetRequestException(400, "Challenge has expired or was already used. Request a new one.");
-
-        var signature = request.Signature;
-        if (signature.Network != "neo3:testnet") throw new FaucetRequestException(400, "Faucet claims are available on Neo N3 testnet only.");
-        if (signature.Address != challenge.Recipient || !string.Equals(signature.ScriptHash, challenge.ScriptHash, StringComparison.OrdinalIgnoreCase))
-            throw new FaucetRequestException(400, "Signed wallet does not match the requested recipient.");
-        var validationError = signatureRequestValidator.Validate(signature);
-        if (validationError is not null) throw new FaucetRequestException(400, validationError);
-        if (!string.Equals(origin, signature.Origin, StringComparison.Ordinal) || !string.Equals(signature.Message, challenge.Message, StringComparison.Ordinal))
-            throw new FaucetRequestException(400, "Wallet signature does not match this faucet challenge.");
-        var verification = signatureVerifier.Verify(signature, challenge.Message);
-        if (!verification.IsValid) throw new FaucetRequestException(400, verification.Error);
-        var activeKey = $"neo3:testnet:{challenge.ScriptHash.ToLowerInvariant()}";
-        var existing = await db.FaucetClaims.Find(x => x.ActiveWalletKey == activeKey).FirstOrDefaultAsync(cancellationToken);
-        if (existing is not null) return Map(existing);
-
         var queueDepth = await db.FaucetClaims.CountDocumentsAsync(x => x.State == "Queued" || x.State == "Processing", cancellationToken: cancellationToken);
         if (queueDepth >= Math.Clamp(faucet.MaximumQueueDepth, 1, 10000))
             throw new FaucetRequestException(503, "The faucet queue is full. Try again shortly.");
 
-        var consumed = await db.FaucetChallenges.FindOneAndUpdateAsync(
-            x => x.Id == challenge.Id && x.ConsumedAt == null && x.ExpiresAt > DateTime.UtcNow,
-            Builders<FaucetChallengeDocument>.Update.Set(x => x.ConsumedAt, DateTime.UtcNow),
-            new FindOneAndUpdateOptions<FaucetChallengeDocument> { ReturnDocument = ReturnDocument.After },
-            cancellationToken);
-        if (consumed is null) throw new FaucetRequestException(409, "Challenge was already submitted. Request a new one.");
-
         var claim = new FaucetClaimDocument
         {
-            Id = Guid.NewGuid().ToString("N"),
-            Recipient = challenge.Recipient,
-            ScriptHash = challenge.ScriptHash,
+            Id = requestId,
+            Recipient = recipient.WalletAddress,
+            ScriptHash = recipient.ScriptHash,
             ActiveWalletKey = activeKey,
             State = "Queued",
             CreatedAt = DateTime.UtcNow,
@@ -156,6 +109,8 @@ public sealed class FaucetService(
         }
         catch (MongoWriteException exception) when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
         {
+            previous = await db.FaucetClaims.Find(x => x.Id == requestId).FirstOrDefaultAsync(cancellationToken);
+            if (previous is not null) return MapForActor(previous, recipient.ScriptHash);
             var duplicate = await db.FaucetClaims.Find(x => x.ActiveWalletKey == activeKey).FirstOrDefaultAsync(cancellationToken);
             return duplicate is null ? throw new FaucetRequestException(409, "A claim is already being processed.") : Map(duplicate);
         }
@@ -167,21 +122,6 @@ public sealed class FaucetService(
         return claim is null ? null : Map(claim);
     }
 
-    private string BuildMessage(string address, string scriptHash, string origin, string id, DateTime expires) => string.Join('\n',
-    [
-        "Pusharoo testnet faucet claim v1",
-        "Action: claim GAS",
-        "Network: neo3:testnet",
-        $"Network magic: {faucet.NetworkMagic}",
-        $"Faucet: {rpc.ContractHash}",
-        $"Recipient: {address}",
-        $"Script hash: {scriptHash}",
-        $"Request ID: {id}",
-        $"Origin: {origin}",
-        $"Audience: {wallet.Audience}",
-        $"Expires at UTC: {expires:O}"
-    ]);
-
     private void EnsureConfigured()
     {
         var reason = GetOperationalReason();
@@ -192,21 +132,18 @@ public sealed class FaucetService(
     {
         if (!faucet.Enabled) return "Faucet claims are disabled by configuration.";
         if (!faucet.RelayerEnabled) return "Faucet relayer is not enabled.";
-        if (wallet.AllowedOrigins.Length == 0 || string.IsNullOrWhiteSpace(wallet.Audience)) return "Faucet claims are disabled until wallet signature origins are configured.";
         return null;
-    }
-
-    private bool IsConfiguredOrigin(string origin)
-    {
-        if (!Uri.TryCreate(origin, UriKind.Absolute, out var parsed) || parsed.AbsolutePath != "/" || !string.IsNullOrEmpty(parsed.Query) || !string.IsNullOrEmpty(parsed.Fragment)) return false;
-        var canonicalOrigin = parsed.GetLeftPart(UriPartial.Authority);
-        return string.Equals(origin, canonicalOrigin, StringComparison.Ordinal)
-            && wallet.AllowedOrigins.Any(allowed => Uri.TryCreate(allowed, UriKind.Absolute, out var configured)
-                && string.Equals(configured.GetLeftPart(UriPartial.Authority), canonicalOrigin, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool ParseStackBoolean(System.Text.Json.JsonElement item) =>
         string.Equals(FaucetRpcService.StackValue(item), "true", StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeHash(string value) => value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? value[2..] : value;
+
+    private FaucetClaimResponse MapForActor(FaucetClaimDocument claim, string scriptHash) =>
+        string.Equals(claim.ScriptHash, scriptHash, StringComparison.OrdinalIgnoreCase)
+            ? Map(claim)
+            : throw new FaucetRequestException(409, "Claim request ID belongs to a different wallet.");
 
     private FaucetClaimResponse Map(FaucetClaimDocument claim) => new(
         claim.Id,
@@ -234,8 +171,7 @@ public sealed record FaucetStatusResponse(
     string? DirectIneligibleReason,
     string? DailyResetAt);
 
-public sealed record FaucetChallengeResponse(string ChallengeId, string Message, DateTime ExpiresAtUtc);
-public sealed record FaucetClaimRequest(string ChallengeId, WalletSignatureRequest? Signature);
+public sealed record FaucetClaimRequest(string RequestId);
 public sealed record FaucetClaimResponse(string RequestId, string State, string? TransactionHash, string? ExplorerUrl, string? Error);
 
 public sealed class FaucetRequestException(int statusCode, string message) : Exception(message)

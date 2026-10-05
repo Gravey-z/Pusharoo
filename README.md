@@ -86,8 +86,6 @@ dotnet run --project event-relay/event-relay.csproj
 
 The Relay stores subscriptions, delivery attempts, and scan checkpoints in MongoDB. Webhook and payment management goes through the Pusharoo API using the wallet login session; the Relay accepts those requests only with its private API service token. Its `/health` endpoint remains public.
 
-For Compose, set distinct 32-character-or-longer `PUSHAROO_RELAY_TESTNET_SERVICE_TOKEN` and `PUSHAROO_RELAY_MAINNET_SERVICE_TOKEN` values, then start the optional services with `docker compose --profile event-relay up --build`. Keep the tokens outside source control. A local, Git-ignored `docker-compose.override.yml` can supply matching `RelayGateway__*__ServiceToken` values to the API and `PusharooApi__ServiceToken` to each Relay.
-
 By default it uses the public Neo mainnet RPC endpoint in `event-relay/appsettings.json`, polls every 15 seconds, and starts at the current chain height when no checkpoint exists. Set `NeoRpc:StartBlock` to replay from a specific block.
 
 ### Frontend

@@ -3,19 +3,6 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace backend.Models;
 
 [BsonIgnoreExtraElements]
-public sealed class FaucetChallengeDocument
-{
-    [BsonId]
-    public string Id { get; set; } = string.Empty;
-    public string Recipient { get; set; } = string.Empty;
-    public string ScriptHash { get; set; } = string.Empty;
-    public string Message { get; set; } = string.Empty;
-    public DateTime CreatedAt { get; set; }
-    public DateTime ExpiresAt { get; set; }
-    public DateTime? ConsumedAt { get; set; }
-}
-
-[BsonIgnoreExtraElements]
 public sealed class FaucetClaimDocument
 {
     [BsonId]

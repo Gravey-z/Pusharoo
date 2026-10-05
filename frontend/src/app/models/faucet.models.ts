@@ -1,5 +1,3 @@
-import { WalletActionSignature } from './pusharoo.models';
-
 export interface FaucetStatus {
   available: boolean;
   reason: string | null;
@@ -19,15 +17,8 @@ export interface FaucetStatus {
   dailyResetAt: string | null;
 }
 
-export interface FaucetChallenge {
-  challengeId: string;
-  message: string;
-  expiresAtUtc: string;
-}
-
 export interface FaucetClaimRequest {
-  challengeId: string;
-  signature: WalletActionSignature;
+  requestId: string;
 }
 
 export interface FaucetClaim {
