@@ -92,6 +92,7 @@
 }
 
 .network-card strong {
+  font-family: var(--font-display);
   font-size: 23px;
 }
 
@@ -139,12 +140,14 @@
 
 .project-summary p {
   color: var(--text);
+  font-family: var(--font-display);
   font-size: 16px;
   line-height: 1.5;
 }
 
 .eyebrow {
   color: var(--muted);
+  font-family: var(--font-display);
   font-size: 13px;
   font-weight: 720;
 }
@@ -180,6 +183,7 @@ p {
 
 dt {
   color: var(--muted);
+  font-family: var(--font-display);
   font-size: 13px;
   font-weight: 720;
 }
@@ -187,6 +191,7 @@ dt {
 dd {
   margin: 0;
   color: var(--text);
+  font-family: var(--font-display);
   font-size: 20px;
   font-weight: 700;
 }
