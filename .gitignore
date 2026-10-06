@@ -4,6 +4,8 @@
 /contracts/*/obj/
 /event-relay/bin/
 /event-relay/obj/
+docs/*.yml
+/cloudflare/
 
 # Logs
 *.log

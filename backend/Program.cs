@@ -200,6 +200,13 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapGet("/api/relay/{network}/health", async (string network, RelayGatewayService relay,
+    HttpContext context, CancellationToken cancellationToken) =>
+{
+    context.Response.Headers.CacheControl = "no-store";
+    var result = await relay.GetHealthAsync(network, cancellationToken);
+    return Results.Content(result.Content, "application/json", statusCode: result.StatusCode);
+});
 app.MapPost("/api/faucet/challenges", (HttpContext context) =>
 {
     context.Response.Headers.CacheControl = "no-store";

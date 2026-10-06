@@ -20,12 +20,12 @@ export interface RuntimeConfig {
 const defaultConfig: RuntimeConfig = {
   apiBaseUrl: '/api',
   walletSignatureAudience: 'pusharoo-web',
-  eventRelayHealthUrl: 'http://localhost:5001/health',
+  eventRelayHealthUrl: '/api/relay/testnet/health',
   eventRelays: {
-    'neo3:testnet': { healthUrl: 'http://localhost:5001/health' },
-    'neo3:mainnet': { healthUrl: 'http://localhost:5002/health' }
+    'neo3:testnet': { healthUrl: '/api/relay/testnet/health' },
+    'neo3:mainnet': { healthUrl: '/api/relay/mainnet/health' }
   },
-  faucet: { testnetContractHash: '' },
+  faucet: { testnetContractHash: '0xb48cd74b3cdd0f3f2c742bfbf02f33c0e6487603' },
   wallet: {
     network: defaultWalletConfig.network,
     walletConnectProjectId: defaultWalletConfig.walletConnectProjectId,

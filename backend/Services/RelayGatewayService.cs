@@ -6,6 +6,35 @@ namespace backend.Services;
 
 public sealed class RelayGatewayService(HttpClient client, IOptions<RelayGatewayOptions> options)
 {
+    public async Task<RelayGatewayResult> GetHealthAsync(string network, CancellationToken cancellationToken)
+    {
+        var target = network switch
+        {
+            "testnet" => options.Value.Testnet,
+            "mainnet" => options.Value.Mainnet,
+            _ => null
+        };
+        if (target is null) return new(404, "{\"error\":\"Relay network was not found.\"}");
+        if (!Uri.TryCreate(target.Endpoint, UriKind.Absolute, out var endpoint)
+            || endpoint.Scheme is not ("http" or "https"))
+            return new(503, "{\"error\":\"Relay health is not configured.\"}");
+
+        try
+        {
+            using var response = await client.GetAsync(new Uri(endpoint, "/health"), cancellationToken);
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            return new((int)response.StatusCode, content);
+        }
+        catch (HttpRequestException)
+        {
+            return new(502, "{\"error\":\"Relay is unavailable.\"}");
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new(504, "{\"error\":\"Relay did not respond in time.\"}");
+        }
+    }
+
     public async Task<RelayGatewayResult> SendAsync(string network, HttpMethod method, string path,
         object? body, WalletSessionIdentity actor, CancellationToken cancellationToken)
     {
