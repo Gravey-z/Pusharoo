@@ -6,6 +6,7 @@
 /event-relay/obj/
 docs/*.yml
 /cloudflare/
+/docs/
 
 # Logs
 *.log
