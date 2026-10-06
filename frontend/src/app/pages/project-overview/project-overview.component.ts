@@ -114,34 +114,25 @@ export class ProjectOverviewComponent implements OnInit {
     return Boolean(network && this.deploymentHistory.latestForNetwork(overview.deployments, network));
   }
 
-  latestAttemptsByVersion(overview: ProjectOverviewViewModel): Deployment[] {
-    const latestByVersionAndNetwork = new Map<string, Deployment>();
-
-    for (const deployment of [...overview.deployments]
-      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())) {
-      const key = `${deployment.version}\u0000${deployment.network}`;
-      if (!latestByVersionAndNetwork.has(key)) {
-        latestByVersionAndNetwork.set(key, deployment);
-      }
-    }
-
-    return [...latestByVersionAndNetwork.values()];
+  deploymentAttempts(overview: ProjectOverviewViewModel): Deployment[] {
+    return [...overview.deployments]
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
   }
 
-  liveArtifacts(overview: ProjectOverviewViewModel): Artifact[] {
-    const artifactsById = new Map(overview.artifacts.map((artifact) => [artifact.id, artifact]));
-    const includedArtifactIds = new Set<string>();
-    const liveArtifacts: Artifact[] = [];
+  overviewArtifacts(overview: ProjectOverviewViewModel): Artifact[] {
+    const artifacts = [...overview.artifacts]
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+    const includedArtifactIds = new Set(artifacts.slice(0, 4).map((artifact) => artifact.id));
 
     for (const deployment of this.liveDeployments(overview)) {
-      const artifact = artifactsById.get(deployment.artifactId);
-      if (artifact && !includedArtifactIds.has(artifact.id)) {
-        includedArtifactIds.add(artifact.id);
-        liveArtifacts.push(artifact);
-      }
+      includedArtifactIds.add(deployment.artifactId);
     }
 
-    return liveArtifacts;
+    return artifacts.filter((artifact) => includedArtifactIds.has(artifact.id));
+  }
+
+  overviewDeployments(overview: ProjectOverviewViewModel): Deployment[] {
+    return this.deploymentAttempts(overview).slice(0, 4);
   }
 
   isNetworkUnavailable(network: string): boolean {
@@ -294,7 +285,8 @@ export class ProjectOverviewComponent implements OnInit {
     });
 
     return [...artifacts, ...deployments]
-      .sort((left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime());
+      .sort((left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime())
+      .slice(0, 10);
   }
 
   formatTimelineDate(value: string): string {

@@ -113,7 +113,7 @@
     @if (releaseTab !== 'deployments') {
     <section class="artifact-list" aria-label="Artifacts">
       <header class="artifact-list-header">
-        <h2>{{ releaseTab === 'overview' ? 'Live artifacts' : 'Artifacts' }}</h2>
+        <h2>Artifacts</h2>
         @if (releaseTab === 'artifacts' && canManageProject(overview)) {
           <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
             Upload Artifact
@@ -128,11 +128,11 @@
         <span>Networks</span>
       </div>
 
-      @let displayedArtifacts = releaseTab === 'overview' ? liveArtifacts(overview) : overview.artifacts;
+      @let displayedArtifacts = releaseTab === 'overview' ? overviewArtifacts(overview) : overview.artifacts;
       @if (displayedArtifacts.length) {
         @for (artifact of displayedArtifacts; track artifact.id) {
           <a
-            [class.deployed-artifact]="releaseTab === 'artifacts' && isArtifactDeployed(overview, artifact)"
+            [class.deployed-artifact]="isArtifactDeployed(overview, artifact)"
             [routerLink]="['/artifacts', artifact.id, 'manifest']"
           >
             <span data-label="Version">{{ artifact.version }}</span>
@@ -153,8 +153,8 @@
         }
       } @else {
         <div class="artifact-empty-state">
-          <strong>{{ releaseTab === 'overview' ? 'No live artifacts' : 'No artifacts uploaded' }}</strong>
-          <p>{{ releaseTab === 'overview' ? 'Deploy an artifact to Testnet or Mainnet to show it here.' : 'Upload a NEF and manifest before creating a deployment.' }}</p>
+          <strong>No artifacts uploaded</strong>
+          <p>Upload a NEF and manifest before creating a deployment.</p>
         </div>
       }
 
@@ -167,7 +167,7 @@
     @if (releaseTab !== 'artifacts') {
     <section class="deployment-list" aria-label="Deployments">
       <header class="deployment-list-header">
-        <h2>{{ releaseTab === 'overview' ? 'Live deployments' : 'Deployments' }}</h2>
+        <h2>Deployments</h2>
         @if (releaseTab === 'deployments') {
           <div class="deployment-list-actions">
             @if (overview.artifacts.length && canStartDeploymentToNetwork(overview, wallet.session()?.network || '')) {
@@ -190,7 +190,7 @@
         <span>Deployer</span>
         <span>Action</span>
       </div>
-      @let displayedDeployments = releaseTab === 'overview' ? liveDeployments(overview) : latestAttemptsByVersion(overview);
+      @let displayedDeployments = releaseTab === 'overview' ? overviewDeployments(overview) : deploymentAttempts(overview);
       @if (displayedDeployments.length) {
         @for (deployment of displayedDeployments; track deployment.id) {
           <div class="deployment-row" [class.has-failure]="!!deployment.failureReason">
@@ -221,7 +221,7 @@
               </button>
               </span>
             } @else {
-              <span data-label="Contract">No contract hash</span>
+              <span class="deployment-placeholder" data-label="Contract">No contract hash</span>
             }
             @if (deployment.transactionId) {
               <span class="hash-actions" data-label="Transaction">
@@ -233,7 +233,7 @@
               </button>
               </span>
             } @else {
-              <span data-label="Transaction">No txid</span>
+              <span class="deployment-placeholder" data-label="Transaction">No txid</span>
             }
             <span class="hash-actions" data-label="Deployer">
             <a class="explorer-chip" [href]="explorerUrl(deployment.network, 'address', deployment.deployedBy)" target="_blank" rel="noopener noreferrer" [title]="'View wallet on Dora: ' + deployment.deployedBy">
@@ -276,7 +276,7 @@
         }
       } @else {
         <div class="deployment-empty-state">
-          <p>{{ releaseTab === 'overview' ? 'No live deployments on Testnet or Mainnet yet.' : 'No deployments recorded yet.' }}</p>
+          <p>No deployments recorded yet.</p>
         </div>
       }
     </section>
@@ -287,7 +287,7 @@
         <header>
           <div>
             <h2>Release Timeline</h2>
-            <p>Newest first.</p>
+            <p>Latest 10 events, newest first.</p>
           </div>
           <span>Audit history</span>
         </header>
