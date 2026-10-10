@@ -38,32 +38,37 @@ export const routes: Routes = [
   },
   {
     path: 'projects/:projectId',
+    data: { preload: true },
     loadComponent: () => import('./pages/project-workspace/project-workspace.component').then((component) => component.ProjectWorkspaceComponent),
     children: [
       {
         path: '',
+        data: { preload: true },
         loadComponent: () => import('./pages/project-overview/project-overview.component').then((component) => component.ProjectOverviewComponent)
       },
       {
         path: 'artifacts',
         loadComponent: () => import('./pages/project-overview/project-overview.component').then((component) => component.ProjectOverviewComponent),
-        data: { releaseTab: 'artifacts' }
+        data: { releaseTab: 'artifacts', preload: true }
       },
       {
         path: 'deployments',
         loadComponent: () => import('./pages/project-overview/project-overview.component').then((component) => component.ProjectOverviewComponent),
-        data: { releaseTab: 'deployments' }
+        data: { releaseTab: 'deployments', preload: true }
       },
       {
         path: 'authorized-deployers',
+        data: { preload: true },
         loadComponent: () => import('./pages/project-authorized-deployers/project-authorized-deployers.component').then((component) => component.ProjectAuthorizedDeployersComponent)
       },
       {
         path: 'console',
+        data: { preload: true },
         loadComponent: () => import('./pages/contract-console/contract-console.component').then((component) => component.ContractConsoleComponent)
       },
       {
         path: 'webhooks',
+        data: { preload: true },
         loadComponent: () => import('./pages/event-webhooks/event-webhooks.component').then((component) => component.EventWebhooksComponent)
       }
     ]

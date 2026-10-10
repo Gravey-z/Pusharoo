@@ -82,6 +82,7 @@ export class WalletConnectComponent implements OnDestroy {
   }
 
   async signIn(): Promise<void> {
+    this.closeDialog();
     try {
       await this.auth.ensureAuthenticated();
       this.dialogAnnouncement = 'Signed in to Pusharoo.';

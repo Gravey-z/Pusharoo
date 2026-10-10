@@ -389,6 +389,9 @@ export class EventWebhooksComponent implements OnInit {
   }
 
   private async load(): Promise<void> {
+    // Health indicators update independently of project and session loading.
+    void this.loadRelayStatuses();
+    const sessionReady = this.auth.restore();
     try {
       const cachedOverview = this.workspace?.getFreshOverview(this.projectId);
       this.overview = cachedOverview?.project.id === this.projectId
@@ -400,12 +403,7 @@ export class EventWebhooksComponent implements OnInit {
       this.allDeploymentOptions = this.toDeploymentOptions(this.overview?.deployments ?? []);
       this.contractHash = this.deploymentOptions[0]?.contractHash ?? '';
       this.selectDeployment();
-      await Promise.all(['neo3:testnet', 'neo3:mainnet'].map(async (network) => {
-        try { this.relayStatuses[network] = (await firstValueFrom(this.api.getEventRelayStatus(network))).status === 'ok' ? 'ok' : 'degraded'; }
-        catch (error: unknown) { this.relayStatuses[network] = (error as { status?: number })?.status === 503 ? 'degraded' : 'offline'; }
-      }));
-
-      await this.auth.restore();
+      await sessionReady;
 
       // Keep page loading read-only; sign in only after an explicit owner action.
       if (!this.deploymentOptions.length) {
@@ -416,14 +414,22 @@ export class EventWebhooksComponent implements OnInit {
         return;
       }
 
-      await this.loadSubscriptions();
-      await this.loadUsage(this.relayNetwork);
-      if (this.auth.canUseSession()) {
-        await Promise.all([this.loadUsage('neo3:mainnet'), this.loadPaymentHistory()]);
-      }
+      const networks = [...new Set([this.relayNetwork, 'neo3:mainnet'])];
+      await Promise.all([
+        this.loadSubscriptions(),
+        ...networks.map((network) => this.loadUsage(network)),
+        this.loadPaymentHistory()
+      ]);
     } catch (error) {
       this.errorMessage = this.errors.format(error, 'Could not load webhook subscriptions.');
     }
+  }
+
+  private async loadRelayStatuses(): Promise<void> {
+    await Promise.all(['neo3:testnet', 'neo3:mainnet'].map(async (network) => {
+      try { this.relayStatuses[network] = (await firstValueFrom(this.api.getEventRelayStatus(network))).status === 'ok' ? 'ok' : 'degraded'; }
+      catch (error: unknown) { this.relayStatuses[network] = (error as { status?: number })?.status === 503 ? 'degraded' : 'offline'; }
+    }));
   }
 
   private async loadSubscriptions(network = this.relayNetwork): Promise<void> {

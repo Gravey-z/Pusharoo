@@ -1,6 +1,6 @@
 import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { defer, forkJoin, map, Observable, shareReplay, switchMap, tap } from 'rxjs';
+import { defer, forkJoin, map, Observable, shareReplay, tap } from 'rxjs';
 import {
   Artifact,
   ArtifactComparison,
@@ -44,8 +44,11 @@ export class PusharooApiService {
   }
 
   getProjectOverview(projectId: string): Observable<ProjectOverviewViewModel> {
-    return this.cachedGet(`project:${projectId}:overview`, () => this.http.get<Project>(`${this.apiBaseUrl}/projects/${projectId}`)
-      .pipe(switchMap((project) => this.getProjectCard(project))));
+    return this.cachedGet(`project:${projectId}:overview`, () => forkJoin({
+      project: this.http.get<Project>(`${this.apiBaseUrl}/projects/${projectId}`),
+      artifacts: this.getArtifacts(projectId),
+      deployments: this.getDeployments(projectId)
+    }).pipe(map(({ project, artifacts, deployments }) => this.toProjectCard(project, artifacts, deployments))));
   }
 
   getArtifact(artifactId: string): Observable<Artifact> {
@@ -288,15 +291,6 @@ export class PusharooApiService {
 
   private clearGetCache(): void {
     this.getCache.clear();
-  }
-
-  private getProjectCard(project: Project): Observable<ProjectCardViewModel> {
-    return forkJoin({
-      artifacts: this.getArtifacts(project.id),
-      deployments: this.getDeployments(project.id)
-    }).pipe(
-      map(({ artifacts, deployments }) => this.toProjectCard(project, artifacts, deployments))
-    );
   }
 
   private toProjectCard(
