@@ -11,7 +11,7 @@ public sealed class WebhookDeliveryRepository(MongoDbContext db) : IWebhookDeliv
         CancellationToken cancellationToken)
     {
         return await db.Deliveries
-            .Find(delivery => delivery.SubscriptionId == subscriptionId)
+            .Find(delivery => delivery.SubscriptionId == subscriptionId && delivery.Status != "deduplicated")
             .SortByDescending(delivery => delivery.DeliveredAt)
             .Limit(50)
             .ToListAsync(cancellationToken);
@@ -22,7 +22,7 @@ public sealed class WebhookDeliveryRepository(MongoDbContext db) : IWebhookDeliv
         CancellationToken cancellationToken)
     {
         return await db.Deliveries
-            .Find(delivery => delivery.SubscriptionId == subscriptionId)
+            .Find(delivery => delivery.SubscriptionId == subscriptionId && delivery.Status != "deduplicated")
             .SortByDescending(delivery => delivery.DeliveredAt)
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -37,7 +37,7 @@ public sealed class WebhookDeliveryRepository(MongoDbContext db) : IWebhookDeliv
         }
 
         var deliveries = await db.Deliveries
-            .Find(Builders<WebhookDeliveryDocument>.Filter.In(item => item.SubscriptionId, subscriptionIds))
+            .Find(Builders<WebhookDeliveryDocument>.Filter.In(item => item.SubscriptionId, subscriptionIds) & Builders<WebhookDeliveryDocument>.Filter.Ne(item => item.Status, "deduplicated"))
             .SortByDescending(item => item.DeliveredAt)
             .ToListAsync(cancellationToken);
 
@@ -48,13 +48,22 @@ public sealed class WebhookDeliveryRepository(MongoDbContext db) : IWebhookDeliv
 
     public async Task<WebhookDeliveryDocument?> GetByIdAsync(string deliveryId, CancellationToken cancellationToken)
     {
-        return await db.Deliveries.Find(delivery => delivery.Id == deliveryId).FirstOrDefaultAsync(cancellationToken);
+        return await db.Deliveries.Find(delivery => delivery.Id == deliveryId && delivery.Status != "deduplicated").FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<bool> EnqueueAsync(WebhookDeliveryDocument delivery, CancellationToken cancellationToken)
     {
-        try { await db.Deliveries.InsertOneAsync(delivery, cancellationToken: cancellationToken); return true; }
-        catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey) { return false; }
+        try { await db.Deliveries.WithWriteConcern(WriteConcern.WMajority.With(journal: true)).InsertOneAsync(delivery, cancellationToken: cancellationToken); return true; }
+        catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            // A duplicate is successful only if the intended automatic/manual identity is already durable.
+            // Do not mistake an unrelated _id collision or an uncommitted insert for queued work.
+            var existing = await db.Deliveries.WithReadConcern(ReadConcern.Majority)
+                .Find(x => x.IdempotencyKey == delivery.IdempotencyKey && x.SubscriptionId == delivery.SubscriptionId && x.EventId == delivery.EventId)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (existing is null) throw;
+            return false;
+        }
     }
 
     public Task<long> CountOutstandingAsync(CancellationToken cancellationToken)
@@ -109,7 +118,13 @@ public sealed class WebhookDeliveryRepository(MongoDbContext db) : IWebhookDeliv
             .Project(item => item.Id).ToListAsync(cancellationToken);
         if (expired.Count == 0) return;
         await db.DeliveryAttempts.DeleteManyAsync(item => expired.Contains(item.DeliveryId), cancellationToken);
-        await db.Deliveries.DeleteManyAsync(item => expired.Contains(item.Id), cancellationToken);
+        // Retain automatic keys even when history expires: a stalled, partially queued block can outlive retention.
+        // Removing the unique key here would allow a restart to recreate an automatic delivery.
+        await db.Deliveries.UpdateManyAsync(item => expired.Contains(item.Id) && item.Trigger == "automatic",
+            Builders<WebhookDeliveryDocument>.Update.Set(item => item.Status, "deduplicated")
+                .Unset(item => item.PayloadJson).Unset(item => item.Error).Unset(item => item.WebhookUrl)
+                .Unset(item => item.NextAttemptAt).Unset(item => item.LeaseUntil), cancellationToken: cancellationToken);
+        await db.Deliveries.DeleteManyAsync(item => expired.Contains(item.Id) && item.Trigger != "automatic", cancellationToken);
     }
 
     public async Task DeleteBySubscriptionIdsAsync(IReadOnlyList<string> subscriptionIds, CancellationToken cancellationToken)

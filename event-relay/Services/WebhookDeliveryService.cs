@@ -15,7 +15,7 @@ public sealed class WebhookDeliveryService(
     RelayOperationsService operations,
     WebhookSecretProtector secretProtector,
     IOptions<EventRelayOptions> options,
-    ILogger<WebhookDeliveryService> logger)
+    ILogger<WebhookDeliveryService> logger) : IEventDeliveryQueue
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly EventRelayOptions _options = options.Value;

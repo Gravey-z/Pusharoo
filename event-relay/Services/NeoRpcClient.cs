@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -6,154 +7,163 @@ using Pusharoo.EventRelay.Options;
 
 namespace Pusharoo.EventRelay.Services;
 
-public sealed class NeoRpcClient(
-    HttpClient httpClient,
-    IOptions<NeoRpcOptions> options,
-    RelayOperationsService operations,
-    ILogger<NeoRpcClient> logger)
+public sealed class NeoRpcClient(HttpClient httpClient, IOptions<NeoRpcOptions> options,
+    RelayOperationsService operations, ILogger<NeoRpcClient> logger) : INeoRpcClient
 {
-    private readonly NeoRpcOptions _options = options.Value;
-    private int _requestId;
+    private readonly NeoRpcOptions settings = options.Value;
+    private readonly ConcurrentDictionary<string, DateTime> validated = new(StringComparer.OrdinalIgnoreCase);
+    private int requestId;
+    private string[] Endpoints => new[] { settings.Endpoint, settings.FallbackEndpoint }
+        .Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
-    public async Task<uint> GetBlockCountAsync(CancellationToken cancellationToken)
+    public async Task ValidateNetworkAsync(CancellationToken cancellationToken)
     {
-        var result = await SendAsync("getblockcount", [], cancellationToken);
-        return result.GetUInt32();
+        var failures = new List<NeoRpcException>();
+        var available = false;
+        foreach (var endpoint in Endpoints)
+        {
+            try { await ValidateEndpointAsync(endpoint, cancellationToken); available = true; }
+            catch (NeoRpcException ex) when (ex.Kind != NeoRpcFailureKind.NetworkMismatch) { failures.Add(ex); }
+        }
+        if (!available) throw Combined("getversion", failures);
     }
 
-    public async Task<IReadOnlyList<string>> GetBlockTransactionsAsync(uint blockIndex, CancellationToken cancellationToken)
+    private async Task ValidateEndpointAsync(string endpoint, CancellationToken cancellationToken)
     {
-        var result = await SendAsync("getblock", [blockIndex, 1], cancellationToken);
-        if (!result.TryGetProperty("tx", out var transactions) || transactions.ValueKind != JsonValueKind.Array)
+        if (validated.TryGetValue(endpoint, out var at) && DateTime.UtcNow - at < TimeSpan.FromSeconds(60)) return;
+        await RetryEndpointAsync(endpoint, "getversion", [], result =>
         {
-            return [];
-        }
+            var protocol = NeoApplicationLogParser.RequiredObject(result, "protocol");
+            if (!protocol.TryGetProperty("network", out var magic) || magic.ValueKind != JsonValueKind.Number || !magic.TryGetUInt32(out var actual))
+                throw new FormatException("Missing or invalid protocol.network.");
+            if (actual != settings.NetworkMagic)
+                throw new NeoRpcException(endpoint, "getversion", NeoRpcFailureKind.NetworkMismatch,
+                    $"Network magic {actual} does not match {settings.Network} ({settings.NetworkMagic}).");
+            return true;
+        }, cancellationToken);
+        validated[endpoint] = DateTime.UtcNow;
+    }
 
-        var hashes = new List<string>();
-        foreach (var transaction in transactions.EnumerateArray())
+    public Task<uint> GetBlockCountAsync(CancellationToken cancellationToken) => SendAsync("getblockcount", [], result =>
+    {
+        if (result.ValueKind != JsonValueKind.Number || !result.TryGetUInt32(out var count) || count == 0)
+            throw new FormatException("Invalid block count.");
+        return count;
+    }, cancellationToken);
+
+    public Task<IReadOnlyList<string>> GetBlockTransactionsAsync(uint blockIndex, CancellationToken cancellationToken) =>
+        SendAsync<IReadOnlyList<string>>("getblock", [blockIndex, 1], result =>
         {
-            if (transaction.ValueKind == JsonValueKind.String)
+            if (result.ValueKind != JsonValueKind.Object || !result.TryGetProperty("index", out var index)
+                || index.ValueKind != JsonValueKind.Number || !index.TryGetUInt32(out var actual) || actual != blockIndex)
+                throw new FormatException("Block index is missing or does not match the requested block.");
+            var transactions = NeoApplicationLogParser.RequiredArray(result, "tx");
+            var hashes = new List<string>();
+            foreach (var tx in transactions.EnumerateArray())
             {
-                var hash = transaction.GetString();
-                if (!string.IsNullOrWhiteSpace(hash))
-                {
-                    hashes.Add(hash);
-                }
+                var hash = tx.ValueKind == JsonValueKind.String ? tx.GetString()! : NeoApplicationLogParser.RequiredString(tx, "hash");
+                if (!NeoApplicationLogParser.IsHash(hash, 32)) throw new FormatException("Invalid transaction hash.");
+                hashes.Add(hash.ToLowerInvariant());
             }
-            else if (transaction.TryGetProperty("hash", out var hashElement))
-            {
-                var hash = hashElement.GetString();
-                if (!string.IsNullOrWhiteSpace(hash))
-                {
-                    hashes.Add(hash);
-                }
-            }
-        }
+            if (hashes.Distinct(StringComparer.Ordinal).Count() != hashes.Count) throw new FormatException("Duplicate transaction hashes in block.");
+            return hashes;
+        }, cancellationToken);
 
-        return hashes;
-    }
-
-    public async Task<JsonElement> GetApplicationLogAsync(string transactionHash, CancellationToken cancellationToken)
-    {
-        return await SendAsync("getapplicationlog", [transactionHash], cancellationToken);
-    }
-
-    public async Task<JsonElement> GetRawTransactionAsync(string transactionHash, CancellationToken cancellationToken)
-    {
-        return await SendAsync("getrawtransaction", [transactionHash, true], cancellationToken);
-    }
-
-    private async Task<JsonElement> SendAsync(
-        string method,
-        object?[] parameters,
-        CancellationToken cancellationToken)
-    {
-        var request = new NeoRpcRequest
+    public Task<JsonElement> GetApplicationLogAsync(string transactionHash, CancellationToken cancellationToken) =>
+        SendAsync("getapplicationlog", [transactionHash], result =>
         {
-            Method = method,
-            Params = parameters,
-            Id = Interlocked.Increment(ref _requestId)
-        };
+            _ = NeoApplicationLogParser.Extract(result, settings.Network, transactionHash, 0);
+            return result.Clone();
+        }, cancellationToken);
 
-        try
+    public Task<JsonElement> GetRawTransactionAsync(string transactionHash, CancellationToken cancellationToken) =>
+        SendAsync("getrawtransaction", [transactionHash, true], result =>
         {
-            return await SendToEndpointAsync(_options.Endpoint, request, method, cancellationToken);
-        }
-        catch (Exception ex) when (CanFailOver(ex, cancellationToken))
-        {
-            operations.RecordRpcFailure();
-            var fallback = _options.FallbackEndpoint!.Trim();
-            logger.LogWarning(ex,
-                "Neo RPC {Method} failed on primary endpoint {PrimaryEndpoint}; trying fallback endpoint {FallbackEndpoint}.",
-                method,
-                _options.Endpoint,
-                fallback);
+            if (!string.Equals(NeoApplicationLogParser.RequiredString(result, "hash"), transactionHash, StringComparison.OrdinalIgnoreCase))
+                throw new FormatException("Raw transaction hash does not match the request.");
+            return result.Clone();
+        }, cancellationToken);
 
+    private async Task<T> SendAsync<T>(string method, object?[] parameters, Func<JsonElement, T> parse, CancellationToken cancellationToken)
+    {
+        await ValidateNetworkAsync(cancellationToken);
+        var failures = new List<NeoRpcException>();
+        foreach (var endpoint in Endpoints)
+        {
             try
             {
-                return await SendToEndpointAsync(fallback, request, method, cancellationToken);
+                await ValidateEndpointAsync(endpoint, cancellationToken);
+                return await RetryEndpointAsync(endpoint, method, parameters, parse, cancellationToken);
             }
-            catch
+            catch (NeoRpcException ex) when (ex.Kind != NeoRpcFailureKind.NetworkMismatch)
             {
-                operations.RecordRpcFailure();
-                throw;
+                failures.Add(ex);
+                logger.LogWarning(ex, "Neo RPC {Method} exhausted attempts at {Endpoint}; trying a configured fallback if available.", method, endpoint);
             }
         }
-        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        throw Combined(method, failures);
+    }
+
+    private static NeoRpcException Combined(string method, List<NeoRpcException> errors)
+    {
+        var kind = errors.Any(x => x.Kind == NeoRpcFailureKind.Transient) ? NeoRpcFailureKind.Transient
+            : errors.Any(x => x.Kind == NeoRpcFailureKind.InvalidResponse) ? NeoRpcFailureKind.InvalidResponse : NeoRpcFailureKind.UnavailableHistory;
+        return new NeoRpcException(string.Join(", ", errors.Select(x => x.Endpoint)), method, kind,
+            string.Join("; ", errors.Select(x => x.Message)), errors.LastOrDefault());
+    }
+
+    private async Task<T> RetryEndpointAsync<T>(string endpoint, string method, object?[] parameters, Func<JsonElement, T> parse, CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; ; attempt++)
         {
-            operations.RecordRpcFailure();
-            throw;
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeout.CancelAfter(TimeSpan.FromSeconds(settings.RequestTimeoutSeconds));
+                var request = new NeoRpcRequest(method, parameters, Interlocked.Increment(ref requestId));
+                using var response = await httpClient.PostAsJsonAsync(endpoint, request, timeout.Token);
+                response.EnsureSuccessStatusCode();
+                await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
+                using var document = await JsonDocument.ParseAsync(stream, cancellationToken: timeout.Token);
+                var root = document.RootElement;
+                if (root.ValueKind != JsonValueKind.Object) throw new FormatException("RPC response is not an object.");
+                if (NeoApplicationLogParser.RequiredString(root, "jsonrpc") != "2.0") throw new FormatException("RPC response must use JSON-RPC 2.0.");
+                if (!root.TryGetProperty("id", out var id) || id.ValueKind != JsonValueKind.Number || !id.TryGetInt32(out var actualId) || actualId != request.Id)
+                    throw new FormatException("RPC response id does not match the request.");
+                if (root.TryGetProperty("error", out var error) && error.ValueKind != JsonValueKind.Null)
+                {
+                    var code = error.ValueKind == JsonValueKind.Object && error.TryGetProperty("code", out var number) && number.ValueKind == JsonValueKind.Number && number.TryGetInt32(out var n) ? n : 0;
+                    var kind = method == "getapplicationlog" && code is -100 or -103 or -105 or -32601
+                        ? NeoRpcFailureKind.UnavailableHistory : NeoRpcFailureKind.Transient;
+                    throw new NeoRpcException(endpoint, method, kind, $"RPC error {error}");
+                }
+                if (!root.TryGetProperty("result", out var result) || result.ValueKind == JsonValueKind.Null)
+                    throw new FormatException("RPC returned no result.");
+                var value = parse(result);
+                operations.RecordRpcSuccess(endpoint);
+                return value;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException or FormatException or NeoRpcException)
+            {
+                var failure = ex as NeoRpcException ?? new NeoRpcException(endpoint, method,
+                    ex is JsonException or FormatException ? NeoRpcFailureKind.InvalidResponse : NeoRpcFailureKind.Transient,
+                    ex is OperationCanceledException ? "Request timed out." : ex.Message, ex);
+                operations.RecordRpcFailure();
+                if (failure.Kind == NeoRpcFailureKind.NetworkMismatch || attempt >= settings.MaxAttempts) throw failure;
+                var milliseconds = Math.Min(settings.RetryMaxMilliseconds, settings.RetryBaseMilliseconds * Math.Pow(2, attempt - 1));
+                logger.LogWarning("Retrying Neo RPC {Method} at {Endpoint}, attempt {Attempt}/{MaxAttempts}, failure {Kind}.", method, endpoint, attempt + 1, settings.MaxAttempts, failure.Kind);
+                await Task.Delay(TimeSpan.FromMilliseconds(milliseconds), cancellationToken);
+            }
         }
     }
 
-    private async Task<JsonElement> SendToEndpointAsync(
-        string endpoint,
-        NeoRpcRequest request,
-        string method,
-        CancellationToken cancellationToken)
+    private sealed record NeoRpcRequest(
+        [property: JsonPropertyName("method")] string Method,
+        [property: JsonPropertyName("params")] object?[] Params,
+        [property: JsonPropertyName("id")] int Id)
     {
-        using var response = await httpClient.PostAsJsonAsync(endpoint, request, cancellationToken);
-
-        response.EnsureSuccessStatusCode();
-
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-        var root = document.RootElement;
-
-        if (root.TryGetProperty("error", out var error) && error.ValueKind is not JsonValueKind.Null)
-        {
-            throw new InvalidOperationException($"Neo RPC {method} failed: {error}");
-        }
-
-        if (!root.TryGetProperty("result", out var result))
-        {
-            throw new InvalidOperationException($"Neo RPC {method} returned no result.");
-        }
-
-        operations.RecordRpcSuccess(endpoint);
-        return result.Clone();
-    }
-
-    private bool CanFailOver(Exception exception, CancellationToken cancellationToken)
-    {
-        return !cancellationToken.IsCancellationRequested
-            && !string.IsNullOrWhiteSpace(_options.FallbackEndpoint)
-            && !string.Equals(_options.Endpoint.Trim(), _options.FallbackEndpoint.Trim(), StringComparison.OrdinalIgnoreCase)
-            && exception is not OperationCanceledException;
-    }
-
-    private sealed class NeoRpcRequest
-    {
-        [JsonPropertyName("jsonrpc")]
-        public string JsonRpc { get; init; } = "2.0";
-
-        [JsonPropertyName("method")]
-        public string Method { get; init; } = string.Empty;
-
-        [JsonPropertyName("params")]
-        public object?[] Params { get; init; } = [];
-
-        [JsonPropertyName("id")]
-        public int Id { get; init; }
+        [JsonPropertyName("jsonrpc")] public string JsonRpc => "2.0";
     }
 }

@@ -1,3 +1,4 @@
+using Pusharoo.EventRelay.Models;
 namespace Pusharoo.EventRelay.Services;
 
 public sealed class RelayOperationsService
@@ -15,6 +16,10 @@ public sealed class RelayOperationsService
     private long latencyTotalMilliseconds;
     private long latencySamples;
     private long rpcFailures;
+
+    private ScannerBlockingError? scannerError;
+    public void RecordScannerFailure(ScannerBlockingError error) => Volatile.Write(ref scannerError, error);
+    public void ClearScannerFailure() => Volatile.Write(ref scannerError, null);
 
     public void ScannerHeartbeat() => scannerHeartbeat = DateTime.UtcNow;
     public void WorkerHeartbeat() => workerHeartbeat = DateTime.UtcNow;
@@ -58,7 +63,8 @@ public sealed class RelayOperationsService
         Interlocked.Read(ref deadLetters),
         Interlocked.Read(ref latencyTotalMilliseconds),
         Interlocked.Read(ref latencySamples),
-        Interlocked.Read(ref rpcFailures));
+        Interlocked.Read(ref rpcFailures),
+        Volatile.Read(ref scannerError));
 }
 
 public sealed record RelayOperationsSnapshot(
@@ -74,7 +80,8 @@ public sealed record RelayOperationsSnapshot(
     long DeadLetters,
     long LatencyTotalMilliseconds,
     long LatencySamples,
-    long RpcFailures)
+    long RpcFailures,
+    ScannerBlockingError? ScannerError)
 {
     public uint? ScannerLagBlocks => ConfirmedBlock is not null && ProcessedBlock is not null
         ? ConfirmedBlock.Value >= ProcessedBlock.Value ? ConfirmedBlock.Value - ProcessedBlock.Value : 0

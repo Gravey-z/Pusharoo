@@ -18,5 +18,17 @@ public sealed class NeoRpcOptions
 
     public uint ConfirmationBlocks { get; init; } = 1;
 
+    public int RequestTimeoutSeconds { get; init; } = 15;
+    public int MaxAttempts { get; init; } = 3;
+    public int RetryBaseMilliseconds { get; init; } = 500;
+    public int RetryMaxMilliseconds { get; init; } = 5000;
+    public int ScannerLeaseSeconds { get; init; } = 60;
+    public uint NetworkMagic => Network switch
+    {
+        "neo3:mainnet" => 860833102,
+        "neo3:testnet" => 894710606,
+        _ => throw new InvalidOperationException($"Unsupported Neo RPC network: {Network}")
+    };
+
     public bool StartAtLatest { get; init; }
 }

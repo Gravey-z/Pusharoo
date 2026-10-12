@@ -8,7 +8,13 @@ using System.Threading.RateLimiting;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<MongoDbOptions>(builder.Configuration.GetSection(MongoDbOptions.SectionName));
-builder.Services.Configure<NeoRpcOptions>(builder.Configuration.GetSection(NeoRpcOptions.SectionName));
+builder.Services.AddOptions<NeoRpcOptions>().Bind(builder.Configuration.GetSection(NeoRpcOptions.SectionName))
+    .Validate(x => x.Network is "neo3:mainnet" or "neo3:testnet", "NeoRpc network must be neo3:mainnet or neo3:testnet.")
+    .Validate(x => Uri.TryCreate(x.Endpoint, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https", "NeoRpc endpoint must be HTTP(S).")
+    .Validate(x => string.IsNullOrWhiteSpace(x.FallbackEndpoint) || (Uri.TryCreate(x.FallbackEndpoint, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"), "NeoRpc fallback must be HTTP(S).")
+    .Validate(x => x.RequestTimeoutSeconds > 0 && x.MaxAttempts is >= 1 and <= 10 && x.RetryBaseMilliseconds >= 0 && x.RetryMaxMilliseconds >= x.RetryBaseMilliseconds, "Invalid NeoRpc timeout/retry settings.")
+    .Validate(x => x.ScannerLeaseSeconds >= 3 && x.PollIntervalSeconds > 0 && x.MaxBlocksPerPoll > 0, "Invalid scanner lease/poll settings.")
+    .ValidateOnStart();
 builder.Services.Configure<EventRelayOptions>(builder.Configuration.GetSection(EventRelayOptions.SectionName));
 builder.Services.Configure<PusharooApiOptions>(builder.Configuration.GetSection(PusharooApiOptions.SectionName));
 
@@ -27,7 +33,10 @@ if (!string.IsNullOrWhiteSpace(keyRingPath))
 {
     dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
 }
-builder.Services.AddHttpClient<NeoRpcClient>();
+builder.Services.AddHttpClient<NeoRpcClient>(client => client.Timeout = Timeout.InfiniteTimeSpan);
+builder.Services.AddScoped<INeoRpcClient>(services => services.GetRequiredService<NeoRpcClient>());
+builder.Services.AddScoped<IEventDeliveryQueue>(services => services.GetRequiredService<WebhookDeliveryService>());
+builder.Services.AddScoped<NeoBlockScanner>();
 builder.Services.AddHttpClient<WebhookDeliveryService>()
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
     {
@@ -72,7 +81,7 @@ app.MapGet("/health", async (
     var snapshot = operations.Snapshot();
     var configuration = relayOptions.Value;
     var now = DateTime.UtcNow;
-    var scannerHealthy = snapshot.ScannerHeartbeat != DateTime.MinValue
+    var scannerHealthy = snapshot.ScannerError is null && snapshot.ScannerHeartbeat != DateTime.MinValue
         && now - snapshot.ScannerHeartbeat < TimeSpan.FromSeconds(Math.Max(1, configuration.ScannerStallSeconds));
     var workerHealthy = snapshot.WorkerHeartbeat != DateTime.MinValue
         && now - snapshot.WorkerHeartbeat < TimeSpan.FromSeconds(Math.Max(1, configuration.DeliveryWorkerStallSeconds));
@@ -96,6 +105,7 @@ app.MapGet("/health", async (
         status = healthy ? "ok" : "degraded",
         network = neoRpcOptions.Value.Network,
         scannerHealthy,
+        scannerError = snapshot.ScannerError,
         workerHealthy,
         rpcHealthy,
         scannerLagHealthy,
