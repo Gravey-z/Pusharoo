@@ -59,7 +59,8 @@ public sealed class WebhookDeliveryRepository(MongoDbContext db) : IWebhookDeliv
             // A duplicate is successful only if the intended automatic/manual identity is already durable.
             // Do not mistake an unrelated _id collision or an uncommitted insert for queued work.
             var existing = await db.Deliveries.WithReadConcern(ReadConcern.Majority)
-                .Find(x => x.IdempotencyKey == delivery.IdempotencyKey && x.SubscriptionId == delivery.SubscriptionId && x.EventId == delivery.EventId)
+                .Find(x => (x.IdempotencyKey == delivery.IdempotencyKey || (delivery.Trigger == "automatic" && x.Trigger == "automatic"))
+                    && x.SubscriptionId == delivery.SubscriptionId && x.EventId == delivery.EventId)
                 .FirstOrDefaultAsync(cancellationToken);
             if (existing is null) throw;
             return false;

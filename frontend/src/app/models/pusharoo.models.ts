@@ -218,6 +218,7 @@ export interface ChangedMethod {
 }
 
 export interface WebhookSubscription {
+  payloadVersion?: number;
   id: string;
   projectId?: string | null;
   name: string;
@@ -233,6 +234,7 @@ export interface WebhookSubscription {
 }
 
 export interface CreateWebhookSubscriptionRequest {
+  payloadVersion?: number;
   name: string;
   contractHash: string;
   network: string;
@@ -245,6 +247,7 @@ export interface CreateWebhookSubscriptionRequest {
 }
 
 export interface WebhookDelivery {
+  payloadVersion?: number;
   id: string;
   subscriptionId: string;
   eventId: string;

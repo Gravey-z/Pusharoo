@@ -72,13 +72,13 @@ public sealed class NeoBlockScanner(INeoRpcClient rpc, IEventCheckpointRepositor
             {
                 block = index;
                 transaction = null;
-                var hashes = await rpc.GetBlockTransactionsAsync(index, work.Token);
-                foreach (var hash in hashes)
+                var confirmedBlock = await rpc.GetBlockAsync(index, work.Token);
+                foreach (var hash in confirmedBlock.TransactionHashes)
                 {
                     transaction = hash;
                     var log = await rpc.GetApplicationLogAsync(hash, work.Token);
                     // Parse the entire transaction before enqueuing any of its notifications.
-                    foreach (var observed in NeoApplicationLogParser.Extract(log, settings.Network, hash, index))
+                    foreach (var observed in NeoApplicationLogParser.Extract(log, settings.Network, hash, confirmedBlock))
                     {
                         var matches = await subscriptions.GetMatchingAsync(observed.Network, observed.ContractHash, observed.EventName, work.Token);
                         foreach (var subscription in matches)

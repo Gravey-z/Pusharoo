@@ -40,7 +40,9 @@ public sealed class SubscriptionsController(
         "Upgrade",
         "X-Pusharoo-Delivery",
         "X-Pusharoo-Event",
-        "X-Pusharoo-Signature"
+        "X-Pusharoo-Signature",
+        "X-Pusharoo-Event-Id",
+        "X-Pusharoo-Payload-Version"
     };
 
     [HttpPost("query")]
@@ -96,6 +98,7 @@ public sealed class SubscriptionsController(
             Secret = secretProtector.Protect(request.Secret),
             Headers = NormalizeHeaders(request.Headers),
             IsEnabled = request.IsEnabled,
+            PayloadVersion = request.PayloadVersion,
             CreatedAt = now,
             UpdatedAt = now,
             ExpiresAt = string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal) && entitlement.Plan == "free_beta"
@@ -160,6 +163,7 @@ public sealed class SubscriptionsController(
                 : secretProtector.Protect(request.Secret),
             Headers = NormalizeHeaders(request.Headers),
             IsEnabled = request.IsEnabled,
+            PayloadVersion = request.PayloadVersion,
             CreatedAt = existing.CreatedAt,
             UpdatedAt = DateTime.UtcNow,
             ExpiresAt = string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal) && entitlement.Plan == "free_beta"
@@ -244,6 +248,7 @@ public sealed class SubscriptionsController(
         CreateSubscriptionRequest request,
         CancellationToken cancellationToken)
     {
+        if (!WebhookPayloadContract.IsSupported(request.PayloadVersion)) return "Only payload version 2 is supported.";
         return await ValidateSubscriptionAsync(
             request.Name,
             request.ContractHash,
@@ -257,6 +262,7 @@ public sealed class SubscriptionsController(
         UpdateSubscriptionRequest request,
         CancellationToken cancellationToken)
     {
+        if (!WebhookPayloadContract.IsSupported(request.PayloadVersion)) return "Only payload version 2 is supported.";
         return await ValidateSubscriptionAsync(
             request.Name,
             request.ContractHash,
@@ -372,6 +378,7 @@ public sealed class SubscriptionsController(
             subscription.IsEnabled,
             subscription.CreatedAt,
             subscription.UpdatedAt,
-            latestDelivery);
+            latestDelivery,
+            subscription.PayloadVersion);
     }
 }

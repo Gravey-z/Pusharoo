@@ -22,6 +22,15 @@ public sealed class MongoDbContext
         Deliveries.Indexes.CreateOne(new CreateIndexModel<WebhookDeliveryDocument>(
             Builders<WebhookDeliveryDocument>.IndexKeys.Ascending(delivery => delivery.IdempotencyKey),
             new CreateIndexOptions { Unique = true, Sparse = true }));
+        Deliveries.Indexes.CreateOne(new CreateIndexModel<WebhookDeliveryDocument>(
+            Builders<WebhookDeliveryDocument>.IndexKeys.Ascending(x => x.SubscriptionId).Ascending(x => x.EventId),
+            new CreateIndexOptions<WebhookDeliveryDocument>
+            {
+                Name = "automatic_subscription_event_unique",
+                Unique = true,
+                PartialFilterExpression = new BsonDocument { { "trigger", "automatic" },
+                    { "subscriptionId", new BsonDocument("$type", "string") }, { "eventId", new BsonDocument("$type", "string") } }
+            }));
         Checkpoints = database.GetCollection<EventCheckpointDocument>("eventCheckpoints");
         PaymentIntents = database.GetCollection<RelayPaymentIntentDocument>("relayPaymentIntents");
         Payments = database.GetCollection<RelayPaymentDocument>("relayPayments");

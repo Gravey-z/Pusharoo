@@ -6,17 +6,33 @@ namespace Pusharoo.EventRelay.Services;
 public static class NeoApplicationLogParser
 {
     // Transaction subscriptions support Application only. System/block and Verification triggers are excluded.
-    public static IReadOnlyList<ObservedNeoEvent> Extract(JsonElement log, string network, string transactionHash, uint blockIndex)
+    public static IReadOnlyList<ObservedNeoEvent> Extract(JsonElement log, string network, string transactionHash, NeoBlock block)
+    {
+        if (!IsHash(block.Hash, 32)) throw new FormatException("Invalid block hash.");
+        return Parse(log, transactionHash).Select(notification => new ObservedNeoEvent(
+            NeoEventIdentity.Create(network, block.Index, transactionHash, notification.Ordinal), network, block.Index,
+            transactionHash.ToLowerInvariant(), notification.ContractHash, notification.EventName, notification.State,
+            DateTime.UtcNow, block.Hash.ToLowerInvariant(), block.Timestamp, notification.ExecutionIndex, notification.NotificationIndex)).ToArray();
+    }
+
+    public static void Validate(JsonElement log, string transactionHash) => _ = Parse(log, transactionHash);
+
+    private sealed record ParsedNotification(string ContractHash, string EventName, JsonElement State, int ExecutionIndex, int NotificationIndex, int Ordinal);
+
+    private static IReadOnlyList<ParsedNotification> Parse(JsonElement log, string transactionHash)
     {
         if (!string.Equals(RequiredString(log, "txid"), transactionHash, StringComparison.OrdinalIgnoreCase))
             throw new FormatException("Application log txid does not match the requested transaction.");
         var executions = RequiredArray(log, "executions");
         if (executions.GetArrayLength() == 0) throw new FormatException("Application log has no executions.");
-        var events = new List<ObservedNeoEvent>();
+        var events = new List<ParsedNotification>();
+        var executionIndex = -1;
         var eventIndex = 0;
         var hasApplication = false;
         foreach (var execution in executions.EnumerateArray())
         {
+            executionIndex++;
+            var notificationIndex = -1;
             var trigger = RequiredString(execution, "trigger");
             if (trigger is not ("Application" or "Verification" or "OnPersist" or "PostPersist"))
                 throw new FormatException($"Unknown execution trigger: {trigger}");
@@ -28,6 +44,7 @@ public static class NeoApplicationLogParser
             {
                 // Preserve the original flattened notification position, including excluded executions.
                 var index = eventIndex++;
+                notificationIndex++;
                 if (trigger != "Application" || vmState != "HALT") continue;
                 var contract = RequiredString(notification, "contract", "scripthash");
                 if (!IsHash(contract, 20)) throw new FormatException("Invalid notification contract hash.");
@@ -37,8 +54,7 @@ public static class NeoApplicationLogParser
                 if (stateType != "Any" && (!state.TryGetProperty("value", out var value) || value.ValueKind == JsonValueKind.Null))
                     throw new FormatException("Notification state is missing its value.");
                 if (stateType is "Array" or "Struct" or "Map") _ = RequiredArray(state, "value");
-                events.Add(new ObservedNeoEvent($"{network}:{blockIndex}:{transactionHash.ToLowerInvariant()}:{index}",
-                    network, blockIndex, transactionHash.ToLowerInvariant(), contract.ToLowerInvariant(), name, state.Clone(), DateTime.UtcNow));
+                events.Add(new ParsedNotification(contract.ToLowerInvariant(), name, state.Clone(), executionIndex, notificationIndex, index));
             }
         }
         if (!hasApplication) throw new FormatException("Transaction log is missing its Application execution.");

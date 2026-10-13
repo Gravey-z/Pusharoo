@@ -32,7 +32,9 @@ public sealed class WebhookDeliveryDocument
 
     [BsonElement("payloadJson")]
     [JsonIgnore]
-    public string? PayloadJson { get; init; }
+    public string? PayloadJson { get; set; }
+
+    [BsonElement("payloadVersion")] public int PayloadVersion { get; init; } = 2;
 
     [BsonElement("idempotencyKey")]
     public string IdempotencyKey { get; init; } = string.Empty;

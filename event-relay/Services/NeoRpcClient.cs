@@ -1,3 +1,4 @@
+using Pusharoo.EventRelay.Models;
 using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -51,8 +52,11 @@ public sealed class NeoRpcClient(HttpClient httpClient, IOptions<NeoRpcOptions> 
         return count;
     }, cancellationToken);
 
-    public Task<IReadOnlyList<string>> GetBlockTransactionsAsync(uint blockIndex, CancellationToken cancellationToken) =>
-        SendAsync<IReadOnlyList<string>>("getblock", [blockIndex, 1], result =>
+    public async Task<IReadOnlyList<string>> GetBlockTransactionsAsync(uint blockIndex, CancellationToken cancellationToken) =>
+        (await GetBlockAsync(blockIndex, cancellationToken)).TransactionHashes;
+
+    public Task<NeoBlock> GetBlockAsync(uint blockIndex, CancellationToken cancellationToken) =>
+        SendAsync<NeoBlock>("getblock", [blockIndex, 1], result =>
         {
             if (result.ValueKind != JsonValueKind.Object || !result.TryGetProperty("index", out var index)
                 || index.ValueKind != JsonValueKind.Number || !index.TryGetUInt32(out var actual) || actual != blockIndex)
@@ -66,13 +70,20 @@ public sealed class NeoRpcClient(HttpClient httpClient, IOptions<NeoRpcOptions> 
                 hashes.Add(hash.ToLowerInvariant());
             }
             if (hashes.Distinct(StringComparer.Ordinal).Count() != hashes.Count) throw new FormatException("Duplicate transaction hashes in block.");
-            return hashes;
+            var blockHash = NeoApplicationLogParser.RequiredString(result, "hash");
+            if (!NeoApplicationLogParser.IsHash(blockHash,32)) throw new FormatException("Invalid block hash.");
+            if (!result.TryGetProperty("time",out var time) || time.ValueKind != JsonValueKind.Number || !time.TryGetInt64(out var milliseconds) || milliseconds < 0)
+                throw new FormatException("Missing or invalid block timestamp (Unix milliseconds).");
+            DateTimeOffset timestamp;
+            try { timestamp = DateTimeOffset.FromUnixTimeMilliseconds(milliseconds); }
+            catch (ArgumentOutOfRangeException ex) { throw new FormatException("Block timestamp is outside the supported range.",ex); }
+            return new NeoBlock(blockIndex,blockHash.ToLowerInvariant(),timestamp,hashes);
         }, cancellationToken);
 
     public Task<JsonElement> GetApplicationLogAsync(string transactionHash, CancellationToken cancellationToken) =>
         SendAsync("getapplicationlog", [transactionHash], result =>
         {
-            _ = NeoApplicationLogParser.Extract(result, settings.Network, transactionHash, 0);
+            NeoApplicationLogParser.Validate(result, transactionHash);
             return result.Clone();
         }, cancellationToken);
 

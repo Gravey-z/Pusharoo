@@ -17,20 +17,18 @@ public sealed class WebhookDeliveryService(
     IOptions<EventRelayOptions> options,
     ILogger<WebhookDeliveryService> logger) : IEventDeliveryQueue
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly EventRelayOptions _options = options.Value;
 
     public async Task QueueAsync(WebhookSubscriptionDocument subscription, ObservedNeoEvent observedEvent, CancellationToken cancellationToken)
     {
         var id = Guid.NewGuid().ToString("n");
         var key = $"{subscription.Id}:{observedEvent.Id}";
-        var payload = new WebhookPayload(id, subscription.Id, observedEvent.Network, observedEvent.BlockIndex,
-            observedEvent.TransactionHash, observedEvent.ContractHash, observedEvent.EventName, observedEvent.State, observedEvent.ObservedAt);
+        var payload = WebhookPayloadContract.Create(id, subscription, observedEvent);
         var queued = await deliveries.EnqueueAsync(CreateQueuedDelivery(
             id,
             subscription,
             observedEvent.Id,
-            JsonSerializer.Serialize(payload, JsonOptions),
+            payload,
             key,
             observedEvent.EventName,
             "automatic"), cancellationToken);
@@ -63,14 +61,19 @@ public sealed class WebhookDeliveryService(
         string? error = null;
         try
         {
+            delivery.PayloadJson = WebhookPayloadContract.ForDelivery(delivery.PayloadJson ?? throw new FormatException("Stored webhook payload is missing."),delivery.Id,delivery.EventId);
+            var payloadVersion = WebhookPayloadContract.Version(delivery.PayloadJson);
+            if (payloadVersion != delivery.PayloadVersion) throw new FormatException("Stored payload version does not match the delivery.");
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(Math.Max(1, _options.WebhookTimeoutSeconds)));
             using var request = new HttpRequestMessage(HttpMethod.Post, subscription.WebhookUrl) { Content = new StringContent(delivery.PayloadJson ?? "{}", Encoding.UTF8, "application/json") };
             request.Headers.TryAddWithoutValidation("X-Pusharoo-Delivery", delivery.Id);
             request.Headers.TryAddWithoutValidation("X-Pusharoo-Event", delivery.EventName);
+            request.Headers.TryAddWithoutValidation("X-Pusharoo-Event-Id", delivery.EventId);
+            request.Headers.TryAddWithoutValidation("X-Pusharoo-Payload-Version", delivery.PayloadVersion.ToString(System.Globalization.CultureInfo.InvariantCulture));
             var secret = secretProtector.Unprotect(subscription.Secret);
             if (!string.IsNullOrWhiteSpace(secret)) request.Headers.TryAddWithoutValidation("X-Pusharoo-Signature", WebhookSignature.Create(secret, delivery.PayloadJson ?? "{}"));
-            foreach (var (key, value) in subscription.Headers) if (!request.Headers.TryAddWithoutValidation(key, value)) request.Content.Headers.TryAddWithoutValidation(key, value);
+            foreach (var (key, value) in subscription.Headers) if (!WebhookPayloadContract.IsTransportHeader(key) && !request.Headers.TryAddWithoutValidation(key, value)) request.Content.Headers.TryAddWithoutValidation(key, value);
             using var response = await httpClient.SendAsync(request, timeout.Token);
             statusCode = (int)response.StatusCode;
             var succeeded = statusCode is >= 200 and <= 299;
@@ -90,8 +93,8 @@ public sealed class WebhookDeliveryService(
         var attempt = delivery.AttemptCount + 1;
         var dead = !succeeded && (!retryable || attempt >= Math.Max(1, _options.WebhookMaxAttempts));
         DateTime? next = !succeeded && !dead ? DateTime.UtcNow.AddSeconds(Math.Pow(2, attempt - 1) * Math.Max(1, _options.WebhookRetryBaseSeconds) + Random.Shared.NextDouble()) : null;
-        var updated = new WebhookDeliveryDocument { Id = delivery.Id, SubscriptionId = delivery.SubscriptionId, EventId = delivery.EventId, WebhookUrl = delivery.WebhookUrl, PayloadJson = delivery.PayloadJson, IdempotencyKey = delivery.IdempotencyKey, EventName = delivery.EventName, Trigger = delivery.Trigger, RedeliveryOfDeliveryId = delivery.RedeliveryOfDeliveryId, DeliveredAt = DateTime.UtcNow, StatusCode = statusCode, Succeeded = succeeded, Error = error, AttemptCount = attempt, LatencyMilliseconds = latency, Status = succeeded ? "succeeded" : dead ? "dead_letter" : "retrying", NextAttemptAt = next };
-        var record = new WebhookDeliveryAttemptDocument { Id = Guid.NewGuid().ToString("n"), DeliveryId = delivery.Id, AttemptNumber = attempt, StatusCode = statusCode, Succeeded = succeeded, Retryable = retryable, Error = error, LatencyMilliseconds = latency, AttemptedAt = DateTime.UtcNow };
+        var updated = new WebhookDeliveryDocument { Id = delivery.Id, SubscriptionId = delivery.SubscriptionId, EventId = delivery.EventId, WebhookUrl = delivery.WebhookUrl, PayloadJson = delivery.PayloadJson, PayloadVersion = delivery.PayloadVersion, IdempotencyKey = delivery.IdempotencyKey, EventName = delivery.EventName, Trigger = delivery.Trigger, RedeliveryOfDeliveryId = delivery.RedeliveryOfDeliveryId, DeliveredAt = DateTime.UtcNow, StatusCode = statusCode, Succeeded = succeeded, Error = error, AttemptCount = attempt, LatencyMilliseconds = latency, Status = succeeded ? "succeeded" : dead ? "dead_letter" : "retrying", NextAttemptAt = next };
+        var record = new WebhookDeliveryAttemptDocument { Id = Guid.NewGuid().ToString("n"), DeliveryId = delivery.Id, EventId = delivery.EventId, PayloadVersion = delivery.PayloadVersion, AttemptNumber = attempt, StatusCode = statusCode, Succeeded = succeeded, Retryable = retryable, Error = error, LatencyMilliseconds = latency, AttemptedAt = DateTime.UtcNow };
         await deliveries.CompleteAsync(updated, record, cancellationToken);
         operations.RecordDelivery(succeeded, !succeeded && !dead, dead, latency);
     }
@@ -99,14 +102,13 @@ public sealed class WebhookDeliveryService(
     public async Task<WebhookDeliveryDocument> QueueTestAsync(WebhookSubscriptionDocument subscription, CancellationToken cancellationToken)
     {
         var deliveryId = Guid.NewGuid().ToString("n");
-        var payload = new WebhookPayload(deliveryId, subscription.Id, subscription.Network, 0,
-            "test-event", subscription.ContractHash, subscription.EventName ?? "Pusharoo.Test",
-            JsonSerializer.SerializeToElement(new { test = true, message = "Pusharoo test delivery" }), DateTime.UtcNow);
+        var eventId = $"test-{deliveryId}";
+        var payload = WebhookPayloadContract.CreateTest(deliveryId, eventId, subscription);
         var delivery = CreateQueuedDelivery(
             deliveryId,
             subscription,
-            $"test-{deliveryId}",
-            JsonSerializer.Serialize(payload, JsonOptions),
+            eventId,
+            payload,
             $"test:{deliveryId}",
             subscription.EventName ?? "Pusharoo.Test",
             "test");
@@ -122,7 +124,8 @@ public sealed class WebhookDeliveryService(
         }
 
         var deliveryId = Guid.NewGuid().ToString("n");
-        await deliveries.EnqueueAsync(new WebhookDeliveryDocument { Id = deliveryId, SubscriptionId = subscription.Id, EventId = original.EventId, WebhookUrl = subscription.WebhookUrl, PayloadJson = original.PayloadJson, IdempotencyKey = $"manual:{original.Id}:{deliveryId}", EventName = original.EventName, Trigger = "manual", RedeliveryOfDeliveryId = original.Id, Status = "pending", AttemptCount = 0, DeliveredAt = DateTime.UtcNow, NextAttemptAt = DateTime.UtcNow }, cancellationToken);
+        var payload = WebhookPayloadContract.ForDelivery(original.PayloadJson, deliveryId, original.EventId, manual: true);
+        await deliveries.EnqueueAsync(new WebhookDeliveryDocument { Id = deliveryId, SubscriptionId = subscription.Id, EventId = original.EventId, WebhookUrl = subscription.WebhookUrl, PayloadJson = payload, PayloadVersion = WebhookPayloadContract.Version(payload), IdempotencyKey = $"manual:{original.Id}:{deliveryId}", EventName = original.EventName, Trigger = "manual", RedeliveryOfDeliveryId = original.Id, Status = "pending", AttemptCount = 0, DeliveredAt = DateTime.UtcNow, NextAttemptAt = DateTime.UtcNow }, cancellationToken);
     }
 
     private static WebhookDeliveryDocument CreateQueuedDelivery(
@@ -139,6 +142,7 @@ public sealed class WebhookDeliveryService(
             EventId = eventId,
             WebhookUrl = subscription.WebhookUrl,
             PayloadJson = payloadJson,
+            PayloadVersion = subscription.PayloadVersion,
             IdempotencyKey = idempotencyKey,
             EventName = eventName,
             Trigger = trigger,
@@ -148,14 +152,4 @@ public sealed class WebhookDeliveryService(
             NextAttemptAt = DateTime.UtcNow
         };
 
-    private sealed record WebhookPayload(
-        string DeliveryId,
-        string SubscriptionId,
-        string Network,
-        uint BlockIndex,
-        string TransactionHash,
-        string ContractHash,
-        string EventName,
-        JsonElement State,
-        DateTime ObservedAt);
 }

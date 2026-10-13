@@ -8,7 +8,8 @@ public sealed record CreateSubscriptionRequest(
     string WebhookUrl,
     string? Secret,
     Dictionary<string, string>? Headers,
-    bool IsEnabled);
+    bool IsEnabled,
+    int PayloadVersion = 2);
 
 public sealed record UpdateSubscriptionRequest(
     string Name,
@@ -18,7 +19,8 @@ public sealed record UpdateSubscriptionRequest(
     string WebhookUrl,
     string? Secret,
     Dictionary<string, string>? Headers,
-    bool IsEnabled);
+    bool IsEnabled,
+    int PayloadVersion = 2);
 
 public sealed record SubscriptionResponse(
     string Id,
@@ -32,7 +34,8 @@ public sealed record SubscriptionResponse(
     bool IsEnabled,
     DateTime CreatedAt,
     DateTime UpdatedAt,
-    WebhookDeliveryDocument? LatestDelivery);
+    WebhookDeliveryDocument? LatestDelivery,
+    int PayloadVersion);
 
 public sealed record ConfirmPaymentRequest(string IntentId, string TransactionId);
 public sealed record PaymentIntentResponse(string Id, string ProjectId, string Network, string RecipientAddress, string RecipientScriptHash, long RequiredGasDatoshis, string Status, DateTime CreatedAt, DateTime ExpiresAt, string? ConfirmedTransactionId, string? SubmittedTransactionId);

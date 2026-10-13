@@ -6,6 +6,8 @@ public sealed class WebhookDeliveryAttemptDocument
 {
     [BsonId, BsonElement("_id")] public string Id { get; init; } = string.Empty;
     [BsonElement("deliveryId")] public string DeliveryId { get; init; } = string.Empty;
+    [BsonElement("eventId")] public string EventId { get; init; } = string.Empty;
+    [BsonElement("payloadVersion")] public int PayloadVersion { get; init; } = 2;
     [BsonElement("attemptNumber")] public int AttemptNumber { get; init; }
     [BsonElement("statusCode")] public int? StatusCode { get; init; }
     [BsonElement("succeeded")] public bool Succeeded { get; init; }
