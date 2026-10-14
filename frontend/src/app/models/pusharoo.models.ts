@@ -247,6 +247,7 @@ export interface CreateWebhookSubscriptionRequest {
 }
 
 export interface WebhookDelivery {
+  status: 'pending' | 'waiting' | 'retrying' | 'delivering' | 'succeeded' | 'dead_letter' | 'cancelled';
   payloadVersion?: number;
   id: string;
   subscriptionId: string;
@@ -317,4 +318,12 @@ export interface ProjectListItem {
 
 export interface ProjectOverviewViewModel extends ProjectCardViewModel {
   latestArtifact: Artifact | null;
+}
+
+export interface RelayReplayJob {
+  id: string; subscriptionId: string; network: string;
+  fromBlock: number; toBlock: number; nextBlock: number; completedBlocks: number; totalBlocks: number;
+  status: 'running' | 'paused' | 'blocked' | 'completed' | 'cancelled';
+  updatedAt: string;
+  error: { blockIndex: number | null; transactionHash: string | null; endpoint: string; kind: string; message: string } | null;
 }

@@ -8,6 +8,7 @@ import {
   RelayPaymentHistory,
   RelayPaymentIntent,
   RelayUsage,
+  RelayReplayJob,
   WebhookDelivery,
   WebhookSubscription
 } from '../models/pusharoo.models';
@@ -80,6 +81,16 @@ export class EventRelayApiService {
     return this.http.post<WebhookDelivery>(
       `${this.baseUrl(projectId, network)}/subscriptions/${encodeURIComponent(subscriptionId)}/deliveries/${encodeURIComponent(deliveryId)}/redeliver`,
       null, this.options());
+  }
+
+  getReplayJobs(projectId: string, network: string, subscriptionId: string): Observable<RelayReplayJob[]> {
+    return this.http.post<RelayReplayJob[]>(this.baseUrl(projectId, network) + '/subscriptions/' + encodeURIComponent(subscriptionId) + '/replays/query', null, this.options());
+  }
+  createReplayJob(projectId: string, network: string, subscriptionId: string, fromBlock: number, toBlock: number): Observable<RelayReplayJob> {
+    return this.http.post<RelayReplayJob>(this.baseUrl(projectId, network) + '/subscriptions/' + encodeURIComponent(subscriptionId) + '/replays', { fromBlock, toBlock }, this.options());
+  }
+  replayAction(projectId: string, network: string, subscriptionId: string, jobId: string, action: 'pause' | 'resume' | 'cancel'): Observable<RelayReplayJob> {
+    return this.http.post<RelayReplayJob>(this.baseUrl(projectId, network) + '/subscriptions/' + encodeURIComponent(subscriptionId) + '/replays/' + encodeURIComponent(jobId) + '/' + action, null, this.options());
   }
 
   private baseUrl(projectId: string, network: string): string {

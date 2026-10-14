@@ -15,7 +15,14 @@ builder.Services.AddOptions<NeoRpcOptions>().Bind(builder.Configuration.GetSecti
     .Validate(x => x.RequestTimeoutSeconds > 0 && x.MaxAttempts is >= 1 and <= 10 && x.RetryBaseMilliseconds >= 0 && x.RetryMaxMilliseconds >= x.RetryBaseMilliseconds, "Invalid NeoRpc timeout/retry settings.")
     .Validate(x => x.ScannerLeaseSeconds >= 3 && x.PollIntervalSeconds > 0 && x.MaxBlocksPerPoll > 0, "Invalid scanner lease/poll settings.")
     .ValidateOnStart();
-builder.Services.Configure<EventRelayOptions>(builder.Configuration.GetSection(EventRelayOptions.SectionName));
+builder.Services.AddOptions<EventRelayOptions>().Bind(builder.Configuration.GetSection(EventRelayOptions.SectionName))
+    .Validate(x => x.WebhookTimeoutSeconds is > 0 and <= 60 && x.WebhookMaxAttempts is >= 1 and <= 100,
+        "Delivery timeout must be at most 60 seconds and attempts at most 100.")
+    .Validate(x => x.ReplayMaxRangeBlocks is > 0 and <= 100000 && x.ReplayMaxBlocksPerPoll is > 0 and <= 100 && x.MaxQueueDepth > 0,
+        "Invalid replay workload limits.")
+    .Validate(x => x.FreeTestnetMaxEvents is >= 0 and <= 100000 && x.PaidMaxEvents is >= 0 and <= 100000,
+        "Allowance periods support at most 100000 receipts.")
+    .ValidateOnStart();
 builder.Services.Configure<PusharooApiOptions>(builder.Configuration.GetSection(PusharooApiOptions.SectionName));
 
 builder.Services.AddSingleton<MongoDbContext>();
@@ -37,6 +44,9 @@ builder.Services.AddHttpClient<NeoRpcClient>(client => client.Timeout = Timeout.
 builder.Services.AddScoped<INeoRpcClient>(services => services.GetRequiredService<NeoRpcClient>());
 builder.Services.AddScoped<IEventDeliveryQueue>(services => services.GetRequiredService<WebhookDeliveryService>());
 builder.Services.AddScoped<NeoBlockScanner>();
+builder.Services.AddScoped<ReplayJobRepository>();
+builder.Services.AddScoped<ReplayScanner>();
+builder.Services.AddHostedService<ReplayWorker>();
 builder.Services.AddHttpClient<WebhookDeliveryService>()
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
     {

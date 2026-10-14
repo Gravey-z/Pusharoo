@@ -1,6 +1,4 @@
-using System.Net;
 using System.Text;
-using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Pusharoo.EventRelay.Models;
 using Pusharoo.EventRelay.Options;
@@ -43,22 +41,57 @@ public sealed class WebhookDeliveryService(
         var delivery = await deliveries.ClaimDueAsync(cancellationToken);
         if (delivery is null) return false;
         var subscription = await subscriptions.GetByIdAsync(delivery.SubscriptionId, cancellationToken);
-        if (subscription is null || !subscription.IsEnabled)
+        if (subscription is null)
         {
             await CompleteAsync(delivery, false, false, null, "Webhook is no longer active.", 0, cancellationToken);
             return true;
         }
-        if (delivery.Trigger != "test" && (string.IsNullOrWhiteSpace(subscription.ProjectId)
-            || !await entitlements.TryConsumeEventAsync(subscription.ProjectId, subscription.Network, cancellationToken))
-        )
+        if (!subscription.IsEnabled)
         {
-            await CompleteAsync(delivery, false, false, null, "Relay event allowance is exhausted or inactive.", 0, cancellationToken);
+            await deliveries.DeferAsync(delivery, "Subscription is paused; waiting for resume.", cancellationToken);
             return true;
+        }
+        if (delivery.Trigger != "test" && !delivery.AllowanceCharged)
+        {
+            if (delivery.AllowancePeriodId is not null &&
+                await entitlements.WasChargedAsync(delivery.AllowancePeriodId, delivery.Id, cancellationToken))
+                delivery = delivery with { AllowanceCharged = true };
+            else
+            {
+                if (string.IsNullOrWhiteSpace(subscription.ProjectId))
+                {
+                    await CompleteAsync(delivery, false, false, null, "Subscription project is missing.", 0, cancellationToken);
+                    return true;
+                }
+                var entitlement = await entitlements.GetAsync(subscription.ProjectId, subscription.Network, cancellationToken);
+                // A new period is published only after closing the previous ledger. Recheck its final receipt first.
+                if (delivery.AllowancePeriodId is not null && delivery.AllowancePeriodId != RelayEntitlementService.PeriodId(entitlement)
+                    && await entitlements.WasChargedAsync(delivery.AllowancePeriodId, delivery.Id, cancellationToken))
+                {
+                    delivery = delivery with { AllowanceCharged = true };
+                    if (!await deliveries.SaveAllowanceAsync(delivery, cancellationToken)) return true;
+                }
+                else
+                {
+                    delivery = delivery with { AllowancePeriodId = RelayEntitlementService.PeriodId(entitlement) };
+                    // Persist the selected period before charging: a crash can recover the receipt even after renewal.
+                    if (!await deliveries.SaveAllowanceAsync(delivery, cancellationToken)) return true;
+                    if (!await entitlements.TryConsumeEventAsync(entitlement, delivery.Id, cancellationToken))
+                    {
+                        await deliveries.DeferAsync(delivery, "Allowance exhausted or inactive; waiting for renewal.", cancellationToken);
+                        return true;
+                    }
+                    delivery = delivery with { AllowanceCharged = true };
+                }
+            }
+            if (!await deliveries.SaveAllowanceAsync(delivery, cancellationToken)) return true;
         }
 
         var started = System.Diagnostics.Stopwatch.StartNew();
         int? statusCode = null;
         string? error = null;
+        var succeeded = false;
+        var retryable = true;
         try
         {
             delivery.PayloadJson = WebhookPayloadContract.ForDelivery(delivery.PayloadJson ?? throw new FormatException("Stored webhook payload is missing."),delivery.Id,delivery.EventId);
@@ -76,15 +109,16 @@ public sealed class WebhookDeliveryService(
             foreach (var (key, value) in subscription.Headers) if (!WebhookPayloadContract.IsTransportHeader(key) && !request.Headers.TryAddWithoutValidation(key, value)) request.Content.Headers.TryAddWithoutValidation(key, value);
             using var response = await httpClient.SendAsync(request, timeout.Token);
             statusCode = (int)response.StatusCode;
-            var succeeded = statusCode is >= 200 and <= 299;
-            var retryable = !succeeded && (statusCode is 408 or 425 or 429 || statusCode >= 500);
-            await CompleteAsync(delivery, succeeded, retryable, statusCode, null, started.ElapsedMilliseconds, cancellationToken);
+            succeeded = statusCode is >= 200 and <= 299;
+            retryable = !succeeded && (statusCode is 408 or 425 or 429 || statusCode >= 500);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             error = ex.Message;
-            await CompleteAsync(delivery, false, true, statusCode, error, started.ElapsedMilliseconds, cancellationToken);
+            retryable = ex is not FormatException;
         }
+        // Database failures here propagate to the worker; they are never reclassified as HTTP failures.
+        await CompleteAsync(delivery, succeeded, retryable, statusCode, error, started.ElapsedMilliseconds, cancellationToken);
         return true;
     }
 
@@ -92,11 +126,12 @@ public sealed class WebhookDeliveryService(
     {
         var attempt = delivery.AttemptCount + 1;
         var dead = !succeeded && (!retryable || attempt >= Math.Max(1, _options.WebhookMaxAttempts));
-        DateTime? next = !succeeded && !dead ? DateTime.UtcNow.AddSeconds(Math.Pow(2, attempt - 1) * Math.Max(1, _options.WebhookRetryBaseSeconds) + Random.Shared.NextDouble()) : null;
-        var updated = new WebhookDeliveryDocument { Id = delivery.Id, SubscriptionId = delivery.SubscriptionId, EventId = delivery.EventId, WebhookUrl = delivery.WebhookUrl, PayloadJson = delivery.PayloadJson, PayloadVersion = delivery.PayloadVersion, IdempotencyKey = delivery.IdempotencyKey, EventName = delivery.EventName, Trigger = delivery.Trigger, RedeliveryOfDeliveryId = delivery.RedeliveryOfDeliveryId, DeliveredAt = DateTime.UtcNow, StatusCode = statusCode, Succeeded = succeeded, Error = error, AttemptCount = attempt, LatencyMilliseconds = latency, Status = succeeded ? "succeeded" : dead ? "dead_letter" : "retrying", NextAttemptAt = next };
+        DateTime? next = !succeeded && !dead ? DateTime.UtcNow.AddSeconds(Math.Min(3600, Math.Pow(2, Math.Min(16, attempt - 1)) * Math.Max(1, _options.WebhookRetryBaseSeconds)) + Random.Shared.NextDouble()) : null;
+        var updated = delivery with { DeliveredAt = DateTime.UtcNow, StatusCode = statusCode, Succeeded = succeeded,
+            Error = error, AttemptCount = attempt, LatencyMilliseconds = latency,
+            Status = succeeded ? "succeeded" : dead ? "dead_letter" : "retrying", NextAttemptAt = next };
         var record = new WebhookDeliveryAttemptDocument { Id = Guid.NewGuid().ToString("n"), DeliveryId = delivery.Id, EventId = delivery.EventId, PayloadVersion = delivery.PayloadVersion, AttemptNumber = attempt, StatusCode = statusCode, Succeeded = succeeded, Retryable = retryable, Error = error, LatencyMilliseconds = latency, AttemptedAt = DateTime.UtcNow };
-        await deliveries.CompleteAsync(updated, record, cancellationToken);
-        operations.RecordDelivery(succeeded, !succeeded && !dead, dead, latency);
+        if (await deliveries.CompleteAsync(updated, record, cancellationToken)) operations.RecordDelivery(succeeded, !succeeded && !dead, dead, latency);
     }
 
     public async Task<WebhookDeliveryDocument> QueueTestAsync(WebhookSubscriptionDocument subscription, CancellationToken cancellationToken)
@@ -120,7 +155,7 @@ public sealed class WebhookDeliveryService(
     {
         if (string.IsNullOrWhiteSpace(original.PayloadJson))
         {
-            throw new InvalidOperationException("This delivery was recorded before payload replay was available.");
+            throw new InvalidOperationException("The stored payload has expired. Block replay only recovers missing events; retained identities skip this delivery.");
         }
 
         var deliveryId = Guid.NewGuid().ToString("n");

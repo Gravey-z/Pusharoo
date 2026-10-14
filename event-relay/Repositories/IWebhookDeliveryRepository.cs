@@ -21,7 +21,10 @@ public interface IWebhookDeliveryRepository
     Task<bool> EnqueueAsync(WebhookDeliveryDocument delivery, CancellationToken cancellationToken);
     Task<long> CountOutstandingAsync(CancellationToken cancellationToken);
     Task<WebhookDeliveryDocument?> ClaimDueAsync(CancellationToken cancellationToken);
-    Task CompleteAsync(WebhookDeliveryDocument delivery, WebhookDeliveryAttemptDocument attempt, CancellationToken cancellationToken);
+    Task<bool> CompleteAsync(WebhookDeliveryDocument delivery, WebhookDeliveryAttemptDocument attempt, CancellationToken cancellationToken);
+    Task<bool> SaveAllowanceAsync(WebhookDeliveryDocument delivery, CancellationToken cancellationToken);
+    Task<bool> DeferAsync(WebhookDeliveryDocument delivery, string reason, CancellationToken cancellationToken);
+    Task FlushAuditAsync(CancellationToken cancellationToken);
     Task PurgeExpiredAsync(DateTime payloadCutoff, DateTime historyCutoff, CancellationToken cancellationToken);
     Task DeleteBySubscriptionIdsAsync(IReadOnlyList<string> subscriptionIds, CancellationToken cancellationToken);
 }

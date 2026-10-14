@@ -2,7 +2,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Pusharoo.EventRelay.Models;
 
-public sealed class RelayEntitlementDocument
+public sealed record RelayEntitlementDocument
 {
     [BsonId, BsonElement("_id")] public string Id { get; init; } = string.Empty;
     [BsonElement("projectId")] public string ProjectId { get; init; } = string.Empty;

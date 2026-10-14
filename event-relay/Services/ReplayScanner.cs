@@ -1,0 +1,87 @@
+using Microsoft.Extensions.Options;
+using Pusharoo.EventRelay.Models;
+using Pusharoo.EventRelay.Options;
+using Pusharoo.EventRelay.Repositories;
+namespace Pusharoo.EventRelay.Services;
+
+public sealed class ReplayScanner(INeoRpcClient rpc, ReplayJobRepository jobs, IWebhookSubscriptionRepository subscriptions,
+    IEventDeliveryQueue queue, IWebhookDeliveryRepository deliveries, IOptions<NeoRpcOptions> rpcOptions,
+    IOptions<EventRelayOptions> options, ILogger<ReplayScanner> logger)
+{
+    public async Task<bool> PollOnceAsync(CancellationToken ct)
+    {
+        // Historical recovery yields while the delivery queue is saturated.
+        if (await deliveries.CountOutstandingAsync(ct) >= options.Value.MaxQueueDepth) return false;
+        var job = await jobs.ClaimAsync(rpcOptions.Value.Network, ct);
+        if (job is null) return false;
+        using var work = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        async Task Renew()
+        {
+            try {
+                while (!work.IsCancellationRequested) {
+                    await Task.Delay(TimeSpan.FromSeconds(15), work.Token);
+                    if (!await jobs.RenewAsync(job, work.Token)) { await work.CancelAsync(); return; }
+                }
+            }
+            catch (OperationCanceledException) when (work.IsCancellationRequested) { }
+            catch (Exception ex) { logger.LogWarning(ex, "Replay lease renewal failed."); await work.CancelAsync(); }
+        }
+        var renewal = Renew();
+        uint height = job.NextBlock;
+        string? transaction = null;
+        try
+        {
+            var sub = await subscriptions.GetByIdAsync(job.SubscriptionId, work.Token);
+            if (sub is null || sub.ProjectId != job.ProjectId || sub.Network != job.Network)
+                throw new FormatException("Replay subscription no longer exists on this project/network.");
+            if (sub.ContractHash != job.ContractHash || sub.EventName != job.EventName)
+                throw new FormatException("Subscription filter changed; cancel this job and create a new range.");
+            if (!sub.IsEnabled) { await jobs.ActionAsync(job.Id, "pause", work.Token); return true; }
+            await rpc.ValidateNetworkAsync(work.Token);
+            var count = await rpc.GetBlockCountAsync(work.Token);
+            if (count == 0 || count - 1 < rpcOptions.Value.ConfirmationBlocks
+                || job.ToBlock > count - 1 - rpcOptions.Value.ConfirmationBlocks)
+                throw new FormatException("Replay range is no longer confirmed on this network.");
+            var end = (uint)Math.Min(job.ToBlock, (ulong)height + (uint)options.Value.ReplayMaxBlocksPerPoll - 1);
+            for (; height <= end; height++)
+            {
+                transaction = null;
+                if (!await jobs.RenewAsync(job, work.Token)) return true;
+                var block = await rpc.GetBlockAsync(height, work.Token);
+                foreach (var tx in block.TransactionHashes)
+                {
+                    transaction = tx;
+                    var log = await rpc.GetApplicationLogAsync(tx, work.Token);
+                    foreach (var observed in NeoApplicationLogParser.Extract(log, job.Network, tx, block))
+                        if (observed.ContractHash == job.ContractHash && (job.EventName is null || observed.EventName == job.EventName))
+                        {
+                            if (!await jobs.RenewAsync(job, work.Token)) return true;
+                            await queue.QueueAsync(sub, observed, work.Token);
+                        }
+                }
+                if (!await jobs.AdvanceAsync(job, height, work.Token)) return true;
+                if (await deliveries.CountOutstandingAsync(work.Token) >= options.Value.MaxQueueDepth) break;
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException) when (work.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            var rpcError = ex as NeoRpcException;
+            var error = new ScannerBlockingError(height, transaction, rpcError?.Endpoint ?? rpcOptions.Value.Endpoint,
+                rpcError?.Kind.ToString() ?? "ReplayFailure", ex.Message, DateTime.UtcNow);
+            var blocked = ex is FormatException || rpcError?.Kind is NeoRpcFailureKind.UnavailableHistory
+                or NeoRpcFailureKind.InvalidResponse or NeoRpcFailureKind.NetworkMismatch;
+            await jobs.FailAsync(job, error, blocked, ct);
+            logger.LogError(ex, "Replay {JobId} retained block {BlockIndex}; blocked: {Blocked}.", job.Id, height, blocked);
+        }
+        finally
+        {
+            await work.CancelAsync(); await renewal;
+            using var release = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            try { await jobs.ReleaseAsync(job, release.Token); }
+            catch (Exception ex) { logger.LogWarning(ex, "Replay lease release failed; claim will expire."); }
+        }
+        return true;
+    }
+}

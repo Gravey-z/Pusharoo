@@ -296,7 +296,7 @@
                           [class.status-badge--danger]="delivery && !delivery.succeeded"
                         >
                           @if (delivery) {
-                            {{ delivery.succeeded ? 'Delivered' : 'Failed' }}
+                            {{ delivery.succeeded ? 'Delivered' : delivery.status }}
                           } @else {
                             No deliveries
                           }
@@ -319,6 +319,28 @@
                   </button>
                   <button class="danger-button" type="button" (click)="remove(subscription)" [disabled]="!canManageProject">Delete</button>
                 </div>
+                <details class="delivery-history">
+                  <summary (click)="refreshReplays(subscription)">Recover events from a block range</summary>
+                  <p>Scan confirmed blocks. Events already queued for this webhook are skipped. New deliveries use the event allowance.</p>
+                  <label>First block <input type="number" min="0" step="1" [(ngModel)]="replayFrom[subscription.id]" [name]="'replayFrom' + subscription.id" /></label>
+                  <label>Last block <input type="number" min="0" step="1" [(ngModel)]="replayTo[subscription.id]" [name]="'replayTo' + subscription.id" /></label>
+                  <button class="secondary-button" type="button" (click)="createReplay(subscription)" [disabled]="!canManageProject || !subscription.isEnabled || replayBusy[subscription.id]">Start replay</button>
+                  <button class="secondary-button" type="button" (click)="refreshReplays(subscription)" [disabled]="!canManageProject || replayBusy[subscription.id]">Refresh progress</button>
+                  @for (job of replayJobs[subscription.id] ?? []; track job.id) {
+                    <p>Blocks {{ job.fromBlock }}–{{ job.toBlock }}: {{ job.completedBlocks }}/{{ job.totalBlocks }} scanned · {{ job.status }}</p>
+                    @if (job.error) { <p class="form-error">Block {{ job.error.blockIndex }}: {{ job.error.message }}</p> }
+                    @if (job.status === 'running') {
+                      <button class="secondary-button" type="button" (click)="replayAction(subscription, job, 'pause')" [disabled]="!canManageProject || replayBusy[subscription.id]">Pause</button>
+                    }
+                    @if (job.status === 'paused' || job.status === 'blocked') {
+                      <button class="secondary-button" type="button" (click)="replayAction(subscription, job, 'resume')" [disabled]="!canManageProject || !subscription.isEnabled || replayBusy[subscription.id]">Resume</button>
+                    }
+                    @if (job.status !== 'completed' && job.status !== 'cancelled') {
+                      <button class="danger-button" type="button" (click)="replayAction(subscription, job, 'cancel')" [disabled]="!canManageProject || replayBusy[subscription.id]">Cancel scan</button>
+                    }
+                  }
+                  <p>Pause and cancel stop scanning. Already queued deliveries continue. Check delivery history for webhook outcomes.</p>
+                </details>
                 @if (deliveryHistoryFor === subscription.id && loadingDeliveryHistoryFor !== subscription.id) {
                   <div class="delivery-history">
                     <header class="delivery-history-header">
@@ -333,11 +355,11 @@
                     @if (deliveryHistory.length) {
                     @for (attempt of deliveryHistory; track attempt.id) {
                       <div>
-                        <span class="delivery-result" [class.failed-text]="!attempt.succeeded">{{ attempt.succeeded ? 'Delivered' : 'Failed' }}</span>
+                        <span class="delivery-result" [class.failed-text]="!attempt.succeeded">{{ attempt.succeeded ? 'Delivered' : attempt.status }}</span>
                         <span class="delivery-response">{{ attempt.statusCode ? 'HTTP ' + attempt.statusCode : 'No response' }}</span>
                         <span class="delivery-time">{{ attempt.deliveredAt | date: 'short' }}</span>
                         @if (attempt.error) { <span class="delivery-error">{{ attempt.error }}</span> }
-                        @if (!attempt.succeeded) {
+                        @if (attempt.status === 'dead_letter') {
                           <button class="secondary-button" type="button" (click)="redeliver(subscription, attempt)" [disabled]="sendingFor === subscription.id + ':' + attempt.id || !canManageProject">
                             {{ sendingFor === subscription.id + ':' + attempt.id ? 'Sending…' : 'Redeliver' }}
                           </button>

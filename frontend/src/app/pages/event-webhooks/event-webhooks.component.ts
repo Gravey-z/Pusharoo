@@ -12,6 +12,7 @@ import {
   WebhookDelivery,
   WebhookSubscription,
   RelayUsage,
+  RelayReplayJob,
   RelayPaymentHistory,
   RelayPaymentIntent
 } from '../../models/pusharoo.models';
@@ -40,6 +41,10 @@ interface DeploymentOption {
   styleUrl: './event-webhooks.component.scss'
 })
 export class EventWebhooksComponent implements OnInit {
+  replayJobs: Partial<Record<string, RelayReplayJob[]>> = {};
+  replayFrom: Record<string, number> = {};
+  replayTo: Record<string, number> = {};
+  replayBusy: Record<string, boolean> = {};
   overview: ProjectOverviewViewModel | null = null;
   subscriptions: WebhookSubscription[] = [];
   readonly subscriptionsByNetwork: Record<string, WebhookSubscription[]> = {};
@@ -252,6 +257,36 @@ export class EventWebhooksComponent implements OnInit {
     } finally {
       this.loadingDeliveryHistoryFor = '';
     }
+  }
+
+  async refreshReplays(subscription: WebhookSubscription): Promise<void> {
+    this.replayBusy[subscription.id] = true;
+    try {
+      this.replayJobs[subscription.id] = await this.executeWebhookRequest(() =>
+        this.api.getReplayJobs(this.projectId, subscription.network, subscription.id));
+    } catch (error) { this.errorMessage = this.errors.format(error, 'Could not load replay jobs.'); }
+    finally { this.replayBusy[subscription.id] = false; }
+  }
+  async createReplay(subscription: WebhookSubscription): Promise<void> {
+    const from = this.replayFrom[subscription.id]; const to = this.replayTo[subscription.id];
+    if (!Number.isSafeInteger(from) || !Number.isSafeInteger(to) || from < 0 || to < from) {
+      this.errorMessage = 'Enter an inclusive range of confirmed block heights.'; return;
+    }
+    this.replayBusy[subscription.id] = true;
+    try {
+      await this.executeWebhookRequest(() => this.api.createReplayJob(this.projectId, subscription.network, subscription.id, from, to));
+      this.formStatus = 'Replay queued. Refresh progress to check the scan.';
+      await this.refreshReplays(subscription);
+    } catch (error) { this.errorMessage = this.errors.format(error, 'Could not start replay.'); }
+    finally { this.replayBusy[subscription.id] = false; }
+  }
+  async replayAction(subscription: WebhookSubscription, job: RelayReplayJob, action: 'pause' | 'resume' | 'cancel'): Promise<void> {
+    this.replayBusy[subscription.id] = true;
+    try {
+      await this.executeWebhookRequest(() => this.api.replayAction(this.projectId, subscription.network, subscription.id, job.id, action));
+      await this.refreshReplays(subscription);
+    } catch (error) { this.errorMessage = this.errors.format(error, 'Could not update replay.'); }
+    finally { this.replayBusy[subscription.id] = false; }
   }
 
   async sendTest(subscription: WebhookSubscription): Promise<void> {

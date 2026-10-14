@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace Pusharoo.EventRelay.Models;
 
-public sealed class WebhookDeliveryDocument
+public sealed record WebhookDeliveryDocument
 {
     [BsonId]
     [BsonElement("_id")]
@@ -49,6 +49,11 @@ public sealed class WebhookDeliveryDocument
     public long? LatencyMilliseconds { get; init; }
 
     [BsonElement("nextAttemptAt")] public DateTime? NextAttemptAt { get; init; }
+    [BsonElement("claimOwner"), JsonIgnore] public string? ClaimOwner { get; init; }
+    [BsonElement("allowancePeriodId"), JsonIgnore] public string? AllowancePeriodId { get; init; }
+    [BsonElement("allowanceCharged"), JsonIgnore] public bool AllowanceCharged { get; init; }
+    [BsonElement("attempts"), JsonIgnore] public List<WebhookDeliveryAttemptDocument> Attempts { get; init; } = [];
+    [BsonElement("auditPending"), JsonIgnore] public bool AuditPending { get; init; }
     [BsonElement("leaseUntil")] public DateTime? LeaseUntil { get; init; }
     [BsonElement("eventName")] public string EventName { get; init; } = string.Empty;
     [BsonElement("trigger")] public string Trigger { get; init; } = "automatic";

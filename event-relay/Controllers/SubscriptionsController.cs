@@ -189,6 +189,7 @@ public sealed class SubscriptionsController(
         }
 
         await subscriptions.DeleteAsync(subscriptionId, cancellationToken);
+        await deliveries.DeleteBySubscriptionIdsAsync([subscriptionId], cancellationToken);
         return NoContent();
     }
 
@@ -228,6 +229,10 @@ public sealed class SubscriptionsController(
         var subscription = await GetProjectSubscriptionAsync(projectId, subscriptionId, cancellationToken);
         var delivery = await deliveries.GetByIdAsync(deliveryId, cancellationToken);
         if (subscription is null || delivery?.SubscriptionId != subscriptionId) return NotFound();
+        if (delivery.Status is not ("succeeded" or "dead_letter" or "cancelled"))
+            return Conflict(new { error = "This delivery is still queued; wait for its outcome before redelivering." });
+        if (string.IsNullOrWhiteSpace(delivery.PayloadJson))
+            return StatusCode(410, new { error = "Stored payload expired. Block replay only queues missing events; retained event identities skip this delivery." });
         await webhookDelivery.RedeliverAsync(subscription, delivery, cancellationToken);
         return Ok(await deliveries.GetLatestBySubscriptionAsync(subscriptionId, cancellationToken));
     }

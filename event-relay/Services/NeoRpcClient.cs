@@ -145,7 +145,8 @@ public sealed class NeoRpcClient(HttpClient httpClient, IOptions<NeoRpcOptions> 
                 if (root.TryGetProperty("error", out var error) && error.ValueKind != JsonValueKind.Null)
                 {
                     var code = error.ValueKind == JsonValueKind.Object && error.TryGetProperty("code", out var number) && number.ValueKind == JsonValueKind.Number && number.TryGetInt32(out var n) ? n : 0;
-                    var kind = method == "getapplicationlog" && code is -100 or -103 or -105 or -32601
+                    var kind = (method == "getapplicationlog" && code is -100 or -103 or -105 or -32601)
+                        || (method == "getblock" && code is -100 or -101 or -32601)
                         ? NeoRpcFailureKind.UnavailableHistory : NeoRpcFailureKind.Transient;
                     throw new NeoRpcException(endpoint, method, kind, $"RPC error {error}");
                 }

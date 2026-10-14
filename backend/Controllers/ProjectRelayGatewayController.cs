@@ -47,6 +47,20 @@ public sealed class ProjectRelayGatewayController(
         => Forward(projectId, network, HttpMethod.Post,
             $"subscriptions/{Uri.EscapeDataString(subscriptionId)}/deliveries/{Uri.EscapeDataString(deliveryId)}/redeliver", null, ct);
 
+    [HttpPost("subscriptions/{subscriptionId}/replays/query")]
+    public Task<IActionResult> ReplayJobs(string projectId, string network, string subscriptionId, CancellationToken ct)
+        => Forward(projectId, network, HttpMethod.Post, $"subscriptions/{Uri.EscapeDataString(subscriptionId)}/replays/query", null, ct);
+
+    [HttpPost("subscriptions/{subscriptionId}/replays")]
+    public Task<IActionResult> CreateReplay(string projectId, string network, string subscriptionId, [FromBody] JsonElement body, CancellationToken ct)
+        => Forward(projectId, network, HttpMethod.Post, $"subscriptions/{Uri.EscapeDataString(subscriptionId)}/replays", body, ct);
+
+    [HttpPost("subscriptions/{subscriptionId}/replays/{jobId}/{action}")]
+    public Task<IActionResult> ReplayAction(string projectId, string network, string subscriptionId, string jobId, string action, CancellationToken ct)
+        => action is "pause" or "resume" or "cancel"
+            ? Forward(projectId, network, HttpMethod.Post, $"subscriptions/{Uri.EscapeDataString(subscriptionId)}/replays/{Uri.EscapeDataString(jobId)}/{action}", null, ct)
+            : Task.FromResult<IActionResult>(NotFound());
+
     [HttpPost("payments/intents")]
     public Task<IActionResult> CreatePaymentIntent(string projectId, string network, CancellationToken ct)
         => Forward(projectId, network, HttpMethod.Post, "relay/payments/intents", null, ct);
