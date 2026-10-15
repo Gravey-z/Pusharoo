@@ -1,0 +1,43 @@
+groups:
+  - name: pusharoo-relay
+    rules:
+      - alert: RelayUnavailable
+        expr: up{job="pusharoo-event-relay"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "Relay metrics/database checks are unavailable"}
+      - alert: RelayScannerStalled
+        expr: pusharoo_relay_scanner_healthy == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "Relay scanner has no recent healthy observation"}
+      - alert: RelayWorkerStalled
+        expr: pusharoo_relay_worker_healthy == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "Relay delivery worker heartbeat is stale"}
+      - alert: RelayDeliveryFailures
+        expr: pusharoo_relay_sustained_delivery_failures == 1
+        for: 5m
+        labels: {severity: critical}
+        annotations: {summary: "Sustained webhook delivery failures"}
+      - alert: RelayExpiredClaims
+        expr: pusharoo_relay_delivery_expired_claims > 0
+        for: 2m
+        labels: {severity: warning}
+        annotations: {summary: "Expired webhook claims are not recovering"}
+      - alert: RelayReplayBlocked
+        expr: pusharoo_relay_replay_blocked > 0
+        for: 1m
+        labels: {severity: warning}
+        annotations: {summary: "Historical replay requires explicit recovery"}
+      - alert: RelayLag
+        expr: pusharoo_relay_scanner_lag_healthy == 0
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "Relay needs to catch up"}
+      - alert: RelayQueueBacklog
+        expr: pusharoo_relay_queue_healthy == 0
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "Relay delivery queue exceeds the configured limit"}

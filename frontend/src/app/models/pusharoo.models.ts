@@ -262,8 +262,14 @@ export interface WebhookDelivery {
 }
 
 export interface EventRelayStatus {
-  status: string;
-  network: string;
+  status: string; network: string;
+  scanner?: { networkTip: number | null; confirmedTip: number | null; nextBlock: number | null;
+    scannedHeight: number | null; lagBlocks: number | null; lastSuccessfulScanAt: string | null;
+    lastPollAt: string | null; blocksPerSecond: number | null;
+    error: { blockIndex: number | null; kind: string; message: string } | null };
+  queue?: { depth: number; pending: number; retrying: number; waiting: number; delivering: number; expiredClaims: number; deadLetters: number };
+  replays?: { running: number; paused: number; blocked: number; completedBlocks: number; totalBlocks: number };
+  alerts?: { code: string; severity: string; message: string }[];
 }
 
 export interface RelayUsage { plan: string; status: string; periodEndsAt: string; graceEndsAt?: string | null; maxActiveSubscriptions: number; activeSubscriptions: number; maxEvents: number; eventsUsed: number; eventsRemaining: number; }

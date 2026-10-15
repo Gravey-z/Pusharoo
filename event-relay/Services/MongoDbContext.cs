@@ -37,6 +37,9 @@ public sealed class MongoDbContext
                 PartialFilterExpression = new BsonDocument { { "trigger", "automatic" },
                     { "subscriptionId", new BsonDocument("$type", "string") }, { "eventId", new BsonDocument("$type", "string") } }
             }));
+        Deliveries.Indexes.CreateOne(new CreateIndexModel<WebhookDeliveryDocument>(
+            Builders<WebhookDeliveryDocument>.IndexKeys.Ascending(x => x.Network).Ascending(x => x.Status).Ascending(x => x.DeliveredAt),
+            new CreateIndexOptions { Name = "network_status_history" }));
         Checkpoints = database.GetCollection<EventCheckpointDocument>("eventCheckpoints");
         PaymentIntents = database.GetCollection<RelayPaymentIntentDocument>("relayPaymentIntents");
         Payments = database.GetCollection<RelayPaymentDocument>("relayPayments");

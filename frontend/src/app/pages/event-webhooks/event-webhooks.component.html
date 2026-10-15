@@ -60,6 +60,25 @@
     </div>
   </section>
 
+  <details class="surface-panel" aria-label="Relay operations">
+    <summary>Relay progress and delivery health</summary>
+    <button class="secondary-button" type="button" (click)="loadRelayStatuses()">Refresh status</button>
+    @if (relayDetails[webhookNetwork]; as detail) {
+      @if (detail.scanner; as scanner) {
+        <p>Network tip: {{ scanner.networkTip ?? 'Unknown' }} · Confirmed: {{ scanner.confirmedTip ?? 'Unknown' }} · Scanned through: {{ scanner.scannedHeight ?? 'No completed scan recorded' }} · Lag: {{ scanner.lagBlocks ?? 'Unknown' }} blocks</p>
+        <p>Last completed scan: {{ scanner.lastSuccessfulScanAt ? (scanner.lastSuccessfulScanAt | date: 'short') : 'Not recorded' }}</p>
+        @if (scanner.error) { <p class="form-error">Scanning stopped at block {{ scanner.error.blockIndex }}: {{ scanner.error.kind }}. {{ scanner.error.message }}</p> }
+      }
+      @if (detail.queue; as queue) {
+        <p>Network deliveries: {{ queue.pending }} pending · {{ queue.retrying }} retrying · {{ queue.waiting }} waiting · {{ queue.delivering }} in flight · {{ queue.expiredClaims }} expired claims · {{ queue.deadLetters }} permanent failures</p>
+      }
+      @if (detail.replays; as replays) {
+        <p>Network replay jobs: {{ replays.running }} running · {{ replays.paused }} paused · {{ replays.blocked }} blocked. Use each webhook's recovery controls for its job progress.</p>
+      }
+      @for (alert of detail.alerts ?? []; track alert.code) { <p class="form-error">{{ alert.message }}</p> }
+    } @else { <p>Operational details are unavailable.</p> }
+  </details>
+
   @if (webhookNetwork === 'neo3:mainnet') {
   @if (!isRelayConnected) {
     <section class="relay-plan surface-panel" aria-label="N3:Mainnet Relay connection">

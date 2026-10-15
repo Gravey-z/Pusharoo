@@ -14,12 +14,14 @@ builder.Services.AddOptions<NeoRpcOptions>().Bind(builder.Configuration.GetSecti
     .Validate(x => string.IsNullOrWhiteSpace(x.FallbackEndpoint) || (Uri.TryCreate(x.FallbackEndpoint, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"), "NeoRpc fallback must be HTTP(S).")
     .Validate(x => x.RequestTimeoutSeconds > 0 && x.MaxAttempts is >= 1 and <= 10 && x.RetryBaseMilliseconds >= 0 && x.RetryMaxMilliseconds >= x.RetryBaseMilliseconds, "Invalid NeoRpc timeout/retry settings.")
     .Validate(x => x.ScannerLeaseSeconds >= 3 && x.PollIntervalSeconds > 0 && x.MaxBlocksPerPoll > 0, "Invalid scanner lease/poll settings.")
+    .Validate(x => x.MinRequestIntervalMilliseconds is >= 0 and <= 60000 && x.CatchUpPollIntervalMilliseconds is > 0 and <= 60000, "Invalid RPC pacing settings.")
     .ValidateOnStart();
 builder.Services.AddOptions<EventRelayOptions>().Bind(builder.Configuration.GetSection(EventRelayOptions.SectionName))
     .Validate(x => x.WebhookTimeoutSeconds is > 0 and <= 60 && x.WebhookMaxAttempts is >= 1 and <= 100,
         "Delivery timeout must be at most 60 seconds and attempts at most 100.")
     .Validate(x => x.ReplayMaxRangeBlocks is > 0 and <= 100000 && x.ReplayMaxBlocksPerPoll is > 0 and <= 100 && x.MaxQueueDepth > 0,
         "Invalid replay workload limits.")
+    .Validate(x => x.OperationsPollSeconds > 0 && x.ScannerStallSeconds > 0 && x.DeliveryWorkerStallSeconds > 0 && x.DeliveryFailureWindowMinutes > 0 && x.DeliveryFailureMinimumAttempts > 0 && x.DeliveryFailureRateThreshold is > 0 and <= 1, "Invalid operations thresholds.")
     .Validate(x => x.FreeTestnetMaxEvents is >= 0 and <= 100000 && x.PaidMaxEvents is >= 0 and <= 100000,
         "Allowance periods support at most 100000 receipts.")
     .ValidateOnStart();
@@ -32,6 +34,10 @@ builder.Services.AddScoped<IEventCheckpointRepository, EventCheckpointRepository
 builder.Services.AddSingleton<WebhookDestinationValidator>();
 builder.Services.AddSingleton<WebhookSecretProtector>();
 builder.Services.AddSingleton<RelayOperationsService>();
+builder.Services.AddSingleton<NeoRpcRequestLimiter>();
+builder.Services.AddScoped<RelayHealthService>();
+builder.Services.AddSingleton<RelayHealthCache>();
+builder.Services.AddHostedService<RelayAlertWorker>();
 builder.Services.AddScoped<RelayEntitlementService>();
 builder.Services.AddScoped<RelayPaymentService>();
 var dataProtection = builder.Services.AddDataProtection().SetApplicationName("Pusharoo.EventRelay");
@@ -81,90 +87,25 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.MapGet("/health", async (
-    IOptions<NeoRpcOptions> neoRpcOptions,
-    IOptions<EventRelayOptions> relayOptions,
-    RelayOperationsService operations,
-    IWebhookDeliveryRepository deliveries,
-    CancellationToken cancellationToken) =>
+app.MapGet("/health", async (IServiceScopeFactory scopes, CancellationToken ct) =>
 {
-    var snapshot = operations.Snapshot();
-    var configuration = relayOptions.Value;
-    var now = DateTime.UtcNow;
-    var scannerHealthy = snapshot.ScannerError is null && snapshot.ScannerHeartbeat != DateTime.MinValue
-        && now - snapshot.ScannerHeartbeat < TimeSpan.FromSeconds(Math.Max(1, configuration.ScannerStallSeconds));
-    var workerHealthy = snapshot.WorkerHeartbeat != DateTime.MinValue
-        && now - snapshot.WorkerHeartbeat < TimeSpan.FromSeconds(Math.Max(1, configuration.DeliveryWorkerStallSeconds));
-    var rpcHealthy = snapshot.RpcSuccessAt != DateTime.MinValue
-        && now - snapshot.RpcSuccessAt < TimeSpan.FromSeconds(Math.Max(1, configuration.ScannerStallSeconds));
-    long queueDepth;
-    try
-    {
-        queueDepth = await deliveries.CountOutstandingAsync(cancellationToken);
+    try {
+        using var scope = scopes.CreateScope();
+        var status = await scope.ServiceProvider.GetRequiredService<RelayHealthService>().GetAsync(ct);
+        return Results.Json(status, statusCode: status.Status == "ok" ? 200 : 503);
     }
-    catch
-    {
-        return Results.Json(new { status = "degraded", network = neoRpcOptions.Value.Network, error = "Webhook queue health could not be read." }, statusCode: StatusCodes.Status503ServiceUnavailable);
-    }
-
-    var scannerLagHealthy = snapshot.ScannerLagBlocks is null || snapshot.ScannerLagBlocks <= Math.Max(0, configuration.MaxScannerLagBlocks);
-    var queueHealthy = queueDepth <= Math.Max(0, configuration.MaxQueueDepth);
-    var healthy = scannerHealthy && workerHealthy && rpcHealthy && scannerLagHealthy && queueHealthy;
-    return Results.Json(new
-    {
-        status = healthy ? "ok" : "degraded",
-        network = neoRpcOptions.Value.Network,
-        scannerHealthy,
-        scannerError = snapshot.ScannerError,
-        workerHealthy,
-        rpcHealthy,
-        scannerLagHealthy,
-        queueHealthy,
-        usingFallbackRpc = !string.IsNullOrWhiteSpace(neoRpcOptions.Value.FallbackEndpoint)
-            && string.Equals(snapshot.ActiveRpcEndpoint, neoRpcOptions.Value.FallbackEndpoint, StringComparison.OrdinalIgnoreCase),
-        metrics = new
-        {
-            scannerLagBlocks = snapshot.ScannerLagBlocks,
-            queueDepth,
-            snapshot.Succeeded,
-            snapshot.Failed,
-            successRate = snapshot.SuccessRate,
-            snapshot.Retried,
-            snapshot.DeadLetters,
-            averageDeliveryLatencyMilliseconds = snapshot.AverageDeliveryLatencyMilliseconds,
-            snapshot.RpcFailures
-        }
-    }, statusCode: healthy ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable);
+    catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+    catch { return Results.Json(new { status = "degraded", error = "Relay operations database checks are unavailable." }, statusCode: 503); }
 });
-app.MapGet("/metrics", async (
-    IOptions<NeoRpcOptions> neoRpcOptions,
-    RelayOperationsService operations,
-    IWebhookDeliveryRepository deliveries,
-    CancellationToken cancellationToken) =>
+app.MapGet("/metrics", async (IServiceScopeFactory scopes, CancellationToken ct) =>
 {
-    var snapshot = operations.Snapshot();
-    var queueDepth = await deliveries.CountOutstandingAsync(cancellationToken);
-    var network = neoRpcOptions.Value.Network.Replace("\\", "\\\\").Replace("\"", "\\\"");
-    var metric = string.Join('\n', new[]
-    {
-        "# TYPE pusharoo_relay_scanner_lag_blocks gauge",
-        $"pusharoo_relay_scanner_lag_blocks{{network=\"{network}\"}} {snapshot.ScannerLagBlocks ?? 0}",
-        "# TYPE pusharoo_relay_queue_depth gauge",
-        $"pusharoo_relay_queue_depth{{network=\"{network}\"}} {queueDepth}",
-        "# TYPE pusharoo_relay_delivery_succeeded_total counter",
-        $"pusharoo_relay_delivery_succeeded_total{{network=\"{network}\"}} {snapshot.Succeeded}",
-        "# TYPE pusharoo_relay_delivery_failed_total counter",
-        $"pusharoo_relay_delivery_failed_total{{network=\"{network}\"}} {snapshot.Failed}",
-        "# TYPE pusharoo_relay_delivery_retried_total counter",
-        $"pusharoo_relay_delivery_retried_total{{network=\"{network}\"}} {snapshot.Retried}",
-        "# TYPE pusharoo_relay_delivery_dead_letters_total counter",
-        $"pusharoo_relay_delivery_dead_letters_total{{network=\"{network}\"}} {snapshot.DeadLetters}",
-        "# TYPE pusharoo_relay_delivery_latency_milliseconds gauge",
-        $"pusharoo_relay_delivery_latency_milliseconds{{network=\"{network}\"}} {snapshot.AverageDeliveryLatencyMilliseconds ?? 0}",
-        "# TYPE pusharoo_relay_rpc_failures_total counter",
-        $"pusharoo_relay_rpc_failures_total{{network=\"{network}\"}} {snapshot.RpcFailures}"
-    }) + "\n";
-    return Results.Text(metric, "text/plain; version=0.0.4");
+    try {
+        using var scope = scopes.CreateScope();
+        var health = await scope.ServiceProvider.GetRequiredService<RelayHealthService>().GetAsync(ct);
+        return Results.Text(RelayMetrics.Render(health), "text/plain; version=0.0.4");
+    }
+    catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+    catch { return Results.StatusCode(503); }
 });
 app.UseRateLimiter();
 app.MapControllers();

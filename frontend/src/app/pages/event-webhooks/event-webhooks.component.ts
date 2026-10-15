@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { Observable } from 'rxjs';
 import {
   Artifact,
+  EventRelayStatus,
   CreateWebhookSubscriptionRequest,
   Deployment,
   ProjectOverviewViewModel,
@@ -52,6 +53,7 @@ export class EventWebhooksComponent implements OnInit {
   eventOptions: string[] = [];
   relayNetwork = '';
   webhookNetwork = 'neo3:testnet';
+  relayDetails: Partial<Record<string, EventRelayStatus>> = {};
   relayStatuses: Record<string, 'ok' | 'degraded' | 'offline'> = {};
   readonly relayUsageByNetwork: Record<string, RelayUsage> = {};
   paymentHistory: RelayPaymentHistory | null = null;
@@ -461,10 +463,18 @@ export class EventWebhooksComponent implements OnInit {
     }
   }
 
-  private async loadRelayStatuses(): Promise<void> {
+  async loadRelayStatuses(): Promise<void> {
     await Promise.all(['neo3:testnet', 'neo3:mainnet'].map(async (network) => {
-      try { this.relayStatuses[network] = (await firstValueFrom(this.api.getEventRelayStatus(network))).status === 'ok' ? 'ok' : 'degraded'; }
-      catch (error: unknown) { this.relayStatuses[network] = (error as { status?: number })?.status === 503 ? 'degraded' : 'offline'; }
+      try {
+        const detail = await firstValueFrom(this.api.getEventRelayStatus(network));
+        this.relayDetails[network] = detail;
+        this.relayStatuses[network] = detail.status === 'ok' ? 'ok' : 'degraded';
+      }
+      catch (error: unknown) {
+        const failure = error as { status?: number; error?: EventRelayStatus };
+        this.relayDetails[network] = failure.error?.network === network ? failure.error : undefined;
+        this.relayStatuses[network] = failure.status === 503 ? 'degraded' : 'offline';
+      }
     }));
   }
 

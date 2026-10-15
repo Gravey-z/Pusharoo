@@ -46,6 +46,12 @@ public sealed class WebhookDeliveryService(
             await CompleteAsync(delivery, false, false, null, "Webhook is no longer active.", 0, cancellationToken);
             return true;
         }
+        if (!string.IsNullOrEmpty(delivery.Network) && delivery.Network != subscription.Network)
+        {
+            await CompleteAsync(delivery, false, false, null, "Subscription network changed after this event was queued.", 0, cancellationToken);
+            return true;
+        }
+        delivery = delivery with { Network = subscription.Network };
         if (!subscription.IsEnabled)
         {
             await deliveries.DeferAsync(delivery, "Subscription is paused; waiting for resume.", cancellationToken);
@@ -130,7 +136,7 @@ public sealed class WebhookDeliveryService(
         var updated = delivery with { DeliveredAt = DateTime.UtcNow, StatusCode = statusCode, Succeeded = succeeded,
             Error = error, AttemptCount = attempt, LatencyMilliseconds = latency,
             Status = succeeded ? "succeeded" : dead ? "dead_letter" : "retrying", NextAttemptAt = next };
-        var record = new WebhookDeliveryAttemptDocument { Id = Guid.NewGuid().ToString("n"), DeliveryId = delivery.Id, EventId = delivery.EventId, PayloadVersion = delivery.PayloadVersion, AttemptNumber = attempt, StatusCode = statusCode, Succeeded = succeeded, Retryable = retryable, Error = error, LatencyMilliseconds = latency, AttemptedAt = DateTime.UtcNow };
+        var record = new WebhookDeliveryAttemptDocument { Id = Guid.NewGuid().ToString("n"), Network = delivery.Network, DeliveryId = delivery.Id, EventId = delivery.EventId, PayloadVersion = delivery.PayloadVersion, AttemptNumber = attempt, StatusCode = statusCode, Succeeded = succeeded, Retryable = retryable, Error = error, LatencyMilliseconds = latency, AttemptedAt = DateTime.UtcNow };
         if (await deliveries.CompleteAsync(updated, record, cancellationToken)) operations.RecordDelivery(succeeded, !succeeded && !dead, dead, latency);
     }
 
@@ -160,7 +166,7 @@ public sealed class WebhookDeliveryService(
 
         var deliveryId = Guid.NewGuid().ToString("n");
         var payload = WebhookPayloadContract.ForDelivery(original.PayloadJson, deliveryId, original.EventId, manual: true);
-        await deliveries.EnqueueAsync(new WebhookDeliveryDocument { Id = deliveryId, SubscriptionId = subscription.Id, EventId = original.EventId, WebhookUrl = subscription.WebhookUrl, PayloadJson = payload, PayloadVersion = WebhookPayloadContract.Version(payload), IdempotencyKey = $"manual:{original.Id}:{deliveryId}", EventName = original.EventName, Trigger = "manual", RedeliveryOfDeliveryId = original.Id, Status = "pending", AttemptCount = 0, DeliveredAt = DateTime.UtcNow, NextAttemptAt = DateTime.UtcNow }, cancellationToken);
+        await deliveries.EnqueueAsync(new WebhookDeliveryDocument { Id = deliveryId, Network = subscription.Network, SubscriptionId = subscription.Id, EventId = original.EventId, WebhookUrl = subscription.WebhookUrl, PayloadJson = payload, PayloadVersion = WebhookPayloadContract.Version(payload), IdempotencyKey = $"manual:{original.Id}:{deliveryId}", EventName = original.EventName, Trigger = "manual", RedeliveryOfDeliveryId = original.Id, Status = "pending", AttemptCount = 0, DeliveredAt = DateTime.UtcNow, NextAttemptAt = DateTime.UtcNow }, cancellationToken);
     }
 
     private static WebhookDeliveryDocument CreateQueuedDelivery(
@@ -173,6 +179,7 @@ public sealed class WebhookDeliveryService(
         string trigger) => new()
         {
             Id = id,
+            Network = subscription.Network,
             SubscriptionId = subscription.Id,
             EventId = eventId,
             WebhookUrl = subscription.WebhookUrl,

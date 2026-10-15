@@ -4,6 +4,10 @@ public sealed class EventRelayOptions
 {
     public const string SectionName = "EventRelay";
 
+    public int OperationsPollSeconds { get; init; } = 30;
+    public int DeliveryFailureWindowMinutes { get; init; } = 15;
+    public int DeliveryFailureMinimumAttempts { get; init; } = 5;
+    public double DeliveryFailureRateThreshold { get; init; } = 0.5;
     public int ReplayMaxRangeBlocks { get; init; } = 10000;
     public int ReplayMaxBlocksPerPoll { get; init; } = 5;
     public int WebhookTimeoutSeconds { get; init; } = 15;

@@ -3,95 +3,54 @@ namespace Pusharoo.EventRelay.Services;
 
 public sealed class RelayOperationsService
 {
-    private DateTime scannerHeartbeat = DateTime.MinValue;
-    private DateTime workerHeartbeat = DateTime.MinValue;
-    private DateTime rpcSuccessAt = DateTime.MinValue;
-    private string activeRpcEndpoint = string.Empty;
-    private uint? confirmedBlock;
-    private uint? processedBlock;
-    private long succeeded;
-    private long failed;
-    private long retried;
-    private long deadLetters;
-    private long latencyTotalMilliseconds;
-    private long latencySamples;
-    private long rpcFailures;
-
+    private readonly object gate = new();
+    private DateTime scannerHeartbeat, workerHeartbeat, rpcSuccessAt;
+    private string activeRpcEndpoint = "";
+    private uint? networkTip, confirmedBlock, processedBlock;
     private ScannerBlockingError? scannerError;
-    public void RecordScannerFailure(ScannerBlockingError error) => Volatile.Write(ref scannerError, error);
-    public void ClearScannerFailure() => Volatile.Write(ref scannerError, null);
-
-    public void ScannerHeartbeat() => scannerHeartbeat = DateTime.UtcNow;
-    public void WorkerHeartbeat() => workerHeartbeat = DateTime.UtcNow;
-
-    public void RecordScannerProgress(uint confirmedTip, uint processedThrough)
+    private long succeeded, failed, retried, deadLetters, latencyTotalMilliseconds, latencySamples, rpcFailures;
+    private long scannedBlocks, scannedTransactions, observedEvents, scanMilliseconds, rpcRequests;
+    private DateTime? lastSuccessfulScan;
+    public void RecordScannerFailure(ScannerBlockingError error) { lock (gate) scannerError = error; }
+    public void ClearScannerFailure() { lock (gate) scannerError = null; }
+    public void ScannerHeartbeat() { lock (gate) scannerHeartbeat = DateTime.UtcNow; }
+    public void WorkerHeartbeat() { lock (gate) workerHeartbeat = DateTime.UtcNow; }
+    public void RecordChainTip(uint tip, uint confirmed) { lock (gate) { networkTip = tip; confirmedBlock = confirmed; } }
+    public void RecordScannerProgress(uint confirmed, uint processed) { lock (gate) { confirmedBlock = confirmed; processedBlock = processed; } }
+    public void RecordScannedBlock(long transactions, long events, long milliseconds)
     {
-        confirmedBlock = confirmedTip;
-        processedBlock = processedThrough;
+        lock (gate) { scannedBlocks++; scannedTransactions += transactions; observedEvents += events;
+            scanMilliseconds += milliseconds; lastSuccessfulScan = DateTime.UtcNow; }
     }
-
-    public void RecordRpcSuccess(string endpoint)
+    public void RecordRpcRequest() { lock (gate) rpcRequests++; }
+    public void RecordRpcSuccess(string endpoint) { lock (gate) { activeRpcEndpoint = endpoint; rpcSuccessAt = DateTime.UtcNow; } }
+    public void RecordRpcFailure() { lock (gate) rpcFailures++; }
+    public void RecordDelivery(bool success, bool retry, bool deadLetter, long latency)
     {
-        activeRpcEndpoint = endpoint;
-        rpcSuccessAt = DateTime.UtcNow;
-    }
-
-    public void RecordRpcFailure() => Interlocked.Increment(ref rpcFailures);
-
-    public void RecordDelivery(bool success, bool retry, bool deadLetter, long latencyMilliseconds)
-    {
-        if (success) Interlocked.Increment(ref succeeded); else Interlocked.Increment(ref failed);
-        if (retry) Interlocked.Increment(ref retried);
-        if (deadLetter) Interlocked.Increment(ref deadLetters);
-        if (latencyMilliseconds >= 0)
-        {
-            Interlocked.Add(ref latencyTotalMilliseconds, latencyMilliseconds);
-            Interlocked.Increment(ref latencySamples);
+        lock (gate) {
+            if (success) succeeded++; else failed++;
+            if (retry) retried++;
+            if (deadLetter) deadLetters++;
+            if (latency >= 0) { latencyTotalMilliseconds += latency; latencySamples++; }
         }
     }
-
-    public RelayOperationsSnapshot Snapshot() => new(
-        scannerHeartbeat,
-        workerHeartbeat,
-        rpcSuccessAt,
-        activeRpcEndpoint,
-        confirmedBlock,
-        processedBlock,
-        Interlocked.Read(ref succeeded),
-        Interlocked.Read(ref failed),
-        Interlocked.Read(ref retried),
-        Interlocked.Read(ref deadLetters),
-        Interlocked.Read(ref latencyTotalMilliseconds),
-        Interlocked.Read(ref latencySamples),
-        Interlocked.Read(ref rpcFailures),
-        Volatile.Read(ref scannerError));
+    public RelayOperationsSnapshot Snapshot()
+    {
+        lock (gate) return new(scannerHeartbeat, workerHeartbeat, rpcSuccessAt, activeRpcEndpoint, confirmedBlock,
+            processedBlock, succeeded, failed, retried, deadLetters, latencyTotalMilliseconds, latencySamples,
+            rpcFailures, scannerError, networkTip, lastSuccessfulScan, scannedBlocks, scannedTransactions,
+            observedEvents, scanMilliseconds, rpcRequests);
+    }
 }
 
-public sealed record RelayOperationsSnapshot(
-    DateTime ScannerHeartbeat,
-    DateTime WorkerHeartbeat,
-    DateTime RpcSuccessAt,
-    string ActiveRpcEndpoint,
-    uint? ConfirmedBlock,
-    uint? ProcessedBlock,
-    long Succeeded,
-    long Failed,
-    long Retried,
-    long DeadLetters,
-    long LatencyTotalMilliseconds,
-    long LatencySamples,
-    long RpcFailures,
-    ScannerBlockingError? ScannerError)
+public sealed record RelayOperationsSnapshot(DateTime ScannerHeartbeat, DateTime WorkerHeartbeat, DateTime RpcSuccessAt,
+    string ActiveRpcEndpoint, uint? ConfirmedBlock, uint? ProcessedBlock, long Succeeded, long Failed, long Retried,
+    long DeadLetters, long LatencyTotalMilliseconds, long LatencySamples, long RpcFailures, ScannerBlockingError? ScannerError,
+    uint? NetworkTip, DateTime? LastSuccessfulScanAt, long ScannedBlocks, long ScannedTransactions,
+    long ObservedEvents, long ScanMilliseconds, long RpcRequests)
 {
-    public uint? ScannerLagBlocks => ConfirmedBlock is not null && ProcessedBlock is not null
-        ? ConfirmedBlock.Value >= ProcessedBlock.Value ? ConfirmedBlock.Value - ProcessedBlock.Value : 0
-        : null;
-
-    public double? AverageDeliveryLatencyMilliseconds => LatencySamples > 0
-        ? (double)LatencyTotalMilliseconds / LatencySamples
-        : null;
-
-    public double? SuccessRate => Succeeded + Failed > 0
-        ? (double)Succeeded / (Succeeded + Failed)
-        : null;
+    public uint? ScannerLagBlocks => ConfirmedBlock is { } tip && ProcessedBlock is { } scanned ? tip >= scanned ? tip - scanned : 0 : null;
+    public double? AverageDeliveryLatencyMilliseconds => LatencySamples > 0 ? (double)LatencyTotalMilliseconds / LatencySamples : null;
+    public double? SuccessRate => Succeeded + Failed > 0 ? (double)Succeeded / (Succeeded + Failed) : null;
+    public double? ScanBlocksPerSecond => ScanMilliseconds > 0 ? ScannedBlocks * 1000d / ScanMilliseconds : null;
 }

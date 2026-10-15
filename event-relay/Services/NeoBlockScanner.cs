@@ -51,6 +51,9 @@ public sealed class NeoBlockScanner(INeoRpcClient rpc, IEventCheckpointRepositor
             var tip = count - 1;
             if (tip < settings.ConfirmationBlocks) return;
             var confirmedTip = tip - settings.ConfirmationBlocks;
+            operations.RecordChainTip(tip, confirmedTip);
+            if (!await checkpoints.RecordTipAsync(id, owner, tip, confirmedTip, work.Token))
+                throw new InvalidOperationException("Chain observation lost checkpoint ownership.");
             if (checkpoint.NextBlock is null)
             {
                 // Persist the initial boundary before queuing anything so restart cannot choose a later tip.
@@ -72,6 +75,8 @@ public sealed class NeoBlockScanner(INeoRpcClient rpc, IEventCheckpointRepositor
             {
                 block = index;
                 transaction = null;
+                var timing = System.Diagnostics.Stopwatch.StartNew();
+                long events = 0;
                 var confirmedBlock = await rpc.GetBlockAsync(index, work.Token);
                 foreach (var hash in confirmedBlock.TransactionHashes)
                 {
@@ -80,6 +85,7 @@ public sealed class NeoBlockScanner(INeoRpcClient rpc, IEventCheckpointRepositor
                     // Parse the entire transaction before enqueuing any of its notifications.
                     foreach (var observed in NeoApplicationLogParser.Extract(log, settings.Network, hash, confirmedBlock))
                     {
+                        events++;
                         var matches = await subscriptions.GetMatchingAsync(observed.Network, observed.ContractHash, observed.EventName, work.Token);
                         foreach (var subscription in matches)
                         {
@@ -92,6 +98,7 @@ public sealed class NeoBlockScanner(INeoRpcClient rpc, IEventCheckpointRepositor
                 work.Token.ThrowIfCancellationRequested();
                 if (!await checkpoints.AdvanceAsync(id, owner, index, checked(index + 1), work.Token))
                     throw new InvalidOperationException("Checkpoint advancement lost ownership or its expected height changed.");
+                operations.RecordScannedBlock(confirmedBlock.TransactionHashes.Count, events, timing.ElapsedMilliseconds);
                 operations.RecordScannerProgress(confirmedTip, index);
                 operations.ClearScannerFailure();
                 operations.ScannerHeartbeat();

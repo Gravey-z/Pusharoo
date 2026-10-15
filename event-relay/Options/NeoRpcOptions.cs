@@ -18,6 +18,8 @@ public sealed class NeoRpcOptions
 
     public uint ConfirmationBlocks { get; init; } = 1;
 
+    public int CatchUpPollIntervalMilliseconds { get; init; } = 250;
+    public int MinRequestIntervalMilliseconds { get; init; } = 100;
     public int RequestTimeoutSeconds { get; init; } = 15;
     public int MaxAttempts { get; init; } = 3;
     public int RetryBaseMilliseconds { get; init; } = 500;

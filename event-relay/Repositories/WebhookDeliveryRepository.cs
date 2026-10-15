@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using Pusharoo.EventRelay.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Pusharoo.EventRelay.Models;
@@ -5,7 +7,7 @@ using Pusharoo.EventRelay.Services;
 
 namespace Pusharoo.EventRelay.Repositories;
 
-public sealed class WebhookDeliveryRepository(MongoDbContext db) : IWebhookDeliveryRepository
+public sealed class WebhookDeliveryRepository(MongoDbContext db, IOptions<NeoRpcOptions>? options = null) : IWebhookDeliveryRepository
 {
     public async Task<IReadOnlyList<WebhookDeliveryDocument>> GetBySubscriptionAsync(
         string subscriptionId,
@@ -68,21 +70,33 @@ public sealed class WebhookDeliveryRepository(MongoDbContext db) : IWebhookDeliv
         }
     }
 
-    public Task<long> CountOutstandingAsync(CancellationToken cancellationToken)
+    public async Task<long> CountOutstandingAsync(CancellationToken cancellationToken)
     {
-        return db.Deliveries.CountDocumentsAsync(
-            Builders<WebhookDeliveryDocument>.Filter.In(item => item.Status, ["pending", "retrying", "delivering", "waiting"]),
+        return await db.Deliveries.CountDocumentsAsync(
+            (await NetworkFilterAsync(cancellationToken)) & Builders<WebhookDeliveryDocument>.Filter.In(item => item.Status, ["pending", "retrying", "delivering", "waiting"]),
             cancellationToken: cancellationToken);
+    }
+
+    private async Task<FilterDefinition<WebhookDeliveryDocument>> NetworkFilterAsync(CancellationToken ct)
+    {
+        var network = options?.Value.Network;
+        if (network is null) return Builders<WebhookDeliveryDocument>.Filter.Empty;
+        var ids = await db.Subscriptions.Find(x => x.Network == network).Project(x => x.Id).ToListAsync(ct);
+        return Builders<WebhookDeliveryDocument>.Filter.Eq(x => x.Network, network)
+            | (Builders<WebhookDeliveryDocument>.Filter.In(x => x.SubscriptionId, ids)
+                & (Builders<WebhookDeliveryDocument>.Filter.Eq(x => x.Network, "")
+                    | Builders<WebhookDeliveryDocument>.Filter.Exists("network", false)));
     }
 
     public async Task<WebhookDeliveryDocument?> ClaimDueAsync(CancellationToken cancellationToken)
     {
-        var filter = new BsonDocument("$or", new BsonArray {
+        FilterDefinition<WebhookDeliveryDocument> filter = new BsonDocument("$or", new BsonArray {
             new BsonDocument { { "status", new BsonDocument("$in", new BsonArray { "pending", "retrying", "waiting" }) },
                 { "$expr", new BsonDocument("$lte", new BsonArray { "$nextAttemptAt", "$$NOW" }) } },
             new BsonDocument { { "status", "delivering" },
                 { "$expr", new BsonDocument("$lte", new BsonArray { "$leaseUntil", "$$NOW" }) } }
         });
+        filter &= await NetworkFilterAsync(cancellationToken);
         var owner = Guid.NewGuid().ToString("N");
         PipelineDefinition<WebhookDeliveryDocument, WebhookDeliveryDocument> pipeline = new[] {
             new BsonDocument("$set", new BsonDocument { { "status", "delivering" }, { "claimOwner", owner },

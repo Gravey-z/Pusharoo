@@ -9,7 +9,7 @@ using Pusharoo.EventRelay.Options;
 namespace Pusharoo.EventRelay.Services;
 
 public sealed class NeoRpcClient(HttpClient httpClient, IOptions<NeoRpcOptions> options,
-    RelayOperationsService operations, ILogger<NeoRpcClient> logger) : INeoRpcClient
+    RelayOperationsService operations, ILogger<NeoRpcClient> logger, NeoRpcRequestLimiter? limiter = null) : INeoRpcClient
 {
     private readonly NeoRpcOptions settings = options.Value;
     private readonly ConcurrentDictionary<string, DateTime> validated = new(StringComparer.OrdinalIgnoreCase);
@@ -130,6 +130,8 @@ public sealed class NeoRpcClient(HttpClient httpClient, IOptions<NeoRpcOptions> 
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
+                if (limiter is not null) await limiter.WaitAsync(cancellationToken);
+                operations.RecordRpcRequest();
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 timeout.CancelAfter(TimeSpan.FromSeconds(settings.RequestTimeoutSeconds));
                 var request = new NeoRpcRequest(method, parameters, Interlocked.Increment(ref requestId));

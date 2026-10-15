@@ -40,10 +40,16 @@ public sealed class EventCheckpointRepository(MongoDbContext db) : IEventCheckpo
         var filter = Owned(id, owner) & Builders<EventCheckpointDocument>.Filter.Eq(x => x.NextBlock, expectedNextBlock)
             & Builders<EventCheckpointDocument>.Filter.Eq(x => x.BlockingError, null);
         var update = Builders<EventCheckpointDocument>.Update.Set(x => x.NextBlock, nextBlock).CurrentDate(x => x.UpdatedAt);
+        if (expectedNextBlock is not null) update = update.CurrentDate(x => x.LastSuccessfulScanAt);
         return (await Collection.UpdateOneAsync(filter, update, cancellationToken: cancellationToken)).MatchedCount == 1;
     }
     public async Task<bool> BlockAsync(string id, string owner, ScannerBlockingError error, CancellationToken cancellationToken) =>
         (await Collection.UpdateOneAsync(Owned(id, owner), Builders<EventCheckpointDocument>.Update.Set(x => x.BlockingError, error), cancellationToken: cancellationToken)).MatchedCount == 1;
+
+    public async Task<bool> RecordTipAsync(string id, string owner, uint tip, uint confirmed, CancellationToken ct) =>
+        (await Collection.UpdateOneAsync(Owned(id, owner), Builders<EventCheckpointDocument>.Update
+            .Set(x => x.NetworkTip, tip).Set(x => x.ConfirmedTip, confirmed).CurrentDate(x => x.LastPollAt),
+            cancellationToken: ct)).MatchedCount == 1;
 
     public async Task ReleaseAsync(string id, string owner, CancellationToken cancellationToken) =>
         await Collection.UpdateOneAsync(x => x.Id == id && x.ScannerOwner == owner,

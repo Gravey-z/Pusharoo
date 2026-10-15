@@ -1,0 +1,15 @@
+services:
+  relay-prometheus:
+    image: ${PUSHAROO_PROMETHEUS_IMAGE:-prom/prometheus:latest}
+    profiles: [relay-monitoring]
+    restart: unless-stopped
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    volumes:
+      - ./ops/relay/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/relay/relay-alerts.yml:/etc/prometheus/relay-alerts.yml:ro
+      - relay-prometheus-data:/prometheus
+    expose: ["9090"]
+    depends_on: [event-relay-testnet, event-relay-mainnet]
+
+volumes:
+  relay-prometheus-data:

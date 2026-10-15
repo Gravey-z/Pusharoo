@@ -5,6 +5,7 @@ namespace Pusharoo.EventRelay.Models;
 public sealed class WebhookDeliveryAttemptDocument
 {
     [BsonId, BsonElement("_id")] public string Id { get; init; } = string.Empty;
+    [BsonElement("network")] public string Network { get; init; } = "";
     [BsonElement("deliveryId")] public string DeliveryId { get; init; } = string.Empty;
     [BsonElement("eventId")] public string EventId { get; init; } = string.Empty;
     [BsonElement("payloadVersion")] public int PayloadVersion { get; init; } = 2;

@@ -9,6 +9,7 @@ public sealed record WebhookDeliveryDocument
     [BsonElement("_id")]
     public string Id { get; init; } = string.Empty;
 
+    [BsonElement("network")] public string Network { get; init; } = "";
     [BsonElement("subscriptionId")]
     public string SubscriptionId { get; init; } = string.Empty;
 
