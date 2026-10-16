@@ -1,8 +1,8 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { Subject, firstValueFrom, takeUntil, timeout } from 'rxjs';
 import { Observable } from 'rxjs';
 import {
   Artifact,
@@ -41,7 +41,7 @@ interface DeploymentOption {
   templateUrl: './event-webhooks.component.html',
   styleUrl: './event-webhooks.component.scss'
 })
-export class EventWebhooksComponent implements OnInit {
+export class EventWebhooksComponent implements OnInit, OnDestroy {
   replayJobs: Partial<Record<string, RelayReplayJob[]>> = {};
   replayFrom: Record<string, number> = {};
   replayTo: Record<string, number> = {};
@@ -76,6 +76,12 @@ export class EventWebhooksComponent implements OnInit {
   private readonly formStatusByNetwork: Record<string, string> = {};
   private readonly errorMessageByNetwork: Record<string, string> = {};
   private readonly workspace = inject(ProjectWorkspaceContextService, { optional: true });
+  private readonly destroy$ = new Subject<void>();
+  private destroyed = false;
+  private deliveryRefreshTimer?: ReturnType<typeof setTimeout>;
+  private readonly deliveryRefreshErrors: Record<string, string> = {};
+
+  get deliveryRefreshError(): string { return this.deliveryRefreshErrors[this.webhookNetwork] ?? ''; }
 
   get isSaving(): boolean { return this.savingByNetwork[this.webhookNetwork] ?? false; }
   set isSaving(value: boolean) { this.savingByNetwork[this.webhookNetwork] = value; }
@@ -137,6 +143,47 @@ export class EventWebhooksComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.scheduleDeliveryRefresh();
+  }
+
+  ngOnDestroy(): void {
+    this.destroyed = true;
+    clearTimeout(this.deliveryRefreshTimer);
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private scheduleDeliveryRefresh(): void {
+    if (this.destroyed) return;
+    this.deliveryRefreshTimer = setTimeout(() => {
+      void this.refreshDeliveryStatus().finally(() => this.scheduleDeliveryRefresh());
+    }, 5000);
+  }
+
+  private async refreshDeliveryStatus(): Promise<void> {
+    if (this.destroyed || !this.isRelayConnected || !this.relayNetwork ||
+        (typeof document !== 'undefined' && document.hidden)) return;
+    const network = this.relayNetwork;
+    const historyFor = this.deliveryHistoryForByNetwork[network];
+    try {
+      // Background reads must never trigger a wallet sign-in prompt.
+      const [subscriptions, history] = await Promise.all([
+        firstValueFrom(this.api.getWebhookSubscriptions(this.projectId, network).pipe(timeout(10000), takeUntil(this.destroy$))),
+        historyFor ? firstValueFrom(this.api.getWebhookDeliveries(this.projectId, network, historyFor)
+          .pipe(timeout(10000), takeUntil(this.destroy$))) : Promise.resolve(null)
+      ]);
+      if (this.destroyed || !this.isRelayConnected) return;
+      this.subscriptionsByNetwork[network] = subscriptions;
+      if (network === this.relayNetwork) this.subscriptions = subscriptions;
+      if (history && this.deliveryHistoryForByNetwork[network] === historyFor) {
+        this.deliveryHistoryByNetwork[network] = history;
+      }
+      this.deliveryRefreshErrors[network] = '';
+    } catch {
+      if (!this.destroyed) {
+        this.deliveryRefreshErrors[network] = 'Could not refresh delivery status. Retrying automatically.';
+      }
+    }
   }
 
   async save(): Promise<void> {
@@ -246,18 +293,20 @@ export class EventWebhooksComponent implements OnInit {
   }
 
   async showDeliveryHistory(subscription: WebhookSubscription): Promise<void> {
+    const network = subscription.network;
     this.errorMessage = '';
-    this.loadingDeliveryHistoryFor = subscription.id;
+    this.loadingDeliveryHistoryForByNetwork[network] = subscription.id;
     try {
-      this.deliveryHistory = await this.executeWebhookRequest(() =>
+      const history = await this.executeWebhookRequest(() =>
         this.api.getWebhookDeliveries(this.projectId, subscription.network, subscription.id));
-      this.deliveryHistoryFor = subscription.id;
+      this.deliveryHistoryByNetwork[network] = history;
+      this.deliveryHistoryForByNetwork[network] = subscription.id;
     } catch (error) {
-      this.deliveryHistory = [];
-      this.deliveryHistoryFor = '';
-      this.errorMessage = this.errors.format(error, 'Could not load webhook delivery history.');
+      this.deliveryHistoryByNetwork[network] = [];
+      this.deliveryHistoryForByNetwork[network] = '';
+      this.errorMessageByNetwork[network] = this.errors.format(error, 'Could not load webhook delivery history.');
     } finally {
-      this.loadingDeliveryHistoryFor = '';
+      this.loadingDeliveryHistoryForByNetwork[network] = '';
     }
   }
 
