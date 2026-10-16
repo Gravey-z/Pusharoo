@@ -114,6 +114,11 @@
     <section class="artifact-list" aria-label="Artifacts">
       <header class="artifact-list-header">
         <h2>Artifacts</h2>
+        @if (overview.artifacts.length >= 2) {
+          <a class="secondary-button" [routerLink]="['/projects', overview.project.id, 'compare']">
+            Compare versions
+          </a>
+        }
         @if (releaseTab === 'artifacts' && canManageProject(overview)) {
           <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
             Upload Artifact

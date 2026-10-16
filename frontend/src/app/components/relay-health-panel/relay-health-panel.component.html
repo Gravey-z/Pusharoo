@@ -1,0 +1,53 @@
+<section class="health-panel" aria-label="Relay network health">
+  <header>
+    <div>
+      <h2>Relay health <span [class.healthy]="status === 'ok'" [class.warning]="status !== 'ok' && status !== 'checking'">{{ status === 'ok' ? 'Operational' : status }}</span></h2>
+      <p>{{ network }} &middot; Network-wide activity across all projects</p>
+    </div>
+    <button type="button" class="secondary-button" (click)="refresh.emit()">Refresh status</button>
+  </header>
+  <dl class="metrics">
+    <div><dt>Scan lag</dt><dd>{{ detail?.scanner?.lagBlocks != null ? (detail?.scanner?.lagBlocks | number) : '?' }} <small>blocks</small></dd></div>
+    <div><dt>Queued deliveries</dt><dd>{{ detail?.queue?.depth != null ? (detail?.queue?.depth | number) : '?' }}</dd></div>
+    <div><dt>Permanent failures</dt><dd [class.warning]="(detail?.queue?.deadLetters ?? 0) > 0">{{ detail?.queue?.deadLetters != null ? (detail?.queue?.deadLetters | number) : '?' }}</dd></div>
+  </dl>
+  @if (detail?.scanner?.error; as error) {
+    <p class="notice" role="status">Scanning stopped at block {{ error.blockIndex ?? 'unknown' }}: {{ error.kind }}. {{ error.message }}</p>
+  }
+  @for (alert of detail?.alerts ?? []; track alert.code) {
+    <p class="notice" role="status">{{ alert.message }}</p>
+  }
+  <details>
+    <summary>View diagnostics</summary>
+    <div class="diagnostics">
+      @if (detail; as health) {
+        @if (health.scanner; as scanner) {
+          <section><h3>Block scanning</h3><dl>
+            <div><dt>Network tip</dt><dd>{{ scanner.networkTip ?? 'Unknown' }}</dd></div>
+            <div><dt>Confirmed tip</dt><dd>{{ scanner.confirmedTip ?? 'Unknown' }}</dd></div>
+            <div><dt>Scanned through</dt><dd>{{ scanner.scannedHeight ?? 'Not recorded' }}</dd></div>
+            <div><dt>Last completed scan</dt><dd>{{ scanner.lastSuccessfulScanAt ? (scanner.lastSuccessfulScanAt | date: 'short') : 'Not recorded' }}</dd></div>
+          </dl></section>
+        }
+        @if (health.queue; as queue) {
+          <section><h3>Delivery queue</h3><dl>
+            <div><dt>Pending</dt><dd>{{ queue.pending }}</dd></div>
+            <div><dt>Retrying</dt><dd>{{ queue.retrying }}</dd></div>
+            <div><dt>Waiting</dt><dd>{{ queue.waiting }}</dd></div>
+            <div><dt>In flight</dt><dd>{{ queue.delivering }}</dd></div>
+            <div><dt>Expired claims</dt><dd>{{ queue.expiredClaims }}</dd></div>
+          </dl></section>
+        }
+        @if (health.replays; as replays) {
+          <section><h3>Recovery scans</h3><dl>
+            <div><dt>Running</dt><dd>{{ replays.running }}</dd></div>
+            <div><dt>Paused</dt><dd>{{ replays.paused }}</dd></div>
+            <div><dt>Blocked</dt><dd>{{ replays.blocked }}</dd></div>
+          </dl><p>Use Advanced recovery above to manage this project's scans.</p></section>
+        }
+      } @else {
+        <p>Operational details are unavailable. Refresh status to try again.</p>
+      }
+    </div>
+  </details>
+</section>

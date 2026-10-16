@@ -25,6 +25,7 @@ import { ApiErrorFormatterService } from '../../services/api-error-formatter.ser
 import { WalletService } from '../../services/wallet.service';
 import { WalletAuthService } from '../../services/wallet-auth.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
+import { RelayHealthPanelComponent } from '../../components/relay-health-panel/relay-health-panel.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 import { ProjectWorkspaceContextService } from '../../services/project-workspace-context.service';
 
@@ -37,7 +38,7 @@ interface DeploymentOption {
 
 @Component({
   selector: 'app-event-webhooks',
-  imports: [DatePipe, FormsModule, PageShellComponent, ProjectReleaseNavComponent, RouterLink],
+  imports: [RelayHealthPanelComponent, DatePipe, FormsModule, PageShellComponent, ProjectReleaseNavComponent, RouterLink],
   templateUrl: './event-webhooks.component.html',
   styleUrl: './event-webhooks.component.scss'
 })
