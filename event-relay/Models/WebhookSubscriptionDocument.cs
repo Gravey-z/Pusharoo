@@ -32,7 +32,8 @@ public sealed class WebhookSubscriptionDocument
     [BsonElement("headers")]
     public Dictionary<string, string> Headers { get; init; } = [];
 
-    [BsonElement("payloadVersion")] public int PayloadVersion { get; init; } = 2;
+    [BsonElement("payloadVersion")]
+    public int PayloadVersion { get; init; } = 2;
 
     [BsonElement("isEnabled")]
     public bool IsEnabled { get; init; } = true;

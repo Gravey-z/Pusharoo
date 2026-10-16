@@ -15,7 +15,8 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
 
     public async Task<ArtifactDocument> CreateAsync(
         ArtifactUploadInput upload,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var manifest = ParseManifest(upload.ManifestJson);
         validator.Validate(upload.Nef, upload.ManifestJson, manifest);
@@ -28,7 +29,9 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
             ProjectId = upload.ProjectId,
             Version = NormalizeVersion(upload.Version),
             Notes = string.IsNullOrWhiteSpace(upload.Notes) ? null : upload.Notes.Trim(),
-            ContractName = string.IsNullOrWhiteSpace(manifest.Name) ? Path.GetFileNameWithoutExtension(nefFileName) : manifest.Name,
+            ContractName = string.IsNullOrWhiteSpace(manifest.Name)
+                ? Path.GetFileNameWithoutExtension(nefFileName)
+                : manifest.Name,
             NefFileName = nefFileName,
             NefSize = upload.Nef.LongLength,
             Nef = upload.Nef,
@@ -45,15 +48,23 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
         return artifact;
     }
 
-    public Task<ArtifactDocument?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken)
-        => artifacts.GetByIdempotencyKeyAsync(idempotencyKey, cancellationToken);
+    public Task<ArtifactDocument?> GetByIdempotencyKeyAsync(
+        string idempotencyKey,
+        CancellationToken cancellationToken
+    ) => artifacts.GetByIdempotencyKeyAsync(idempotencyKey, cancellationToken);
 
-    public async Task<IReadOnlyList<ArtifactDocument>> GetByProjectIdAsync(string projectId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<ArtifactDocument>> GetByProjectIdAsync(
+        string projectId,
+        CancellationToken cancellationToken
+    )
     {
         return await artifacts.GetByProjectIdAsync(projectId, cancellationToken);
     }
 
-    public async Task<ArtifactDocument?> GetByIdAsync(string artifactId, CancellationToken cancellationToken)
+    public async Task<ArtifactDocument?> GetByIdAsync(
+        string artifactId,
+        CancellationToken cancellationToken
+    )
     {
         return await artifacts.GetByIdAsync(artifactId, cancellationToken);
     }
@@ -62,7 +73,8 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
         string projectId,
         string fromVersion,
         string toVersion,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var fromArtifact = await GetByVersionAsync(projectId, fromVersion, cancellationToken);
         var toArtifact = await GetByVersionAsync(projectId, toVersion, cancellationToken);
@@ -84,17 +96,20 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
     private async Task<ArtifactDocument?> GetByVersionAsync(
         string projectId,
         string version,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         return await artifacts.GetByProjectIdAndVersionAsync(
             projectId,
             NormalizeVersion(version),
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     private static string NormalizeVersion(string version)
     {
         var normalized = version.Trim();
+
         return normalized.StartsWith("v", StringComparison.OrdinalIgnoreCase)
             ? normalized[1..]
             : normalized;
@@ -102,48 +117,53 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
 
     private static ArtifactComparisonResponse CompareManifests(
         NeoContractManifest fromManifest,
-        NeoContractManifest toManifest)
+        NeoContractManifest toManifest
+    )
     {
         var fromMethods = ToMethodMap(fromManifest.Abi.Methods);
         var toMethods = ToMethodMap(toManifest.Abi.Methods);
 
-        var addedMethods = toMethods.Keys
-            .Except(fromMethods.Keys, StringComparer.Ordinal)
+        var addedMethods = toMethods
+            .Keys.Except(fromMethods.Keys, StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
-        var removedMethods = fromMethods.Keys
-            .Except(toMethods.Keys, StringComparer.Ordinal)
+        var removedMethods = fromMethods
+            .Keys.Except(toMethods.Keys, StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
-        var changedMethods = fromMethods.Keys
-            .Intersect(toMethods.Keys, StringComparer.Ordinal)
+        var changedMethods = fromMethods
+            .Keys.Intersect(toMethods.Keys, StringComparer.Ordinal)
             .Select(name => GetChangedMethod(name, fromMethods[name], toMethods[name]))
             .Where(change => change is not null)
             .Cast<ChangedMethodResponse>()
             .OrderBy(change => change.Name, StringComparer.Ordinal)
             .ToArray();
 
-        var fromEventNames = fromManifest.Abi.Events
-            .Select(contractEvent => contractEvent.Name)
+        var fromEventNames = fromManifest
+            .Abi.Events.Select(contractEvent => contractEvent.Name)
             .ToHashSet(StringComparer.Ordinal);
 
-        var addedEvents = toManifest.Abi.Events
-            .Select(contractEvent => contractEvent.Name)
+        var addedEvents = toManifest
+            .Abi.Events.Select(contractEvent => contractEvent.Name)
             .Where(name => !fromEventNames.Contains(name))
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
-        var permissionChanges = GetPermissionChanges(fromManifest.Permissions, toManifest.Permissions);
+        var permissionChanges = GetPermissionChanges(
+            fromManifest.Permissions,
+            toManifest.Permissions
+        );
 
         return new ArtifactComparisonResponse(
             addedMethods,
             removedMethods,
             changedMethods,
             addedEvents,
-            permissionChanges);
+            permissionChanges
+        );
     }
 
     private static Dictionary<string, NeoMethod> ToMethodMap(IEnumerable<NeoMethod> methods)
@@ -156,7 +176,8 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
     private static ChangedMethodResponse? GetChangedMethod(
         string name,
         NeoMethod fromMethod,
-        NeoMethod toMethod)
+        NeoMethod toMethod
+    )
     {
         if (GetSignature(fromMethod) == GetSignature(toMethod))
         {
@@ -167,19 +188,26 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
 
         var fromParameters = GetParameterSignature(fromMethod.Parameters);
         var toParameters = GetParameterSignature(toMethod.Parameters);
+
         if (fromParameters != toParameters)
         {
-            changes.Add($"Parameters changed from {FormatParameters(fromMethod.Parameters)} to {FormatParameters(toMethod.Parameters)}");
+            changes.Add(
+                $"Parameters changed from {FormatParameters(fromMethod.Parameters)} to {FormatParameters(toMethod.Parameters)}"
+            );
         }
 
         if (!string.Equals(fromMethod.ReturnType, toMethod.ReturnType, StringComparison.Ordinal))
         {
-            changes.Add($"Return type changed from {fromMethod.ReturnType} to {toMethod.ReturnType}");
+            changes.Add(
+                $"Return type changed from {fromMethod.ReturnType} to {toMethod.ReturnType}"
+            );
         }
 
         if (fromMethod.Safe != toMethod.Safe)
         {
-            changes.Add($"Safe flag changed from {FormatBoolean(fromMethod.Safe)} to {FormatBoolean(toMethod.Safe)}");
+            changes.Add(
+                $"Safe flag changed from {FormatBoolean(fromMethod.Safe)} to {FormatBoolean(toMethod.Safe)}"
+            );
         }
 
         if (changes.Count == 0)
@@ -199,7 +227,8 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
     {
         return string.Join(
             ",",
-            parameters.Select(parameter => $"{parameter.Name}:{parameter.Type}"));
+            parameters.Select(parameter => $"{parameter.Name}:{parameter.Type}")
+        );
     }
 
     private static string FormatParameters(IReadOnlyCollection<NeoParameter> parameters)
@@ -211,7 +240,8 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
 
         return string.Join(
             ", ",
-            parameters.Select(parameter => $"{parameter.Name}: {parameter.Type}"));
+            parameters.Select(parameter => $"{parameter.Name}: {parameter.Type}")
+        );
     }
 
     private static string FormatBoolean(bool value)
@@ -221,20 +251,33 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
 
     private static IReadOnlyList<string> GetPermissionChanges(
         IReadOnlyCollection<NeoPermission> fromPermissions,
-        IReadOnlyCollection<NeoPermission> toPermissions)
+        IReadOnlyCollection<NeoPermission> toPermissions
+    )
     {
         var fromPermissionMap = ToPermissionMap(fromPermissions);
         var toPermissionMap = ToPermissionMap(toPermissions);
         var changes = new List<string>();
 
-        foreach (var addedPermission in toPermissionMap.Keys.Except(fromPermissionMap.Keys, StringComparer.Ordinal))
+        foreach (
+            var addedPermission in toPermissionMap.Keys.Except(
+                fromPermissionMap.Keys,
+                StringComparer.Ordinal
+            )
+        )
         {
-            changes.Add(IsWildcardPermission(toPermissionMap[addedPermission])
-                ? "Added wildcard permission"
-                : $"Added permission {addedPermission}");
+            changes.Add(
+                IsWildcardPermission(toPermissionMap[addedPermission])
+                    ? "Added wildcard permission"
+                    : $"Added permission {addedPermission}"
+            );
         }
 
-        foreach (var removedPermission in fromPermissionMap.Keys.Except(toPermissionMap.Keys, StringComparer.Ordinal))
+        foreach (
+            var removedPermission in fromPermissionMap.Keys.Except(
+                toPermissionMap.Keys,
+                StringComparer.Ordinal
+            )
+        )
         {
             changes.Add($"Removed permission {removedPermission}");
         }
@@ -242,7 +285,9 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
         return changes;
     }
 
-    private static Dictionary<string, NeoPermission> ToPermissionMap(IEnumerable<NeoPermission> permissions)
+    private static Dictionary<string, NeoPermission> ToPermissionMap(
+        IEnumerable<NeoPermission> permissions
+    )
     {
         return permissions
             .GroupBy(NormalizePermission, StringComparer.Ordinal)
@@ -273,11 +318,14 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
     {
         return value switch
         {
-            BsonDocument document => "{" + string.Join(
-                ",",
-                document.Elements
-                    .OrderBy(element => element.Name, StringComparer.Ordinal)
-                    .Select(element => $"{element.Name}:{NormalizeBsonValue(element.Value)}")) + "}",
+            BsonDocument document => "{"
+                + string.Join(
+                    ",",
+                    document
+                        .Elements.OrderBy(element => element.Name, StringComparer.Ordinal)
+                        .Select(element => $"{element.Name}:{NormalizeBsonValue(element.Value)}")
+                )
+                + "}",
             BsonArray array => "[" + string.Join(",", array.Select(NormalizeBsonValue)) + "]",
             BsonString bsonString => bsonString.Value,
             BsonNull => "null",

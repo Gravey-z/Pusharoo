@@ -12,7 +12,8 @@ public sealed class NeoRpcClient(HttpClient httpClient)
         string endpoint,
         string method,
         object?[] parameters,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var request = new NeoRpcRequest
         {
@@ -25,10 +26,15 @@ public sealed class NeoRpcClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        using var document = await JsonDocument.ParseAsync(
+            stream,
+            cancellationToken: cancellationToken
+        );
         var root = document.RootElement;
 
-        if (root.TryGetProperty("error", out var error) && error.ValueKind is not JsonValueKind.Null)
+        if (
+            root.TryGetProperty("error", out var error) && error.ValueKind is not JsonValueKind.Null
+        )
         {
             throw new InvalidOperationException($"Neo RPC {method} failed: {error}");
         }

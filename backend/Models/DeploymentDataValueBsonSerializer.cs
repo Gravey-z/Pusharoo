@@ -11,7 +11,8 @@ public sealed class DeploymentDataValueBsonSerializer : SerializerBase<Deploymen
     public override void Serialize(
         BsonSerializationContext context,
         BsonSerializationArgs args,
-        DeploymentDataValue value)
+        DeploymentDataValue value
+    )
     {
         var writer = context.Writer;
         writer.WriteStartDocument();
@@ -24,21 +25,31 @@ public sealed class DeploymentDataValueBsonSerializer : SerializerBase<Deploymen
 
     public override DeploymentDataValue Deserialize(
         BsonDeserializationContext context,
-        BsonDeserializationArgs args)
+        BsonDeserializationArgs args
+    )
     {
         var document = BsonDocumentSerializer.Instance.Deserialize(context, args);
-        if (!document.TryGetValue("type", out var typeValue) || !typeValue.IsString
-            || !document.TryGetValue("value", out var bsonValue))
+
+        if (
+            !document.TryGetValue("type", out var typeValue)
+            || !typeValue.IsString
+            || !document.TryGetValue("value", out var bsonValue)
+        )
         {
-            throw new BsonSerializationException("Stored deployment data must contain a string type and a value.");
+            throw new BsonSerializationException(
+                "Stored deployment data must contain a string type and a value."
+            );
         }
 
         using var stream = new MemoryStream();
+
         using (var writer = new Utf8JsonWriter(stream))
         {
             WriteBsonValue(writer, bsonValue);
         }
+
         using var json = JsonDocument.Parse(stream.ToArray());
+
         return new DeploymentDataValue(typeValue.AsString, json.RootElement.Clone());
     }
 
@@ -57,7 +68,8 @@ public sealed class DeploymentDataValueBsonSerializer : SerializerBase<Deploymen
                 break;
             case JsonValueKind.Array:
                 writer.WriteStartArray();
-                foreach (var item in value.EnumerateArray()) WriteJsonElement(writer, item);
+                foreach (var item in value.EnumerateArray())
+                    WriteJsonElement(writer, item);
                 writer.WriteEndArray();
                 break;
             case JsonValueKind.String:
@@ -82,7 +94,9 @@ public sealed class DeploymentDataValueBsonSerializer : SerializerBase<Deploymen
                 writer.WriteDouble(value.GetDouble());
                 break;
             default:
-                throw new BsonSerializationException($"Unsupported deployment data JSON value '{value.ValueKind}'.");
+                throw new BsonSerializationException(
+                    $"Unsupported deployment data JSON value '{value.ValueKind}'."
+                );
         }
     }
 
@@ -91,38 +105,58 @@ public sealed class DeploymentDataValueBsonSerializer : SerializerBase<Deploymen
         if (value.IsBsonNull)
         {
             writer.WriteNullValue();
+
             return;
         }
 
         if (value.IsBsonDocument)
         {
             writer.WriteStartObject();
+
             foreach (var element in value.AsBsonDocument.Elements)
             {
                 writer.WritePropertyName(element.Name);
                 WriteBsonValue(writer, element.Value);
             }
+
             writer.WriteEndObject();
+
             return;
         }
 
         if (value.IsBsonArray)
         {
             writer.WriteStartArray();
-            foreach (var item in value.AsBsonArray) WriteBsonValue(writer, item);
+
+            foreach (var item in value.AsBsonArray)
+                WriteBsonValue(writer, item);
+
             writer.WriteEndArray();
+
             return;
         }
 
         switch (value.BsonType)
         {
-            case BsonType.String: writer.WriteStringValue(value.AsString); break;
-            case BsonType.Boolean: writer.WriteBooleanValue(value.AsBoolean); break;
-            case BsonType.Int32: writer.WriteNumberValue(value.AsInt32); break;
-            case BsonType.Int64: writer.WriteNumberValue(value.AsInt64); break;
-            case BsonType.Double: writer.WriteNumberValue(value.AsDouble); break;
+            case BsonType.String:
+                writer.WriteStringValue(value.AsString);
+                break;
+            case BsonType.Boolean:
+                writer.WriteBooleanValue(value.AsBoolean);
+                break;
+            case BsonType.Int32:
+                writer.WriteNumberValue(value.AsInt32);
+                break;
+            case BsonType.Int64:
+                writer.WriteNumberValue(value.AsInt64);
+                break;
+            case BsonType.Double:
+                writer.WriteNumberValue(value.AsDouble);
+                break;
             default:
-                throw new BsonSerializationException($"Unsupported stored deployment data BSON type '{value.BsonType}'.");
+                throw new BsonSerializationException(
+                    $"Unsupported stored deployment data BSON type '{value.BsonType}'."
+                );
         }
     }
 }

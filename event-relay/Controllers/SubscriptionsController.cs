@@ -21,9 +21,14 @@ public sealed class SubscriptionsController(
     WebhookSecretProtector secretProtector,
     RelayEntitlementService entitlements,
     IOptions<NeoRpcOptions> neoRpcOptions,
-    IOptions<EventRelayOptions> eventRelayOptions) : ControllerBase
+    IOptions<EventRelayOptions> eventRelayOptions
+) : ControllerBase
 {
-    private static readonly Regex HeaderNamePattern = new("^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,64}$", RegexOptions.Compiled);
+    private static readonly Regex HeaderNamePattern = new(
+        "^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,64}$",
+        RegexOptions.Compiled
+    );
+
     private static readonly HashSet<string> ForbiddenHeaders = new(StringComparer.OrdinalIgnoreCase)
     {
         "Authorization",
@@ -48,15 +53,19 @@ public sealed class SubscriptionsController(
     [HttpPost("query")]
     public async Task<ActionResult<IReadOnlyList<SubscriptionResponse>>> GetAll(
         string projectId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var items = await subscriptions.GetByProjectIdAsync(projectId, cancellationToken);
         var latestDeliveries = await deliveries.GetLatestBySubscriptionIdsAsync(
             items.Select(subscription => subscription.Id).ToArray(),
-            cancellationToken);
-        var response = items.Select(subscription => ToResponse(
-            subscription,
-            latestDeliveries.GetValueOrDefault(subscription.Id))).ToArray();
+            cancellationToken
+        );
+        var response = items
+            .Select(subscription =>
+                ToResponse(subscription, latestDeliveries.GetValueOrDefault(subscription.Id))
+            )
+            .ToArray();
 
         return Ok(response);
     }
@@ -65,21 +74,33 @@ public sealed class SubscriptionsController(
     public async Task<ActionResult<SubscriptionResponse>> Create(
         string projectId,
         CreateSubscriptionRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        var entitlement = await entitlements.GetAsync(projectId, request.Network.Trim(), cancellationToken);
+        var entitlement = await entitlements.GetAsync(
+            projectId,
+            request.Network.Trim(),
+            cancellationToken
+        );
+
         if (entitlement.Status != "active" || entitlement.PeriodEndsAt <= DateTime.UtcNow)
         {
             return BadRequest(new { error = "Relay access is not active for this network." });
         }
-        var activeSubscriptions = (await subscriptions.GetByProjectIdAsync(projectId, cancellationToken))
-            .Count(item => item.IsEnabled && (entitlement.Plan == "paid" || item.Network == request.Network.Trim()));
+
+        var activeSubscriptions = (
+            await subscriptions.GetByProjectIdAsync(projectId, cancellationToken)
+        ).Count(item =>
+            item.IsEnabled && (entitlement.Plan == "paid" || item.Network == request.Network.Trim())
+        );
+
         if (request.IsEnabled && activeSubscriptions >= entitlement.MaxActiveSubscriptions)
         {
             return BadRequest(new { error = "The Relay active-webhook limit has been reached." });
         }
 
         var validation = await ValidateSubscriptionAsync(request, cancellationToken);
+
         if (validation is not null)
         {
             return BadRequest(new { error = validation });
@@ -101,9 +122,13 @@ public sealed class SubscriptionsController(
             PayloadVersion = request.PayloadVersion,
             CreatedAt = now,
             UpdatedAt = now,
-            ExpiresAt = string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal) && entitlement.Plan == "free_beta"
-                ? now.AddDays(Math.Max(1, eventRelayOptions.Value.TestnetSubscriptionRetentionDays))
-                : null
+            ExpiresAt =
+                string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal)
+                && entitlement.Plan == "free_beta"
+                    ? now.AddDays(
+                        Math.Max(1, eventRelayOptions.Value.TestnetSubscriptionRetentionDays)
+                    )
+                    : null
         };
 
         await subscriptions.InsertAsync(subscription, cancellationToken);
@@ -114,9 +139,32 @@ public sealed class SubscriptionsController(
     [HttpPost("usage")]
     public async Task<IActionResult> Usage(string projectId, CancellationToken cancellationToken)
     {
-        var entitlement = await entitlements.GetAsync(projectId, neoRpcOptions.Value.Network, cancellationToken);
-        var active = (await subscriptions.GetByProjectIdAsync(projectId, cancellationToken)).Count(x => x.IsEnabled && (entitlement.Plan == "paid" || x.Network == neoRpcOptions.Value.Network));
-        return Ok(new { entitlement.Plan, entitlement.Status, entitlement.PeriodStart, entitlement.PeriodEndsAt, entitlement.GraceEndsAt, entitlement.MaxActiveSubscriptions, activeSubscriptions = active, entitlement.MaxEvents, entitlement.EventsUsed, eventsRemaining = Math.Max(0, entitlement.MaxEvents - entitlement.EventsUsed) });
+        var entitlement = await entitlements.GetAsync(
+            projectId,
+            neoRpcOptions.Value.Network,
+            cancellationToken
+        );
+        var active = (await subscriptions.GetByProjectIdAsync(projectId, cancellationToken)).Count(
+            x =>
+                x.IsEnabled
+                && (entitlement.Plan == "paid" || x.Network == neoRpcOptions.Value.Network)
+        );
+
+        return Ok(
+            new
+            {
+                entitlement.Plan,
+                entitlement.Status,
+                entitlement.PeriodStart,
+                entitlement.PeriodEndsAt,
+                entitlement.GraceEndsAt,
+                entitlement.MaxActiveSubscriptions,
+                activeSubscriptions = active,
+                entitlement.MaxEvents,
+                entitlement.EventsUsed,
+                eventsRemaining = Math.Max(0, entitlement.MaxEvents - entitlement.EventsUsed)
+            }
+        );
     }
 
     [HttpPut("{subscriptionId}")]
@@ -124,26 +172,63 @@ public sealed class SubscriptionsController(
         string projectId,
         string subscriptionId,
         UpdateSubscriptionRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        var existing = await GetProjectSubscriptionAsync(projectId, subscriptionId, cancellationToken);
+        var existing = await GetProjectSubscriptionAsync(
+            projectId,
+            subscriptionId,
+            cancellationToken
+        );
+
         if (existing is null)
         {
             return NotFound();
         }
 
-        var entitlement = await entitlements.GetAsync(projectId, request.Network.Trim(), cancellationToken);
-        if (request.IsEnabled && (!existing.IsEnabled || !string.Equals(existing.Network, request.Network.Trim(), StringComparison.Ordinal)))
+        var entitlement = await entitlements.GetAsync(
+            projectId,
+            request.Network.Trim(),
+            cancellationToken
+        );
+
+        if (
+            request.IsEnabled
+            && (
+                !existing.IsEnabled
+                || !string.Equals(
+                    existing.Network,
+                    request.Network.Trim(),
+                    StringComparison.Ordinal
+                )
+            )
+        )
         {
-            var activeSubscriptions = (await subscriptions.GetByProjectIdAsync(projectId, cancellationToken))
-                .Count(item => item.Id != existing.Id && item.IsEnabled && (entitlement.Plan == "paid" || item.Network == request.Network.Trim()));
-            if (entitlement.Status != "active" || entitlement.PeriodEndsAt <= DateTime.UtcNow || activeSubscriptions >= entitlement.MaxActiveSubscriptions)
+            var activeSubscriptions = (
+                await subscriptions.GetByProjectIdAsync(projectId, cancellationToken)
+            ).Count(item =>
+                item.Id != existing.Id
+                && item.IsEnabled
+                && (entitlement.Plan == "paid" || item.Network == request.Network.Trim())
+            );
+
+            if (
+                entitlement.Status != "active"
+                || entitlement.PeriodEndsAt <= DateTime.UtcNow
+                || activeSubscriptions >= entitlement.MaxActiveSubscriptions
+            )
             {
-                return BadRequest(new { error = "This network's relay allowance does not permit another active webhook." });
+                return BadRequest(
+                    new
+                    {
+                        error = "This network's relay allowance does not permit another active webhook."
+                    }
+                );
             }
         }
 
         var validation = await ValidateSubscriptionAsync(request, cancellationToken);
+
         if (validation is not null)
         {
             return BadRequest(new { error = validation });
@@ -166,23 +251,39 @@ public sealed class SubscriptionsController(
             PayloadVersion = request.PayloadVersion,
             CreatedAt = existing.CreatedAt,
             UpdatedAt = DateTime.UtcNow,
-            ExpiresAt = string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal) && entitlement.Plan == "free_beta"
-                ? existing.ExpiresAt ?? existing.CreatedAt.AddDays(Math.Max(1, eventRelayOptions.Value.TestnetSubscriptionRetentionDays))
-                : null
+            ExpiresAt =
+                string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal)
+                && entitlement.Plan == "free_beta"
+                    ? existing.ExpiresAt
+                        ?? existing.CreatedAt.AddDays(
+                            Math.Max(1, eventRelayOptions.Value.TestnetSubscriptionRetentionDays)
+                        )
+                    : null
         };
 
         await subscriptions.ReplaceAsync(updated, cancellationToken);
 
-        return Ok(ToResponse(updated, await deliveries.GetLatestBySubscriptionAsync(updated.Id, cancellationToken)));
+        return Ok(
+            ToResponse(
+                updated,
+                await deliveries.GetLatestBySubscriptionAsync(updated.Id, cancellationToken)
+            )
+        );
     }
 
     [HttpDelete("{subscriptionId}")]
     public async Task<IActionResult> Delete(
         string projectId,
         string subscriptionId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        var existing = await GetProjectSubscriptionAsync(projectId, subscriptionId, cancellationToken);
+        var existing = await GetProjectSubscriptionAsync(
+            projectId,
+            subscriptionId,
+            cancellationToken
+        );
+
         if (existing is null)
         {
             return NotFound();
@@ -190,6 +291,7 @@ public sealed class SubscriptionsController(
 
         await subscriptions.DeleteAsync(subscriptionId, cancellationToken);
         await deliveries.DeleteBySubscriptionIdsAsync([subscriptionId], cancellationToken);
+
         return NoContent();
     }
 
@@ -197,53 +299,111 @@ public sealed class SubscriptionsController(
     public async Task<ActionResult<IReadOnlyList<WebhookDeliveryDocument>>> GetDeliveries(
         string projectId,
         string subscriptionId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        var existing = await GetProjectSubscriptionAsync(projectId, subscriptionId, cancellationToken);
+        var existing = await GetProjectSubscriptionAsync(
+            projectId,
+            subscriptionId,
+            cancellationToken
+        );
+
         if (existing is null)
         {
             return NotFound();
         }
 
         var history = await deliveries.GetBySubscriptionAsync(subscriptionId, cancellationToken);
-        var entitlement = await entitlements.GetAsync(projectId, existing.Network, cancellationToken);
-        if (string.Equals(existing.Network, "neo3:testnet", StringComparison.Ordinal) || entitlement.Plan == "paid")
+        var entitlement = await entitlements.GetAsync(
+            projectId,
+            existing.Network,
+            cancellationToken
+        );
+
+        if (
+            string.Equals(existing.Network, "neo3:testnet", StringComparison.Ordinal)
+            || entitlement.Plan == "paid"
+        )
         {
-            history = history.Where(item => item.DeliveredAt >= DateTime.UtcNow.AddDays(-7)).ToList();
+            history = history
+                .Where(item => item.DeliveredAt >= DateTime.UtcNow.AddDays(-7))
+                .ToList();
         }
+
         return Ok(history);
     }
 
     [HttpPost("{subscriptionId}/test")]
-    public async Task<IActionResult> Test(string projectId, string subscriptionId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Test(
+        string projectId,
+        string subscriptionId,
+        CancellationToken cancellationToken
+    )
     {
-        var subscription = await GetProjectSubscriptionAsync(projectId, subscriptionId, cancellationToken);
-        if (subscription is null) return NotFound();
+        var subscription = await GetProjectSubscriptionAsync(
+            projectId,
+            subscriptionId,
+            cancellationToken
+        );
+
+        if (subscription is null)
+            return NotFound();
+
         var delivery = await webhookDelivery.QueueTestAsync(subscription, cancellationToken);
+
         return Accepted(delivery);
     }
 
     [HttpPost("{subscriptionId}/deliveries/{deliveryId}/redeliver")]
-    public async Task<IActionResult> Redeliver(string projectId, string subscriptionId, string deliveryId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Redeliver(
+        string projectId,
+        string subscriptionId,
+        string deliveryId,
+        CancellationToken cancellationToken
+    )
     {
-        var subscription = await GetProjectSubscriptionAsync(projectId, subscriptionId, cancellationToken);
+        var subscription = await GetProjectSubscriptionAsync(
+            projectId,
+            subscriptionId,
+            cancellationToken
+        );
         var delivery = await deliveries.GetByIdAsync(deliveryId, cancellationToken);
-        if (subscription is null || delivery?.SubscriptionId != subscriptionId) return NotFound();
+
+        if (subscription is null || delivery?.SubscriptionId != subscriptionId)
+            return NotFound();
+
         if (delivery.Status is not ("succeeded" or "dead_letter" or "cancelled"))
-            return Conflict(new { error = "This delivery is still queued; wait for its outcome before redelivering." });
+            return Conflict(
+                new
+                {
+                    error = "This delivery is still queued; wait for its outcome before redelivering."
+                }
+            );
+
         if (string.IsNullOrWhiteSpace(delivery.PayloadJson))
-            return StatusCode(410, new { error = "Stored payload expired. Block replay only queues missing events; retained event identities skip this delivery." });
+            return StatusCode(
+                410,
+                new
+                {
+                    error = "Stored payload expired. Block replay only queues missing events; retained event identities skip this delivery."
+                }
+            );
+
         await webhookDelivery.RedeliverAsync(subscription, delivery, cancellationToken);
+
         return Ok(await deliveries.GetLatestBySubscriptionAsync(subscriptionId, cancellationToken));
     }
 
     private async Task<WebhookSubscriptionDocument?> GetProjectSubscriptionAsync(
         string projectId,
         string subscriptionId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var subscription = await subscriptions.GetByIdAsync(subscriptionId, cancellationToken);
-        return subscription is not null
+
+        return
+            subscription is not null
             && string.Equals(subscription.ProjectId, projectId, StringComparison.Ordinal)
             ? subscription
             : null;
@@ -251,30 +411,38 @@ public sealed class SubscriptionsController(
 
     private async Task<string?> ValidateSubscriptionAsync(
         CreateSubscriptionRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        if (!WebhookPayloadContract.IsSupported(request.PayloadVersion)) return "Only payload version 2 is supported.";
+        if (!WebhookPayloadContract.IsSupported(request.PayloadVersion))
+            return "Only payload version 2 is supported.";
+
         return await ValidateSubscriptionAsync(
             request.Name,
             request.ContractHash,
             request.Network,
             request.WebhookUrl,
             request.Headers,
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     private async Task<string?> ValidateSubscriptionAsync(
         UpdateSubscriptionRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        if (!WebhookPayloadContract.IsSupported(request.PayloadVersion)) return "Only payload version 2 is supported.";
+        if (!WebhookPayloadContract.IsSupported(request.PayloadVersion))
+            return "Only payload version 2 is supported.";
+
         return await ValidateSubscriptionAsync(
             request.Name,
             request.ContractHash,
             request.Network,
             request.WebhookUrl,
             request.Headers,
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     private async Task<string?> ValidateSubscriptionAsync(
@@ -283,7 +451,8 @@ public sealed class SubscriptionsController(
         string network,
         string webhookUrl,
         Dictionary<string, string>? headers,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         if (string.IsNullOrWhiteSpace(name) || name.Trim().Length > 120)
         {
@@ -301,6 +470,7 @@ public sealed class SubscriptionsController(
         }
 
         var destination = await destinationValidator.ValidateAsync(webhookUrl, cancellationToken);
+
         if (!destination.IsValid)
         {
             return destination.Error;
@@ -323,10 +493,12 @@ public sealed class SubscriptionsController(
 
         foreach (var (key, value) in headers)
         {
-            if (!HeaderNamePattern.IsMatch(key)
+            if (
+                !HeaderNamePattern.IsMatch(key)
                 || ForbiddenHeaders.Contains(key)
                 || key.StartsWith("Proxy-", StringComparison.OrdinalIgnoreCase)
-                || key.StartsWith("Sec-", StringComparison.OrdinalIgnoreCase))
+                || key.StartsWith("Sec-", StringComparison.OrdinalIgnoreCase)
+            )
             {
                 return $"Webhook header '{key}' is not allowed.";
             }
@@ -343,9 +515,11 @@ public sealed class SubscriptionsController(
     private static Dictionary<string, string> NormalizeHeaders(Dictionary<string, string>? headers)
     {
         return headers?.ToDictionary(
-            header => header.Key.Trim(),
-            header => header.Value.Trim(),
-            StringComparer.OrdinalIgnoreCase) ?? [];
+                header => header.Key.Trim(),
+                header => header.Value.Trim(),
+                StringComparer.OrdinalIgnoreCase
+            )
+            ?? [];
     }
 
     private static string? NormalizeOptional(string? value)
@@ -356,12 +530,16 @@ public sealed class SubscriptionsController(
     private static bool IsContractHash(string? value)
     {
         var hash = NormalizeHash(value);
-        return hash.Length == 42 && hash.StartsWith("0x", StringComparison.Ordinal) && hash[2..].All(Uri.IsHexDigit);
+
+        return hash.Length == 42
+            && hash.StartsWith("0x", StringComparison.Ordinal)
+            && hash[2..].All(Uri.IsHexDigit);
     }
 
     private static string NormalizeHash(string? contractHash)
     {
         var normalized = contractHash?.Trim() ?? string.Empty;
+
         return normalized.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
             ? $"0x{normalized[2..].ToLowerInvariant()}"
             : $"0x{normalized.ToLowerInvariant()}";
@@ -369,7 +547,8 @@ public sealed class SubscriptionsController(
 
     private static SubscriptionResponse ToResponse(
         WebhookSubscriptionDocument subscription,
-        WebhookDeliveryDocument? latestDelivery)
+        WebhookDeliveryDocument? latestDelivery
+    )
     {
         return new SubscriptionResponse(
             subscription.Id,
@@ -384,6 +563,7 @@ public sealed class SubscriptionsController(
             subscription.CreatedAt,
             subscription.UpdatedAt,
             latestDelivery,
-            subscription.PayloadVersion);
+            subscription.PayloadVersion
+        );
     }
 }

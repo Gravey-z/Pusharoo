@@ -9,14 +9,19 @@ public sealed class BsonDocumentJsonConverter : JsonConverter<BsonDocument>
     public override BsonDocument Read(
         ref Utf8JsonReader reader,
         Type typeToConvert,
-        JsonSerializerOptions options)
+        JsonSerializerOptions options
+    )
     {
         var value = BsonValueJsonConverter.ReadBsonValue(ref reader);
 
         return value.IsBsonDocument ? value.AsBsonDocument : new BsonDocument();
     }
 
-    public override void Write(Utf8JsonWriter writer, BsonDocument value, JsonSerializerOptions options)
+    public override void Write(
+        Utf8JsonWriter writer,
+        BsonDocument value,
+        JsonSerializerOptions options
+    )
     {
         BsonValueJsonConverter.WriteBsonValue(writer, value);
     }
@@ -27,12 +32,17 @@ public sealed class BsonValueJsonConverter : JsonConverter<BsonValue>
     public override BsonValue Read(
         ref Utf8JsonReader reader,
         Type typeToConvert,
-        JsonSerializerOptions options)
+        JsonSerializerOptions options
+    )
     {
         return ReadBsonValue(ref reader);
     }
 
-    public override void Write(Utf8JsonWriter writer, BsonValue value, JsonSerializerOptions options)
+    public override void Write(
+        Utf8JsonWriter writer,
+        BsonValue value,
+        JsonSerializerOptions options
+    )
     {
         WriteBsonValue(writer, value);
     }
@@ -44,7 +54,9 @@ public sealed class BsonValueJsonConverter : JsonConverter<BsonValue>
             JsonTokenType.StartObject => ReadDocument(ref reader),
             JsonTokenType.StartArray => ReadArray(ref reader),
             JsonTokenType.String => new BsonString(reader.GetString() ?? string.Empty),
-            JsonTokenType.Number when reader.TryGetInt64(out var longValue) => new BsonInt64(longValue),
+            JsonTokenType.Number when reader.TryGetInt64(out var longValue) => new BsonInt64(
+                longValue
+            ),
             JsonTokenType.Number => new BsonDouble(reader.GetDouble()),
             JsonTokenType.True => BsonBoolean.True,
             JsonTokenType.False => BsonBoolean.False,

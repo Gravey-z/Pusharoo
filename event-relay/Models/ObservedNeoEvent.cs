@@ -1,4 +1,5 @@
 using System.Text.Json;
+
 namespace Pusharoo.EventRelay.Models;
 
 public sealed record ObservedNeoEvent(
@@ -13,4 +14,5 @@ public sealed record ObservedNeoEvent(
     string BlockHash,
     DateTimeOffset BlockTimestamp,
     int ExecutionIndex,
-    int NotificationIndex);
+    int NotificationIndex
+);

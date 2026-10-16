@@ -7,6 +7,7 @@ public sealed class FaucetClientIpResolver
     private const string CapturedIpKey = "Pusharoo.Faucet.ClientIp";
 
     // https://www.cloudflare.com/ips/ — review these ranges when deploying behind Cloudflare.
+
     private static readonly System.Net.IPNetwork[] CloudflareNetworks =
     [
         System.Net.IPNetwork.Parse("173.245.48.0/20"),
@@ -41,18 +42,29 @@ public sealed class FaucetClientIpResolver
 
     public IPAddress? Resolve(HttpContext context)
     {
-        if (context.Items.TryGetValue(CapturedIpKey, out var captured) && captured is IPAddress clientIp)
+        if (
+            context.Items.TryGetValue(CapturedIpKey, out var captured)
+            && captured is IPAddress clientIp
+        )
             return clientIp;
+
         if (TryGetCloudflareClientIp(context, context.Connection.RemoteIpAddress, out clientIp))
             return clientIp;
+
         return Normalize(context.Connection.RemoteIpAddress);
     }
 
-    private static bool TryGetCloudflareClientIp(HttpContext context, IPAddress? peer, out IPAddress clientIp)
+    private static bool TryGetCloudflareClientIp(
+        HttpContext context,
+        IPAddress? peer,
+        out IPAddress clientIp
+    )
     {
         clientIp = IPAddress.None;
         peer = Normalize(peer);
-        if (peer is null || !CloudflareNetworks.Any(network => network.Contains(peer))) return false;
+
+        if (peer is null || !CloudflareNetworks.Any(network => network.Contains(peer)))
+            return false;
 
         return TryReadSingleIp(context, "CF-Connecting-IP", out clientIp);
     }
@@ -60,13 +72,20 @@ public sealed class FaucetClientIpResolver
     private static bool TryReadSingleIp(HttpContext context, string headerName, out IPAddress ip)
     {
         ip = IPAddress.None;
+
         if (!context.Request.Headers.TryGetValue(headerName, out var values) || values.Count != 1)
             return false;
+
         var raw = values[0];
-        if (raw is null || raw.Contains(',') || !IPAddress.TryParse(raw, out var parsed)) return false;
+
+        if (raw is null || raw.Contains(',') || !IPAddress.TryParse(raw, out var parsed))
+            return false;
+
         ip = Normalize(parsed)!;
+
         return !IPAddress.Any.Equals(ip) && !IPAddress.IPv6Any.Equals(ip);
     }
 
-    private static IPAddress? Normalize(IPAddress? ip) => ip?.IsIPv4MappedToIPv6 == true ? ip.MapToIPv4() : ip;
+    private static IPAddress? Normalize(IPAddress? ip) =>
+        ip?.IsIPv4MappedToIPv6 == true ? ip.MapToIPv4() : ip;
 }

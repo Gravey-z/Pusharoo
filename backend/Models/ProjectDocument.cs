@@ -31,6 +31,7 @@ public sealed class ProjectDocument
 
     // Keep the existing storage field during the terminology migration so current
     // project records do not need a database migration.
+
     [BsonElement(AuthorizedDeployersStorageField)]
     public List<ProjectAuthorizedDeployerDocument> AuthorizedDeployers { get; init; } = [];
 

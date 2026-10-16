@@ -4,16 +4,39 @@ namespace Pusharoo.EventRelay.Models;
 
 public sealed class WebhookDeliveryAttemptDocument
 {
-    [BsonId, BsonElement("_id")] public string Id { get; init; } = string.Empty;
-    [BsonElement("network")] public string Network { get; init; } = "";
-    [BsonElement("deliveryId")] public string DeliveryId { get; init; } = string.Empty;
-    [BsonElement("eventId")] public string EventId { get; init; } = string.Empty;
-    [BsonElement("payloadVersion")] public int PayloadVersion { get; init; } = 2;
-    [BsonElement("attemptNumber")] public int AttemptNumber { get; init; }
-    [BsonElement("statusCode")] public int? StatusCode { get; init; }
-    [BsonElement("succeeded")] public bool Succeeded { get; init; }
-    [BsonElement("retryable")] public bool Retryable { get; init; }
-    [BsonElement("error")] public string? Error { get; init; }
-    [BsonElement("latencyMilliseconds")] public long LatencyMilliseconds { get; init; }
-    [BsonElement("attemptedAt")] public DateTime AttemptedAt { get; init; }
+    [BsonId, BsonElement("_id")]
+    public string Id { get; init; } = string.Empty;
+
+    [BsonElement("network")]
+    public string Network { get; init; } = "";
+
+    [BsonElement("deliveryId")]
+    public string DeliveryId { get; init; } = string.Empty;
+
+    [BsonElement("eventId")]
+    public string EventId { get; init; } = string.Empty;
+
+    [BsonElement("payloadVersion")]
+    public int PayloadVersion { get; init; } = 2;
+
+    [BsonElement("attemptNumber")]
+    public int AttemptNumber { get; init; }
+
+    [BsonElement("statusCode")]
+    public int? StatusCode { get; init; }
+
+    [BsonElement("succeeded")]
+    public bool Succeeded { get; init; }
+
+    [BsonElement("retryable")]
+    public bool Retryable { get; init; }
+
+    [BsonElement("error")]
+    public string? Error { get; init; }
+
+    [BsonElement("latencyMilliseconds")]
+    public long LatencyMilliseconds { get; init; }
+
+    [BsonElement("attemptedAt")]
+    public DateTime AttemptedAt { get; init; }
 }

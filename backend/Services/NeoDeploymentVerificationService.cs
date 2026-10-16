@@ -7,7 +7,8 @@ namespace backend.Services;
 
 public sealed class NeoDeploymentVerificationService(
     NeoRpcClient neoRpc,
-    IOptions<NeoRpcOptions> options)
+    IOptions<NeoRpcOptions> options
+)
 {
     private readonly NeoRpcOptions options = options.Value;
 
@@ -15,7 +16,8 @@ public sealed class NeoDeploymentVerificationService(
         ProjectDocument project,
         IReadOnlyList<DeploymentDocument> existingDeployments,
         CreateDeploymentRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         if (string.IsNullOrWhiteSpace(request.TransactionId))
         {
@@ -34,7 +36,9 @@ public sealed class NeoDeploymentVerificationService(
             request.TransactionId,
             null,
             null,
-            cancellationToken);
+            cancellationToken
+        );
+
         if (!inspection.IsValid)
         {
             return Fail(inspection.Error);
@@ -42,17 +46,27 @@ public sealed class NeoDeploymentVerificationService(
 
         return HashesMatch(inspection.ContractHash, request.ContractHash)
             ? NeoDeploymentVerificationResult.Valid
-            : Fail("Deployment transaction contract hash does not match the requested deployment record.");
+            : Fail(
+                "Deployment transaction contract hash does not match the requested deployment record."
+            );
     }
 
     public Task<NeoDeploymentInspectionResult> RecoverAsync(
         ProjectDocument project,
         IReadOnlyList<DeploymentDocument> existingDeployments,
         DeploymentDocument attempt,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        return InspectAsync(project, existingDeployments, attempt.Network, attempt.TransactionId,
-            attempt.AuthorizationSnapshot?.InitiatorScriptHash, attempt, cancellationToken);
+        return InspectAsync(
+            project,
+            existingDeployments,
+            attempt.Network,
+            attempt.TransactionId,
+            attempt.AuthorizationSnapshot?.InitiatorScriptHash,
+            attempt,
+            cancellationToken
+        );
     }
 
     public Task<NeoDeploymentInspectionResult> InspectRecoveredDeployAsync(
@@ -60,10 +74,19 @@ public sealed class NeoDeploymentVerificationService(
         string network,
         string transactionId,
         string signerScriptHash,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        return InspectAsync(project, [], network, transactionId, signerScriptHash, null, cancellationToken,
-            requirePrimarySigner: true);
+        return InspectAsync(
+            project,
+            [],
+            network,
+            transactionId,
+            signerScriptHash,
+            null,
+            cancellationToken,
+            requirePrimarySigner: true
+        );
     }
 
     private async Task<NeoDeploymentInspectionResult> InspectAsync(
@@ -74,7 +97,8 @@ public sealed class NeoDeploymentVerificationService(
         string? expectedInitiatorScriptHash,
         DeploymentDocument? attempt,
         CancellationToken cancellationToken,
-        bool requirePrimarySigner = false)
+        bool requirePrimarySigner = false
+    )
     {
         if (string.IsNullOrWhiteSpace(transactionId))
         {
@@ -82,22 +106,33 @@ public sealed class NeoDeploymentVerificationService(
         }
 
         var expectedSigner = expectedInitiatorScriptHash ?? project.CreatedByWalletScriptHash;
+
         if (string.IsNullOrWhiteSpace(expectedSigner))
         {
-            return InspectFail("Project creator script hash is missing; deployment verification cannot continue.");
+            return InspectFail(
+                "Project creator script hash is missing; deployment verification cannot continue."
+            );
         }
 
         var networkKey = ToConfigurationNetworkKey(network);
-        if (networkKey is null
+
+        if (
+            networkKey is null
             || !options.Networks.TryGetValue(networkKey, out var networkOptions)
-            || string.IsNullOrWhiteSpace(networkOptions.Endpoint))
+            || string.IsNullOrWhiteSpace(networkOptions.Endpoint)
+        )
         {
             return InspectFail($"No Neo RPC endpoint is configured for {network}.");
         }
 
-        var expectedAction = attempt?.AuthorizationSnapshot?.AuthorizationSchemaVersion >= 2
-            ? string.Equals(attempt.Operation, "update", StringComparison.Ordinal) ? "Update" : "Deploy"
-            : HasExistingNetworkDeployment(existingDeployments, network) ? "Update" : "Deploy";
+        var expectedAction =
+            attempt?.AuthorizationSnapshot?.AuthorizationSchemaVersion >= 2
+                ? string.Equals(attempt.Operation, "update", StringComparison.Ordinal)
+                    ? "Update"
+                    : "Deploy"
+                : HasExistingNetworkDeployment(existingDeployments, network)
+                    ? "Update"
+                    : "Deploy";
 
         try
         {
@@ -105,51 +140,75 @@ public sealed class NeoDeploymentVerificationService(
                 networkOptions.Endpoint,
                 "getrawtransaction",
                 [transactionId.Trim(), 1],
-                cancellationToken);
+                cancellationToken
+            );
+
             if (requirePrimarySigner && !HasPrimarySigner(transaction, expectedSigner))
             {
-                return InspectFail("The recovery wallet must be the deployment transaction's first signer.");
+                return InspectFail(
+                    "The recovery wallet must be the deployment transaction's first signer."
+                );
             }
+
             if (!requirePrimarySigner && !HasSigner(transaction, expectedSigner))
             {
-                return InspectFail("Deployment transaction was not signed by the authorized deployment initiator.");
+                return InspectFail(
+                    "Deployment transaction was not signed by the authorized deployment initiator."
+                );
             }
 
             var applicationLog = await neoRpc.SendAsync(
                 networkOptions.Endpoint,
                 "getapplicationlog",
                 [transactionId.Trim()],
-                cancellationToken);
+                cancellationToken
+            );
 
             var execution = FirstExecution(applicationLog);
-            var vmState = GetString(execution, "vmstate") ?? GetString(execution, "state") ?? string.Empty;
+            var vmState =
+                GetString(execution, "vmstate") ?? GetString(execution, "state") ?? string.Empty;
+
             if (!string.Equals(vmState, "HALT", StringComparison.Ordinal))
             {
                 var exception = GetString(execution, "exception");
-                return InspectFail($"Deployment transaction finished with {Fallback(vmState, "UNKNOWN")}{(string.IsNullOrWhiteSpace(exception) ? "." : $": {exception}")}");
+
+                return InspectFail(
+                    $"Deployment transaction finished with {Fallback(vmState, "UNKNOWN")}{(string.IsNullOrWhiteSpace(exception) ? "." : $": {exception}")}"
+                );
             }
 
             var notifications = FindContractManagementNotifications(
                 execution,
                 networkOptions.ContractManagementHash,
-                expectedAction);
+                expectedAction
+            );
+
             if (notifications.Length == 0)
             {
-                return InspectFail($"Deployment transaction does not contain the expected ContractManagement {expectedAction} notification.");
+                return InspectFail(
+                    $"Deployment transaction does not contain the expected ContractManagement {expectedAction} notification."
+                );
             }
+
             if (requirePrimarySigner && notifications.Length != 1)
             {
-                return InspectFail("Recovery requires a transaction with exactly one ContractManagement Deploy notification.");
+                return InspectFail(
+                    "Recovery requires a transaction with exactly one ContractManagement Deploy notification."
+                );
             }
 
             var contractHash = FindHashInStackItem(GetProperty(notifications[0], "state"));
+
             if (!requirePrimarySigner)
             {
                 contractHash ??= FindHashInStackItems(GetArray(execution, "stack"));
             }
+
             if (string.IsNullOrWhiteSpace(contractHash))
             {
-                return InspectFail($"Deployment transaction halted, but the {expectedAction} notification did not include a contract hash.");
+                return InspectFail(
+                    $"Deployment transaction halted, but the {expectedAction} notification did not include a contract hash."
+                );
             }
 
             return new NeoDeploymentInspectionResult(true, string.Empty, contractHash);
@@ -164,18 +223,25 @@ public sealed class NeoDeploymentVerificationService(
         }
         catch (JsonException ex)
         {
-            return InspectFail($"Neo RPC returned an unexpected deployment verification response: {ex.Message}");
+            return InspectFail(
+                $"Neo RPC returned an unexpected deployment verification response: {ex.Message}"
+            );
         }
     }
 
     private static bool HasExistingNetworkDeployment(
         IReadOnlyList<DeploymentDocument> deployments,
-        string network)
+        string network
+    )
     {
         return deployments.Any(deployment =>
             string.Equals(deployment.Network, network.Trim(), StringComparison.Ordinal)
             && !string.IsNullOrWhiteSpace(deployment.ContractHash)
-            && (string.IsNullOrWhiteSpace(deployment.Status) || string.Equals(deployment.Status, "confirmed", StringComparison.Ordinal)));
+            && (
+                string.IsNullOrWhiteSpace(deployment.Status)
+                || string.Equals(deployment.Status, "confirmed", StringComparison.Ordinal)
+            )
+        );
     }
 
     private static string? ToConfigurationNetworkKey(string network)
@@ -193,7 +259,11 @@ public sealed class NeoDeploymentVerificationService(
         foreach (var signer in GetArray(transaction, "signers"))
         {
             var signerAccount = GetString(signer, "account");
-            if (!string.IsNullOrWhiteSpace(signerAccount) && HashesMatch(signerAccount, expectedScriptHash))
+
+            if (
+                !string.IsNullOrWhiteSpace(signerAccount)
+                && HashesMatch(signerAccount, expectedScriptHash)
+            )
             {
                 return true;
             }
@@ -205,6 +275,7 @@ public sealed class NeoDeploymentVerificationService(
     private static bool HasPrimarySigner(JsonElement transaction, string expectedScriptHash)
     {
         var signer = GetArray(transaction, "signers").FirstOrDefault();
+
         return HashesMatch(GetString(signer, "account"), expectedScriptHash);
     }
 
@@ -218,15 +289,17 @@ public sealed class NeoDeploymentVerificationService(
     private static JsonElement[] FindContractManagementNotifications(
         JsonElement execution,
         string contractManagementHash,
-        string eventName)
+        string eventName
+    )
     {
         return GetArray(execution, "notifications")
             .Where(notification =>
             {
-                var notificationContract = GetString(notification, "contract")
-                    ?? GetString(notification, "scripthash");
-                var notificationEvent = GetString(notification, "eventname")
-                    ?? GetString(notification, "eventName");
+                var notificationContract =
+                    GetString(notification, "contract") ?? GetString(notification, "scripthash");
+                var notificationEvent =
+                    GetString(notification, "eventname") ?? GetString(notification, "eventName");
+
                 return HashesMatch(notificationContract, contractManagementHash)
                     && string.Equals(notificationEvent, eventName, StringComparison.Ordinal);
             })
@@ -238,6 +311,7 @@ public sealed class NeoDeploymentVerificationService(
         foreach (var item in items)
         {
             var hash = FindHashInStackItem(item);
+
             if (!string.IsNullOrWhiteSpace(hash))
             {
                 return hash;
@@ -256,13 +330,22 @@ public sealed class NeoDeploymentVerificationService(
 
         var type = GetString(item.Value, "type");
         var value = GetProperty(item.Value, "value");
-        if (string.Equals(type, "Hash160", StringComparison.Ordinal) && value?.ValueKind == JsonValueKind.String)
+
+        if (
+            string.Equals(type, "Hash160", StringComparison.Ordinal)
+            && value?.ValueKind == JsonValueKind.String
+        )
         {
             return value.Value.GetString();
         }
 
-        if ((string.Equals(type, "ByteString", StringComparison.Ordinal) || string.Equals(type, "Buffer", StringComparison.Ordinal))
-            && value?.ValueKind == JsonValueKind.String)
+        if (
+            (
+                string.Equals(type, "ByteString", StringComparison.Ordinal)
+                || string.Equals(type, "Buffer", StringComparison.Ordinal)
+            )
+            && value?.ValueKind == JsonValueKind.String
+        )
         {
             return Base64StackValueToHash(value.Value.GetString());
         }
@@ -285,6 +368,7 @@ public sealed class NeoDeploymentVerificationService(
         try
         {
             var bytes = Convert.FromBase64String(value);
+
             if (bytes.Length != 20)
             {
                 return null;
@@ -302,9 +386,11 @@ public sealed class NeoDeploymentVerificationService(
 
     private static IEnumerable<JsonElement> GetArray(JsonElement element, string propertyName)
     {
-        if (element.ValueKind == JsonValueKind.Object
+        if (
+            element.ValueKind == JsonValueKind.Object
             && element.TryGetProperty(propertyName, out var property)
-            && property.ValueKind == JsonValueKind.Array)
+            && property.ValueKind == JsonValueKind.Array
+        )
         {
             return property.EnumerateArray();
         }
@@ -314,16 +400,20 @@ public sealed class NeoDeploymentVerificationService(
 
     private static JsonElement? GetProperty(JsonElement element, string propertyName)
     {
-        return element.ValueKind == JsonValueKind.Object && element.TryGetProperty(propertyName, out var property)
+        return
+            element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(propertyName, out var property)
             ? property
             : null;
     }
 
     private static string? GetString(JsonElement element, string propertyName)
     {
-        if (element.ValueKind != JsonValueKind.Object
+        if (
+            element.ValueKind != JsonValueKind.Object
             || !element.TryGetProperty(propertyName, out var property)
-            || property.ValueKind != JsonValueKind.String)
+            || property.ValueKind != JsonValueKind.String
+        )
         {
             return null;
         }
@@ -335,13 +425,18 @@ public sealed class NeoDeploymentVerificationService(
     {
         var normalizedLeft = NormalizeHash(left);
         var normalizedRight = NormalizeHash(right);
+
         if (normalizedLeft is null || normalizedRight is null)
         {
             return false;
         }
 
         return string.Equals(normalizedLeft, normalizedRight, StringComparison.Ordinal)
-            || string.Equals(ReverseHash(normalizedLeft), normalizedRight, StringComparison.Ordinal);
+            || string.Equals(
+                ReverseHash(normalizedLeft),
+                normalizedRight,
+                StringComparison.Ordinal
+            );
     }
 
     private static string? NormalizeHash(string? value)
@@ -352,6 +447,7 @@ public sealed class NeoDeploymentVerificationService(
         }
 
         var normalized = value.Trim();
+
         if (normalized.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
         {
             normalized = normalized[2..];
@@ -391,4 +487,8 @@ public sealed record NeoDeploymentVerificationResult(bool IsValid, string Error)
     public static NeoDeploymentVerificationResult Valid { get; } = new(true, string.Empty);
 }
 
-public sealed record NeoDeploymentInspectionResult(bool IsValid, string Error, string? ContractHash);
+public sealed record NeoDeploymentInspectionResult(
+    bool IsValid,
+    string Error,
+    string? ContractHash
+);

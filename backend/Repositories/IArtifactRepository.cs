@@ -6,14 +6,21 @@ public interface IArtifactRepository
 {
     Task InsertAsync(ArtifactDocument artifact, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<ArtifactDocument>> GetByProjectIdAsync(string projectId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ArtifactDocument>> GetByProjectIdAsync(
+        string projectId,
+        CancellationToken cancellationToken
+    );
 
     Task<ArtifactDocument?> GetByProjectIdAndVersionAsync(
         string projectId,
         string version,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken
+    );
 
     Task<ArtifactDocument?> GetByIdAsync(string artifactId, CancellationToken cancellationToken);
 
-    Task<ArtifactDocument?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken);
+    Task<ArtifactDocument?> GetByIdempotencyKeyAsync(
+        string idempotencyKey,
+        CancellationToken cancellationToken
+    );
 }

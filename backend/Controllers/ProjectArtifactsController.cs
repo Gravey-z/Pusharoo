@@ -12,21 +12,26 @@ public sealed class ProjectArtifactsController(
     ProjectService projectService,
     ArtifactService artifactService,
     CurrentWalletSessionAccessor walletSession,
-    ProjectAuthorizationService authorization) : ControllerBase
+    ProjectAuthorizationService authorization
+) : ControllerBase
 {
     [HttpPost]
     [RequireWalletSession]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<ArtifactResponse>> UploadAsync(
         string projectId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var project = await projectService.GetByIdAsync(projectId, cancellationToken);
+
         if (project is null)
         {
             return NotFound(new { error = "Project was not found." });
         }
+
         var access = authorization.CanUploadArtifacts(project, walletSession.Current!.Address);
+
         if (!access.IsAllowed)
         {
             return StatusCode(access.StatusCode, new { error = access.Error });
@@ -36,7 +41,8 @@ public sealed class ProjectArtifactsController(
         {
             return StatusCode(
                 StatusCodes.Status415UnsupportedMediaType,
-                new { error = "Expected multipart/form-data." });
+                new { error = "Expected multipart/form-data." }
+            );
         }
 
         var form = await Request.ReadFormAsync(cancellationToken);
@@ -45,49 +51,82 @@ public sealed class ProjectArtifactsController(
 
         if (string.IsNullOrWhiteSpace(version) || version.Trim().Length > 64)
         {
-            return BadRequest(new { error = "Version is required and must be at most 64 characters." });
+            return BadRequest(
+                new { error = "Version is required and must be at most 64 characters." }
+            );
         }
+
         if (notes?.Length > 2_000)
         {
             return BadRequest(new { error = "Notes must be at most 2000 characters." });
         }
 
         var idempotencyKey = ReadIdempotencyKey();
+
         if (idempotencyKey is null && Request.Headers.ContainsKey("Idempotency-Key"))
         {
-            return BadRequest(new { error = "Idempotency-Key must be between 1 and 128 characters." });
+            return BadRequest(
+                new { error = "Idempotency-Key must be between 1 and 128 characters." }
+            );
         }
-        var scopedIdempotencyKey = idempotencyKey is null ? null
-            : WorkspaceIdempotency.Scope(walletSession.Current!.Address, projectId, "artifact.upload", idempotencyKey);
+
+        var scopedIdempotencyKey = idempotencyKey is null
+            ? null
+            : WorkspaceIdempotency.Scope(
+                walletSession.Current!.Address,
+                projectId,
+                "artifact.upload",
+                idempotencyKey
+            );
 
         var nefFile = FindNefFile(form.Files);
+
         if (nefFile is null)
         {
             return BadRequest(new { error = "A .nef file is required." });
         }
+
         var manifestFile = FindManifestFile(form.Files);
+
         if (manifestFile is null)
         {
             return BadRequest(new { error = "A contract manifest JSON file is required." });
         }
+
         if (nefFile.Length is 0 or > 8 * 1024 * 1024 || manifestFile.Length is 0 or > 1024 * 1024)
         {
-            return BadRequest(new { error = "NEF files must be at most 8 MB and manifest files at most 1 MB." });
+            return BadRequest(
+                new { error = "NEF files must be at most 8 MB and manifest files at most 1 MB." }
+            );
         }
 
         var nefBytes = await ReadBytesAsync(nefFile, cancellationToken);
         var manifestJson = await ReadTextAsync(manifestFile, cancellationToken);
-        var payloadHash = WorkspaceIdempotency.Hash(version.Trim(),
+        var payloadHash = WorkspaceIdempotency.Hash(
+            version.Trim(),
             string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
-            Path.GetFileName(nefFile.FileName), WorkspaceIdempotency.HashBytes(nefBytes), manifestJson);
+            Path.GetFileName(nefFile.FileName),
+            WorkspaceIdempotency.HashBytes(nefBytes),
+            manifestJson
+        );
+
         if (scopedIdempotencyKey is not null)
         {
-            var existing = await artifactService.GetByIdempotencyKeyAsync(scopedIdempotencyKey, cancellationToken);
+            var existing = await artifactService.GetByIdempotencyKeyAsync(
+                scopedIdempotencyKey,
+                cancellationToken
+            );
+
             if (existing is not null)
             {
                 return existing.IdempotencyPayloadHash == payloadHash
                     ? Ok(existing.ToResponse())
-                    : Conflict(new { error = "Idempotency-Key was already used with different artifact data." });
+                    : Conflict(
+                        new
+                        {
+                            error = "Idempotency-Key was already used with different artifact data."
+                        }
+                    );
             }
         }
 
@@ -102,8 +141,10 @@ public sealed class ProjectArtifactsController(
                     nefBytes,
                     manifestJson,
                     scopedIdempotencyKey,
-                    payloadHash),
-                cancellationToken);
+                    payloadHash
+                ),
+                cancellationToken
+            );
 
             return Created($"/api/artifacts/{artifact.Id}", artifact.ToResponse());
         }
@@ -115,28 +156,46 @@ public sealed class ProjectArtifactsController(
         {
             return BadRequest(new { error = exception.Message });
         }
-        catch (MongoWriteException exception) when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        catch (MongoWriteException exception)
+            when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
         {
             if (scopedIdempotencyKey is not null)
             {
-                var existing = await artifactService.GetByIdempotencyKeyAsync(scopedIdempotencyKey, cancellationToken);
+                var existing = await artifactService.GetByIdempotencyKeyAsync(
+                    scopedIdempotencyKey,
+                    cancellationToken
+                );
+
                 if (existing is not null)
                 {
                     return existing.IdempotencyPayloadHash == payloadHash
                         ? Ok(existing.ToResponse())
-                        : Conflict(new { error = "Idempotency-Key was already used with different artifact data." });
+                        : Conflict(
+                            new
+                            {
+                                error = "Idempotency-Key was already used with different artifact data."
+                            }
+                        );
                 }
             }
-            return Conflict(new { error = "An artifact with this project version or idempotency key already exists." });
+
+            return Conflict(
+                new
+                {
+                    error = "An artifact with this project version or idempotency key already exists."
+                }
+            );
         }
     }
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<ArtifactResponse>>> GetAllAsync(
         string projectId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var project = await projectService.GetByIdAsync(projectId, cancellationToken);
+
         if (project is null)
         {
             return NotFound(new { error = "Project was not found." });
@@ -153,9 +212,11 @@ public sealed class ProjectArtifactsController(
         string projectId,
         [FromQuery(Name = "from")] string? fromVersion,
         [FromQuery(Name = "to")] string? toVersion,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var project = await projectService.GetByIdAsync(projectId, cancellationToken);
+
         if (project is null)
         {
             return NotFound(new { error = "Project was not found." });
@@ -175,7 +236,8 @@ public sealed class ProjectArtifactsController(
             projectId,
             fromVersion,
             toVersion,
-            cancellationToken);
+            cancellationToken
+        );
 
         return comparison is null
             ? NotFound(new { error = "One or both artifact versions were not found." })
@@ -185,18 +247,24 @@ public sealed class ProjectArtifactsController(
     private static IFormFile? FindNefFile(IFormFileCollection files)
     {
         return files.FirstOrDefault(file =>
-            file.FileName.EndsWith(".nef", StringComparison.OrdinalIgnoreCase));
+            file.FileName.EndsWith(".nef", StringComparison.OrdinalIgnoreCase)
+        );
     }
 
     private static IFormFile? FindManifestFile(IFormFileCollection files)
     {
         return files.FirstOrDefault(file =>
-            file.FileName.EndsWith(".manifest.json", StringComparison.OrdinalIgnoreCase))
+                file.FileName.EndsWith(".manifest.json", StringComparison.OrdinalIgnoreCase)
+            )
             ?? files.FirstOrDefault(file =>
-                file.FileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase));
+                file.FileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+            );
     }
 
-    private static async Task<byte[]> ReadBytesAsync(IFormFile file, CancellationToken cancellationToken)
+    private static async Task<byte[]> ReadBytesAsync(
+        IFormFile file,
+        CancellationToken cancellationToken
+    )
     {
         await using var stream = file.OpenReadStream();
         using var memoryStream = new MemoryStream();
@@ -206,7 +274,10 @@ public sealed class ProjectArtifactsController(
         return memoryStream.ToArray();
     }
 
-    private static async Task<string> ReadTextAsync(IFormFile file, CancellationToken cancellationToken)
+    private static async Task<string> ReadTextAsync(
+        IFormFile file,
+        CancellationToken cancellationToken
+    )
     {
         await using var stream = file.OpenReadStream();
         using var reader = new StreamReader(stream);
@@ -217,7 +288,7 @@ public sealed class ProjectArtifactsController(
     private string? ReadIdempotencyKey()
     {
         var value = Request.Headers["Idempotency-Key"].FirstOrDefault()?.Trim();
+
         return string.IsNullOrWhiteSpace(value) || value.Length > 128 ? null : value;
     }
-
 }

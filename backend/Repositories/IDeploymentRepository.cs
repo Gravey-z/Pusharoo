@@ -8,14 +8,25 @@ public interface IDeploymentRepository
 
     Task<IReadOnlyList<DeploymentDocument>> GetByProjectIdAsync(
         string projectId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken
+    );
 
-    Task<DeploymentDocument?> GetByTransactionIdAsync(string transactionId, CancellationToken cancellationToken);
+    Task<DeploymentDocument?> GetByTransactionIdAsync(
+        string transactionId,
+        CancellationToken cancellationToken
+    );
 
-    Task<DeploymentDocument?> GetByIdAsync(string deploymentId, CancellationToken cancellationToken);
+    Task<DeploymentDocument?> GetByIdAsync(
+        string deploymentId,
+        CancellationToken cancellationToken
+    );
 
     Task ReplaceAsync(DeploymentDocument deployment, CancellationToken cancellationToken);
 
-    Task<DeploymentDocument?> RenewCapabilityAsync(DeploymentDocument deployment,
-        string capabilityHash, DateTime expiresAtUtc, CancellationToken cancellationToken);
+    Task<DeploymentDocument?> RenewCapabilityAsync(
+        DeploymentDocument deployment,
+        string capabilityHash,
+        DateTime expiresAtUtc,
+        CancellationToken cancellationToken
+    );
 }

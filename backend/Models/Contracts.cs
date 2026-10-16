@@ -1,26 +1,23 @@
 namespace backend.Models;
 
-public sealed record CreateProjectRequest(
-    string Name,
-    string? Description,
-    string CreatorNetwork);
+public sealed record CreateProjectRequest(string Name, string? Description, string CreatorNetwork);
 
-public sealed record DeleteProjectRequest(
-    string ProjectName);
+public sealed record DeleteProjectRequest(string ProjectName);
 
 public sealed record AddProjectAuthorizedDeployerRequest(
     string WalletAddress,
-    IReadOnlyList<string>? AllowedNetworks);
+    IReadOnlyList<string>? AllowedNetworks
+);
 
-public sealed record UpdateProjectAuthorizedDeployerRequest(
-    IReadOnlyList<string>? AllowedNetworks);
+public sealed record UpdateProjectAuthorizedDeployerRequest(IReadOnlyList<string>? AllowedNetworks);
 
 public sealed record ProjectAuthorizedDeployerResponse(
     string WalletAddress,
     string ScriptHash,
     IReadOnlyList<string> AllowedNetworks,
     DateTime AddedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc
+);
 
 public sealed record ArtifactUploadInput(
     string ProjectId,
@@ -30,7 +27,8 @@ public sealed record ArtifactUploadInput(
     byte[] Nef,
     string ManifestJson,
     string? IdempotencyKey,
-    string? IdempotencyPayloadHash);
+    string? IdempotencyPayloadHash
+);
 
 public sealed record ProjectResponse(
     string Id,
@@ -38,17 +36,17 @@ public sealed record ProjectResponse(
     string? Description,
     string? CreatedByWalletAddress,
     string? CreatorNetwork,
-    DateTime CreatedAt);
+    DateTime CreatedAt
+);
 
 public sealed record ProjectListItemResponse(
     ProjectResponse Project,
     ProjectListArtifactResponse? LatestArtifact,
     IReadOnlyList<string> DeploymentNetworks,
-    bool Deployed);
+    bool Deployed
+);
 
-public sealed record ProjectListArtifactResponse(
-    string Version,
-    DateTime CreatedAt);
+public sealed record ProjectListArtifactResponse(string Version, DateTime CreatedAt);
 
 public sealed record ArtifactResponse(
     string Id,
@@ -61,18 +59,18 @@ public sealed record ArtifactResponse(
     NeoContractManifest Manifest,
     ArtifactSummary Summary,
     IReadOnlyList<string> Warnings,
-    DateTime CreatedAt);
+    DateTime CreatedAt
+);
 
 public sealed record ArtifactComparisonResponse(
     IReadOnlyList<string> AddedMethods,
     IReadOnlyList<string> RemovedMethods,
     IReadOnlyList<ChangedMethodResponse> ChangedMethods,
     IReadOnlyList<string> AddedEvents,
-    IReadOnlyList<string> PermissionChanges);
+    IReadOnlyList<string> PermissionChanges
+);
 
-public sealed record ChangedMethodResponse(
-    string Name,
-    IReadOnlyList<string> Changes);
+public sealed record ChangedMethodResponse(string Name, IReadOnlyList<string> Changes);
 
 public sealed record CreateDeploymentRequest(
     string ArtifactId,
@@ -80,21 +78,43 @@ public sealed record CreateDeploymentRequest(
     string? ContractHash,
     string? TransactionId,
     string DeployedBy,
-    string? Notes);
+    string? Notes
+);
 
-public sealed record DeploymentReviewRequest(string ArtifactId, string Network, string? Notes,
-    DeploymentDataValue? DeploymentData = null);
+public sealed record DeploymentReviewRequest(
+    string ArtifactId,
+    string Network,
+    string? Notes,
+    DeploymentDataValue? DeploymentData = null
+);
 
-public sealed record DeploymentReviewResponse(string ArtifactId, string Network,
-    string Operation, string? ExpectedTargetContractHash,
-    long ExpectedDeploymentRevision, DeploymentDataValue DeploymentData, string DeploymentDataSha256,
-    string DeploymentDataFormatVersion, string ArtifactNefSha256, string ArtifactManifestSha256,
-    string NotesSha256);
+public sealed record DeploymentReviewResponse(
+    string ArtifactId,
+    string Network,
+    string Operation,
+    string? ExpectedTargetContractHash,
+    long ExpectedDeploymentRevision,
+    DeploymentDataValue DeploymentData,
+    string DeploymentDataSha256,
+    string DeploymentDataFormatVersion,
+    string ArtifactNefSha256,
+    string ArtifactManifestSha256,
+    string NotesSha256
+);
 
-public sealed record StartSessionDeploymentAttemptRequest(string ArtifactId, string Network, string? Notes,
-    string ExpectedOperation, string? ExpectedTargetContractHash, long ExpectedDeploymentRevision,
-    string ArtifactNefSha256, string ArtifactManifestSha256, string NotesSha256,
-    string DeploymentDataSha256, DeploymentDataValue? DeploymentData = null);
+public sealed record StartSessionDeploymentAttemptRequest(
+    string ArtifactId,
+    string Network,
+    string? Notes,
+    string ExpectedOperation,
+    string? ExpectedTargetContractHash,
+    long ExpectedDeploymentRevision,
+    string ArtifactNefSha256,
+    string ArtifactManifestSha256,
+    string NotesSha256,
+    string DeploymentDataSha256,
+    DeploymentDataValue? DeploymentData = null
+);
 
 public sealed record ResumeDeploymentAttemptRequest();
 
@@ -102,11 +122,13 @@ public sealed record SubmitDeploymentAttemptRequest(string TransactionId, string
 
 public sealed record ConfirmDeploymentAttemptRequest(string AttemptCapability);
 
-public sealed record FailDeploymentAttemptRequest(string AttemptCapability, string Stage, string Reason);
+public sealed record FailDeploymentAttemptRequest(
+    string AttemptCapability,
+    string Stage,
+    string Reason
+);
 
-public sealed record RecoverDeploymentRequest(
-    string Network,
-    string TransactionId);
+public sealed record RecoverDeploymentRequest(string Network, string TransactionId);
 
 public sealed record DeploymentResponse(
     string Id,
@@ -128,4 +150,5 @@ public sealed record DeploymentResponse(
     DeploymentDataValue? DeploymentData = null,
     string? DeploymentDataSha256 = null,
     string? DeploymentDataFormatVersion = null,
-    int AuthorizationSchemaVersion = 1);
+    int AuthorizationSchemaVersion = 1
+);

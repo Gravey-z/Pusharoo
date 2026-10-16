@@ -7,9 +7,12 @@ namespace backend.Services;
 
 public sealed class DeploymentAuthorizationService(
     ProjectAuthorizationService authorization,
-    DeploymentDataService deploymentData)
+    DeploymentDataService deploymentData
+)
 {
-    private static readonly JsonSerializerOptions ManifestJsonOptions = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions ManifestJsonOptions = new(
+        JsonSerializerDefaults.Web
+    )
     {
         Converters = { new BsonValueJsonConverter(), new BsonDocumentJsonConverter() }
     };
@@ -21,17 +24,21 @@ public sealed class DeploymentAuthorizationService(
         string network,
         string deployedBy,
         string? notes,
-        NormalizedDeploymentData? normalizedData = null)
+        NormalizedDeploymentData? normalizedData = null
+    )
     {
         var confirmedForNetwork = deployments
-            .Where(item => string.Equals(item.Network, network.Trim(), StringComparison.Ordinal)
+            .Where(item =>
+                string.Equals(item.Network, network.Trim(), StringComparison.Ordinal)
                 && string.Equals(item.Status, "confirmed", StringComparison.Ordinal)
-                && !string.IsNullOrWhiteSpace(item.ContractHash))
+                && !string.IsNullOrWhiteSpace(item.ContractHash)
+            )
             .OrderByDescending(item => item.CreatedAt)
             .ToArray();
         var target = confirmedForNetwork.FirstOrDefault()?.ContractHash;
         var operation = string.IsNullOrWhiteSpace(target) ? "deploy" : "update";
         var manifestJson = SerializeManifest(artifact.Manifest);
+
         return new DeploymentAuthorizationContext(
             project.Id,
             artifact.Id,
@@ -43,50 +50,100 @@ public sealed class DeploymentAuthorizationService(
             confirmedForNetwork.LongLength,
             deployedBy.Trim(),
             string.IsNullOrWhiteSpace(notes) ? string.Empty : notes.Trim(),
-            normalizedData ?? deploymentData.Normalize(null));
+            normalizedData ?? deploymentData.Normalize(null)
+        );
     }
 
-    public static string SerializeManifest(NeoContractManifest manifest)
-        => JsonSerializer.Serialize(manifest, ManifestJsonOptions);
+    public static string SerializeManifest(NeoContractManifest manifest) =>
+        JsonSerializer.Serialize(manifest, ManifestJsonOptions);
 
-    public DeploymentReviewResponse CreateSessionReview(DeploymentAuthorizationContext context)
-        => new(context.ArtifactId, context.Network,
-            context.Operation, context.ExpectedTargetContractHash, context.ExpectedDeploymentRevision,
-            context.DeploymentData.Value, context.DeploymentData.Sha256, context.DeploymentData.FormatVersion,
-            Sha256Hex(context.Nef), Sha256Hex(context.ManifestJson), Sha256Hex(context.Notes));
+    public DeploymentReviewResponse CreateSessionReview(DeploymentAuthorizationContext context) =>
+        new(
+            context.ArtifactId,
+            context.Network,
+            context.Operation,
+            context.ExpectedTargetContractHash,
+            context.ExpectedDeploymentRevision,
+            context.DeploymentData.Value,
+            context.DeploymentData.Sha256,
+            context.DeploymentData.FormatVersion,
+            Sha256Hex(context.Nef),
+            Sha256Hex(context.ManifestJson),
+            Sha256Hex(context.Notes)
+        );
 
     public DeploymentAuthorizationValidationResult ValidateSessionStart(
         ProjectDocument project,
         ArtifactDocument artifact,
         IReadOnlyList<DeploymentDocument> deployments,
         StartSessionDeploymentAttemptRequest request,
-        WalletSessionIdentity actor)
+        WalletSessionIdentity actor
+    )
     {
         var permission = authorization.CanDeployToNetwork(project, actor.Address, request.Network);
-        if (!permission.IsAllowed) return Fail(permission.StatusCode, permission.Error);
+
+        if (!permission.IsAllowed)
+            return Fail(permission.StatusCode, permission.Error);
 
         NormalizedDeploymentData normalizedData;
-        try { normalizedData = deploymentData.Normalize(request.DeploymentData); }
-        catch (DeploymentDataValidationException exception)
-        { return Fail(StatusCodes.Status400BadRequest, exception.Message); }
 
-        var context = CreateContext(project, artifact, deployments, request.Network, actor.Address,
-            request.Notes, normalizedData);
+        try
+        {
+            normalizedData = deploymentData.Normalize(request.DeploymentData);
+        }
+        catch (DeploymentDataValidationException exception)
+        {
+            return Fail(StatusCodes.Status400BadRequest, exception.Message);
+        }
+
+        var context = CreateContext(
+            project,
+            artifact,
+            deployments,
+            request.Network,
+            actor.Address,
+            request.Notes,
+            normalizedData
+        );
+
         if (context.Operation == "update" && request.DeploymentData is not null)
-            return Fail(StatusCodes.Status400BadRequest,
-                "Deployment initialization data can only be supplied for a new contract deployment.");
+            return Fail(
+                StatusCodes.Status400BadRequest,
+                "Deployment initialization data can only be supplied for a new contract deployment."
+            );
 
         var review = CreateSessionReview(context);
-        if (!string.Equals(request.ExpectedOperation, review.Operation, StringComparison.Ordinal)
-            || !string.Equals(request.ExpectedTargetContractHash, review.ExpectedTargetContractHash, StringComparison.OrdinalIgnoreCase)
+
+        if (
+            !string.Equals(request.ExpectedOperation, review.Operation, StringComparison.Ordinal)
+            || !string.Equals(
+                request.ExpectedTargetContractHash,
+                review.ExpectedTargetContractHash,
+                StringComparison.OrdinalIgnoreCase
+            )
             || request.ExpectedDeploymentRevision != review.ExpectedDeploymentRevision
-            || !string.Equals(request.ArtifactNefSha256, review.ArtifactNefSha256, StringComparison.Ordinal)
-            || !string.Equals(request.ArtifactManifestSha256, review.ArtifactManifestSha256, StringComparison.Ordinal)
+            || !string.Equals(
+                request.ArtifactNefSha256,
+                review.ArtifactNefSha256,
+                StringComparison.Ordinal
+            )
+            || !string.Equals(
+                request.ArtifactManifestSha256,
+                review.ArtifactManifestSha256,
+                StringComparison.Ordinal
+            )
             || !string.Equals(request.NotesSha256, review.NotesSha256, StringComparison.Ordinal)
-            || !string.Equals(request.DeploymentDataSha256, review.DeploymentDataSha256, StringComparison.Ordinal))
+            || !string.Equals(
+                request.DeploymentDataSha256,
+                review.DeploymentDataSha256,
+                StringComparison.Ordinal
+            )
+        )
         {
-            return Fail(StatusCodes.Status409Conflict,
-                "The release changed after review. Review it again before opening the wallet.");
+            return Fail(
+                StatusCodes.Status409Conflict,
+                "The release changed after review. Review it again before opening the wallet."
+            );
         }
 
         var snapshot = new DeploymentAuthorizationSnapshot
@@ -109,15 +166,21 @@ public sealed class DeploymentAuthorizationService(
             DeploymentDataSha256 = normalizedData.Sha256,
             DeploymentDataFormatVersion = normalizedData.FormatVersion
         };
-        return new DeploymentAuthorizationValidationResult(true, StatusCodes.Status204NoContent,
-            string.Empty, context, snapshot, permission.IsOwner);
+
+        return new DeploymentAuthorizationValidationResult(
+            true,
+            StatusCodes.Status204NoContent,
+            string.Empty,
+            context,
+            snapshot,
+            permission.IsOwner
+        );
     }
 
-    public static string CreateAttemptCapability()
-        => Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+    public static string CreateAttemptCapability() =>
+        Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
 
-    public static string HashAttemptCapability(string capability)
-        => Sha256Hex(capability.Trim());
+    public static string HashAttemptCapability(string capability) => Sha256Hex(capability.Trim());
 
     public static bool IsValidCapability(DeploymentDocument attempt, string? capability)
     {
@@ -127,24 +190,30 @@ public sealed class DeploymentAuthorizationService(
 
     public static bool MatchesCapabilityHash(DeploymentDocument attempt, string? capability)
     {
-        if (string.IsNullOrWhiteSpace(capability) || string.IsNullOrWhiteSpace(attempt.AttemptCapabilityHash))
+        if (
+            string.IsNullOrWhiteSpace(capability)
+            || string.IsNullOrWhiteSpace(attempt.AttemptCapabilityHash)
+        )
             return false;
+
         return CryptographicOperations.FixedTimeEquals(
             Convert.FromHexString(HashAttemptCapability(capability)),
-            Convert.FromHexString(attempt.AttemptCapabilityHash));
+            Convert.FromHexString(attempt.AttemptCapabilityHash)
+        );
     }
 
-    private static DeploymentAuthorizationValidationResult Fail(int statusCode, string error)
-        => new(false, statusCode, error, null, null, false);
+    private static DeploymentAuthorizationValidationResult Fail(int statusCode, string error) =>
+        new(false, statusCode, error, null, null, false);
 
     private static string Sha256Hex(string value) => Sha256Hex(Encoding.UTF8.GetBytes(value));
 
-    private static string Sha256Hex(byte[] value)
-        => Convert.ToHexString(SHA256.HashData(value)).ToLowerInvariant();
+    private static string Sha256Hex(byte[] value) =>
+        Convert.ToHexString(SHA256.HashData(value)).ToLowerInvariant();
 
     private static string NormalizeScriptHash(string value)
     {
         var normalized = value.Trim();
+
         return normalized.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
             ? $"0x{normalized[2..].ToLowerInvariant()}"
             : $"0x{normalized.ToLowerInvariant()}";
@@ -162,7 +231,8 @@ public sealed record DeploymentAuthorizationContext(
     long ExpectedDeploymentRevision,
     string DeployedBy,
     string Notes,
-    NormalizedDeploymentData DeploymentData);
+    NormalizedDeploymentData DeploymentData
+);
 
 public sealed record DeploymentAuthorizationValidationResult(
     bool IsValid,
@@ -170,4 +240,5 @@ public sealed record DeploymentAuthorizationValidationResult(
     string Error,
     DeploymentAuthorizationContext? Context,
     DeploymentAuthorizationSnapshot? Snapshot,
-    bool IsOwner);
+    bool IsOwner
+);

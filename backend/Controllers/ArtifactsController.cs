@@ -11,7 +11,8 @@ public sealed class ArtifactsController(ArtifactService artifactService) : Contr
     [HttpGet("{artifactId}")]
     public async Task<ActionResult<ArtifactResponse>> GetByIdAsync(
         string artifactId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var artifact = await artifactService.GetByIdAsync(artifactId, cancellationToken);
 
@@ -21,7 +22,8 @@ public sealed class ArtifactsController(ArtifactService artifactService) : Contr
     [HttpGet("{artifactId}/manifest")]
     public async Task<IActionResult> GetManifestAsync(
         string artifactId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var artifact = await artifactService.GetByIdAsync(artifactId, cancellationToken);
 
@@ -31,7 +33,8 @@ public sealed class ArtifactsController(ArtifactService artifactService) : Contr
     [HttpGet("{artifactId}/nef")]
     public async Task<IActionResult> GetNefAsync(
         string artifactId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var artifact = await artifactService.GetByIdAsync(artifactId, cancellationToken);
 
@@ -43,7 +46,8 @@ public sealed class ArtifactsController(ArtifactService artifactService) : Contr
     [HttpGet("{artifactId}/summary")]
     public async Task<ActionResult<ArtifactSummary>> GetSummaryAsync(
         string artifactId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var artifact = await artifactService.GetByIdAsync(artifactId, cancellationToken);
 

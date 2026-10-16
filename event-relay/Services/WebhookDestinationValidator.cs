@@ -7,49 +7,64 @@ public sealed class WebhookDestinationValidator
 {
     public async Task<WebhookDestinationValidationResult> ValidateAsync(
         string? webhookUrl,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        if (!Uri.TryCreate(webhookUrl, UriKind.Absolute, out var uri)
+        if (
+            !Uri.TryCreate(webhookUrl, UriKind.Absolute, out var uri)
             || uri.Scheme != Uri.UriSchemeHttps
             || !string.IsNullOrEmpty(uri.UserInfo)
-            || (uri.IsDefaultPort ? false : uri.Port != 443))
+            || (uri.IsDefaultPort ? false : uri.Port != 443)
+        )
         {
             return WebhookDestinationValidationResult.Fail(
-                "WebhookUrl must be an absolute HTTPS URL without embedded credentials.");
+                "WebhookUrl must be an absolute HTTPS URL without embedded credentials."
+            );
         }
 
         try
         {
             var addresses = await Dns.GetHostAddressesAsync(uri.DnsSafeHost, cancellationToken);
+
             return addresses.Length == 0 || addresses.Any(address => !IsPublicAddress(address))
-                ? WebhookDestinationValidationResult.Fail("WebhookUrl must resolve only to public internet addresses.")
+                ? WebhookDestinationValidationResult.Fail(
+                    "WebhookUrl must resolve only to public internet addresses."
+                )
                 : WebhookDestinationValidationResult.Valid;
         }
         catch (SocketException)
         {
-            return WebhookDestinationValidationResult.Fail("WebhookUrl host could not be resolved.");
+            return WebhookDestinationValidationResult.Fail(
+                "WebhookUrl host could not be resolved."
+            );
         }
     }
 
     public static async ValueTask<Stream> ConnectPublicAsync(
         SocketsHttpConnectionContext context,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        var endpoint = context.DnsEndPoint
+        var endpoint =
+            context.DnsEndPoint
             ?? throw new HttpRequestException("Webhook destination endpoint is invalid.");
         var addresses = await Dns.GetHostAddressesAsync(endpoint.Host, cancellationToken);
+
         if (addresses.Length == 0 || addresses.Any(address => !IsPublicAddress(address)))
         {
             throw new HttpRequestException("Webhook destination resolved to a non-public address.");
         }
 
         Exception? lastError = null;
+
         foreach (var address in addresses)
         {
             var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+
             try
             {
                 await socket.ConnectAsync(address, endpoint.Port, cancellationToken);
+
                 return new NetworkStream(socket, ownsSocket: true);
             }
             catch (Exception ex)
@@ -64,7 +79,11 @@ public sealed class WebhookDestinationValidator
 
     private static bool IsPublicAddress(IPAddress address)
     {
-        if (IPAddress.IsLoopback(address) || address.Equals(IPAddress.Any) || address.Equals(IPAddress.IPv6Any))
+        if (
+            IPAddress.IsLoopback(address)
+            || address.Equals(IPAddress.Any)
+            || address.Equals(IPAddress.IPv6Any)
+        )
         {
             return false;
         }
@@ -75,6 +94,7 @@ public sealed class WebhookDestinationValidator
         }
 
         var bytes = address.GetAddressBytes();
+
         if (address.AddressFamily == AddressFamily.InterNetwork)
         {
             return bytes[0] switch

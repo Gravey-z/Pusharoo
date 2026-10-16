@@ -10,5 +10,8 @@ public interface IProjectRepository
 
     Task<ProjectDocument?> GetByIdAsync(string projectId, CancellationToken cancellationToken);
 
-    Task<ProjectDocument?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken);
+    Task<ProjectDocument?> GetByIdempotencyKeyAsync(
+        string idempotencyKey,
+        CancellationToken cancellationToken
+    );
 }

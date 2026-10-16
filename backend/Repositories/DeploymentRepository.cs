@@ -8,56 +8,94 @@ namespace backend.Repositories;
 
 public sealed class DeploymentRepository(MongoDbContext db) : IDeploymentRepository
 {
-    public async Task InsertAsync(DeploymentDocument deployment, CancellationToken cancellationToken)
+    public async Task InsertAsync(
+        DeploymentDocument deployment,
+        CancellationToken cancellationToken
+    )
     {
         await db.Deployments.InsertOneAsync(deployment, cancellationToken: cancellationToken);
     }
 
     public async Task<IReadOnlyList<DeploymentDocument>> GetByProjectIdAsync(
         string projectId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        return await db.Deployments
-            .Find(deployment => deployment.ProjectId == projectId)
+        return await db
+            .Deployments.Find(deployment => deployment.ProjectId == projectId)
             .SortByDescending(deployment => deployment.CreatedAt)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<DeploymentDocument?> GetByTransactionIdAsync(string transactionId, CancellationToken cancellationToken)
+    public async Task<DeploymentDocument?> GetByTransactionIdAsync(
+        string transactionId,
+        CancellationToken cancellationToken
+    )
     {
         var hash = transactionId.Trim();
-        if (hash.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) hash = hash[2..];
+
+        if (hash.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            hash = hash[2..];
+
         var exactHash = new BsonRegularExpression($"^(?:0x)?{Regex.Escape(hash)}$", "i");
-        return await db.Deployments.Find(Builders<DeploymentDocument>.Filter.Regex(deployment => deployment.TransactionId, exactHash))
+
+        return await db
+            .Deployments.Find(
+                Builders<DeploymentDocument>.Filter.Regex(
+                    deployment => deployment.TransactionId,
+                    exactHash
+                )
+            )
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<DeploymentDocument?> GetByIdAsync(string deploymentId, CancellationToken cancellationToken)
+    public async Task<DeploymentDocument?> GetByIdAsync(
+        string deploymentId,
+        CancellationToken cancellationToken
+    )
     {
-        return await db.Deployments.Find(deployment => deployment.Id == deploymentId)
+        return await db
+            .Deployments.Find(deployment => deployment.Id == deploymentId)
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task ReplaceAsync(DeploymentDocument deployment, CancellationToken cancellationToken)
+    public async Task ReplaceAsync(
+        DeploymentDocument deployment,
+        CancellationToken cancellationToken
+    )
     {
         await db.Deployments.ReplaceOneAsync(
             item => item.Id == deployment.Id,
             deployment,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken
+        );
     }
 
-    public async Task<DeploymentDocument?> RenewCapabilityAsync(DeploymentDocument deployment,
-        string capabilityHash, DateTime expiresAtUtc, CancellationToken cancellationToken)
+    public async Task<DeploymentDocument?> RenewCapabilityAsync(
+        DeploymentDocument deployment,
+        string capabilityHash,
+        DateTime expiresAtUtc,
+        CancellationToken cancellationToken
+    )
     {
-        var filter = Builders<DeploymentDocument>.Filter.Where(item => item.Id == deployment.Id
+        var filter = Builders<DeploymentDocument>.Filter.Where(item =>
+            item.Id == deployment.Id
             && item.ProjectId == deployment.ProjectId
             && item.AttemptCapabilityHash == deployment.AttemptCapabilityHash
-            && item.Status == deployment.Status);
-        var update = Builders<DeploymentDocument>.Update
-            .Set(item => item.AttemptCapabilityHash, capabilityHash)
+            && item.Status == deployment.Status
+        );
+        var update = Builders<DeploymentDocument>
+            .Update.Set(item => item.AttemptCapabilityHash, capabilityHash)
             .Set(item => item.AttemptCapabilityExpiresAtUtc, expiresAtUtc);
-        return await db.Deployments.FindOneAndUpdateAsync(filter, update,
-            new FindOneAndUpdateOptions<DeploymentDocument> { ReturnDocument = ReturnDocument.After },
-            cancellationToken);
+
+        return await db.Deployments.FindOneAndUpdateAsync(
+            filter,
+            update,
+            new FindOneAndUpdateOptions<DeploymentDocument>
+            {
+                ReturnDocument = ReturnDocument.After
+            },
+            cancellationToken
+        );
     }
 }

@@ -8,10 +8,17 @@ namespace backend.Controllers;
 [ApiController]
 [Route("api/faucet")]
 [EnableRateLimiting("FaucetIp")]
-public sealed class FaucetController(FaucetService faucet, CurrentWalletSessionAccessor currentWallet, FaucetClientIpResolver clientIpResolver) : ControllerBase
+public sealed class FaucetController(
+    FaucetService faucet,
+    CurrentWalletSessionAccessor currentWallet,
+    FaucetClientIpResolver clientIpResolver
+) : ControllerBase
 {
     [HttpGet("status")]
-    public async Task<ActionResult<FaucetStatusResponse>> GetStatus([FromQuery] string? address, CancellationToken cancellationToken)
+    public async Task<ActionResult<FaucetStatusResponse>> GetStatus(
+        [FromQuery] string? address,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -19,11 +26,23 @@ public sealed class FaucetController(FaucetService faucet, CurrentWalletSessionA
         }
         catch (FaucetUnavailableException exception)
         {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = exception.Message });
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new { error = exception.Message }
+            );
         }
-        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or JsonException or OperationCanceledException)
+        catch (Exception exception)
+            when (exception
+                    is HttpRequestException
+                        or InvalidOperationException
+                        or JsonException
+                        or OperationCanceledException
+            )
         {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "Testnet faucet is temporarily unavailable." });
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new { error = "Testnet faucet is temporarily unavailable." }
+            );
         }
     }
 
@@ -31,11 +50,19 @@ public sealed class FaucetController(FaucetService faucet, CurrentWalletSessionA
     [RequireWalletSession]
     public async Task<ActionResult<FaucetClaimResponse>> SubmitClaim(
         [FromBody] FaucetClaimRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         try
         {
-            return Accepted(await faucet.SubmitClaimAsync(request, currentWallet.Current!, clientIpResolver.Resolve(HttpContext), cancellationToken));
+            return Accepted(
+                await faucet.SubmitClaimAsync(
+                    request,
+                    currentWallet.Current!,
+                    clientIpResolver.Resolve(HttpContext),
+                    cancellationToken
+                )
+            );
         }
         catch (FaucetRequestException exception)
         {
@@ -43,19 +70,35 @@ public sealed class FaucetController(FaucetService faucet, CurrentWalletSessionA
         }
         catch (FaucetUnavailableException exception)
         {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = exception.Message });
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new { error = exception.Message }
+            );
         }
-        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or JsonException or OperationCanceledException)
+        catch (Exception exception)
+            when (exception
+                    is HttpRequestException
+                        or InvalidOperationException
+                        or JsonException
+                        or OperationCanceledException
+            )
         {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "Testnet faucet is temporarily unavailable." });
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new { error = "Testnet faucet is temporarily unavailable." }
+            );
         }
     }
 
     [HttpGet("claims/{requestId}")]
-    public async Task<ActionResult<FaucetClaimResponse>> GetClaim(string requestId, CancellationToken cancellationToken)
+    public async Task<ActionResult<FaucetClaimResponse>> GetClaim(
+        string requestId,
+        CancellationToken cancellationToken
+    )
     {
         Response.Headers.CacheControl = "no-store";
         var claim = await faucet.GetClaimAsync(requestId, cancellationToken);
+
         return claim is null ? NotFound() : Ok(claim);
     }
 }

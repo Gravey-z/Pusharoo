@@ -6,24 +6,44 @@ public interface IWebhookSubscriptionRepository
 {
     Task InsertAsync(WebhookSubscriptionDocument subscription, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<WebhookSubscriptionDocument>> GetAllAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<WebhookSubscriptionDocument>> GetAllAsync(
+        CancellationToken cancellationToken
+    );
 
     Task<IReadOnlyList<WebhookSubscriptionDocument>> GetByProjectIdAsync(
         string projectId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken
+    );
 
-    Task<WebhookSubscriptionDocument?> GetByIdAsync(string subscriptionId, CancellationToken cancellationToken);
+    Task<WebhookSubscriptionDocument?> GetByIdAsync(
+        string subscriptionId,
+        CancellationToken cancellationToken
+    );
 
     Task<IReadOnlyList<WebhookSubscriptionDocument>> GetMatchingAsync(
         string network,
         string contractHash,
         string eventName,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken
+    );
 
-    Task<bool> ReplaceAsync(WebhookSubscriptionDocument subscription, CancellationToken cancellationToken);
+    Task<bool> ReplaceAsync(
+        WebhookSubscriptionDocument subscription,
+        CancellationToken cancellationToken
+    );
 
     Task<bool> DeleteAsync(string subscriptionId, CancellationToken cancellationToken);
-    Task SetFreeTestnetSubscriptionExpiryAsync(string projectId, int retentionDays, CancellationToken cancellationToken);
+
+    Task SetFreeTestnetSubscriptionExpiryAsync(
+        string projectId,
+        int retentionDays,
+        CancellationToken cancellationToken
+    );
+
     Task ClearTestnetSubscriptionExpiryAsync(string projectId, CancellationToken cancellationToken);
-    Task<IReadOnlyList<string>> DeleteExpiredAsync(DateTime now, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<string>> DeleteExpiredAsync(
+        DateTime now,
+        CancellationToken cancellationToken
+    );
 }

@@ -2,7 +2,6 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace backend.Models;
 
-
 public sealed record DeploymentAuthorizationSnapshot
 {
     [BsonElement("initiatorWalletAddress")]

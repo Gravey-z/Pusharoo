@@ -11,7 +11,8 @@ namespace backend.Services;
 /// </summary>
 public sealed class ProjectOwnershipMigrationService(
     MongoDbContext db,
-    ILogger<ProjectOwnershipMigrationService> logger) : IHostedService
+    ILogger<ProjectOwnershipMigrationService> logger
+) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -23,13 +24,15 @@ public sealed class ProjectOwnershipMigrationService(
             filter.Eq(project => project.CreatedByWalletScriptHash, null),
             filter.Eq(project => project.CreatedByWalletScriptHash, string.Empty),
             filter.Eq(project => project.CreatedByWalletPublicKey, null),
-            filter.Eq(project => project.CreatedByWalletPublicKey, string.Empty));
+            filter.Eq(project => project.CreatedByWalletPublicKey, string.Empty)
+        );
         var recoveryRequired = await db.Projects.UpdateManyAsync(
             missingCreator,
-            Builders<ProjectDocument>.Update
-                .Set(project => project.OwnershipStatus, "recovery_required")
+            Builders<ProjectDocument>
+                .Update.Set(project => project.OwnershipStatus, "recovery_required")
                 .Set(project => project.OwnershipAuditedAtUtc, now),
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken
+        );
 
         var verifiableCreator = filter.And(
             filter.Ne(project => project.CreatedByWalletAddress, null),
@@ -37,26 +40,31 @@ public sealed class ProjectOwnershipMigrationService(
             filter.Ne(project => project.CreatedByWalletScriptHash, null),
             filter.Ne(project => project.CreatedByWalletScriptHash, string.Empty),
             filter.Ne(project => project.CreatedByWalletPublicKey, null),
-            filter.Ne(project => project.CreatedByWalletPublicKey, string.Empty));
+            filter.Ne(project => project.CreatedByWalletPublicKey, string.Empty)
+        );
         var missingAuthorizedDeployers = filter.Or(
             filter.Exists(ProjectDocument.AuthorizedDeployersStorageField, false),
-            filter.Eq(project => project.AuthorizedDeployers, null));
+            filter.Eq(project => project.AuthorizedDeployers, null)
+        );
         await db.Projects.UpdateManyAsync(
             filter.And(verifiableCreator, missingAuthorizedDeployers),
             Builders<ProjectDocument>.Update.Set(project => project.AuthorizedDeployers, []),
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken
+        );
         await db.Projects.UpdateManyAsync(
             verifiableCreator,
-            Builders<ProjectDocument>.Update
-                .Set(project => project.OwnershipStatus, "verified")
+            Builders<ProjectDocument>
+                .Update.Set(project => project.OwnershipStatus, "verified")
                 .Set(project => project.OwnershipAuditedAtUtc, now),
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken
+        );
 
         if (recoveryRequired.ModifiedCount > 0)
         {
             logger.LogWarning(
                 "{Count} legacy Pusharoo project(s) have incomplete creator records and are now read-only until ownership recovery.",
-                recoveryRequired.ModifiedCount);
+                recoveryRequired.ModifiedCount
+            );
         }
     }
 

@@ -9,17 +9,26 @@ namespace backend.Services;
 public sealed class NeoWalletSignatureVerifier
 {
     private const byte NeoN3AddressVersion = 0x35;
-    private const string P256PrimeHex = "ffffffff00000001000000000000000000000000ffffffffffffffffffffffff";
-    private const string P256BHex = "5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b";
+
+    private const string P256PrimeHex =
+        "ffffffff00000001000000000000000000000000ffffffffffffffffffffffff";
+
+    private const string P256BHex =
+        "5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b";
+
     private const string NeoCheckSigInteropCode = "56e7b327";
-    private const string Base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+    private const string Base58Alphabet =
+        "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
     private static readonly BigInteger P256Prime = FromHex(P256PrimeHex);
+
     private static readonly BigInteger P256B = FromHex(P256BHex);
 
     public WalletSignatureVerificationResult Verify(
         WalletSignatureRequest signature,
-        string expectedMessage)
+        string expectedMessage
+    )
     {
         if (!TryReadPublicKey(signature.PublicKey, out var compressedPublicKey, out var parameters))
         {
@@ -37,12 +46,20 @@ public sealed class NeoWalletSignatureVerifier
         }
 
         var scriptHash = GetScriptHashFromPublicKey(compressedPublicKey);
-        if (!string.Equals(scriptHash, NormalizeHex(signature.ScriptHash), StringComparison.OrdinalIgnoreCase))
+
+        if (
+            !string.Equals(
+                scriptHash,
+                NormalizeHex(signature.ScriptHash),
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
         {
             return Fail("Wallet script hash does not match the signing public key.");
         }
 
         var address = GetAddressFromScriptHash(scriptHash);
+
         if (!string.Equals(address, signature.Address.Trim(), StringComparison.Ordinal))
         {
             return Fail("Wallet address does not match the signing public key.");
@@ -53,7 +70,8 @@ public sealed class NeoWalletSignatureVerifier
             string.Empty,
             ToHex(compressedPublicKey),
             address,
-            scriptHash);
+            scriptHash
+        );
     }
 
     public bool PublicKeysMatch(string? left, string? right)
@@ -69,15 +87,22 @@ public sealed class NeoWalletSignatureVerifier
         WalletSignatureRequest signature,
         string expectedMessage,
         ECParameters parameters,
-        byte[] signatureBytes)
+        byte[] signatureBytes
+    )
     {
         try
         {
-            var candidateMessageHexes = GetExpectedMessageHexes(expectedMessage, signature.Salt).ToArray();
+            var candidateMessageHexes = GetExpectedMessageHexes(expectedMessage, signature.Salt)
+                .ToArray();
             var providedMessageHex = NormalizeOptionalHex(signature.MessageHex);
 
-            if (providedMessageHex is not null
-                && !candidateMessageHexes.Contains(providedMessageHex, StringComparer.OrdinalIgnoreCase))
+            if (
+                providedMessageHex is not null
+                && !candidateMessageHexes.Contains(
+                    providedMessageHex,
+                    StringComparer.OrdinalIgnoreCase
+                )
+            )
             {
                 return false;
             }
@@ -95,7 +120,8 @@ public sealed class NeoWalletSignatureVerifier
                 return ecdsa.VerifyHash(
                     messageHash,
                     signatureBytes,
-                    DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+                    DSASignatureFormat.IeeeP1363FixedFieldConcatenation
+                );
             });
         }
         catch (CryptographicException)
@@ -111,6 +137,7 @@ public sealed class NeoWalletSignatureVerifier
     private static IEnumerable<string> GetExpectedMessageHexes(string message, string? salt)
     {
         yield return ClassicFormat(message);
+
         yield return JavaScriptStringToHex(message);
 
         if (!string.IsNullOrWhiteSpace(salt))
@@ -164,7 +191,8 @@ public sealed class NeoWalletSignatureVerifier
     private static bool TryReadPublicKey(
         string value,
         out byte[] compressedPublicKey,
-        out ECParameters parameters)
+        out ECParameters parameters
+    )
     {
         compressedPublicKey = [];
         parameters = default;
@@ -172,25 +200,24 @@ public sealed class NeoWalletSignatureVerifier
         try
         {
             var publicKey = NormalizeHex(value);
-            if (publicKey.Length == 130 && publicKey.StartsWith("04", StringComparison.OrdinalIgnoreCase))
+
+            if (
+                publicKey.Length == 130
+                && publicKey.StartsWith("04", StringComparison.OrdinalIgnoreCase)
+            )
             {
                 var bytes = HexToBytes(publicKey);
                 compressedPublicKey = CompressPublicKey(bytes);
                 parameters = new ECParameters
                 {
                     Curve = ECCurve.NamedCurves.nistP256,
-                    Q = new ECPoint
-                    {
-                        X = bytes[1..33],
-                        Y = bytes[33..65]
-                    }
+                    Q = new ECPoint { X = bytes[1..33], Y = bytes[33..65] }
                 };
 
                 return true;
             }
 
-            if (publicKey.Length != 66
-                || (publicKey[..2] != "02" && publicKey[..2] != "03"))
+            if (publicKey.Length != 66 || (publicKey[..2] != "02" && publicKey[..2] != "03"))
             {
                 return false;
             }
@@ -202,11 +229,7 @@ public sealed class NeoWalletSignatureVerifier
             parameters = new ECParameters
             {
                 Curve = ECCurve.NamedCurves.nistP256,
-                Q = new ECPoint
-                {
-                    X = ToFixedLengthBytes(x, 32),
-                    Y = ToFixedLengthBytes(y, 32)
-                }
+                Q = new ECPoint { X = ToFixedLengthBytes(x, 32), Y = ToFixedLengthBytes(y, 32) }
             };
 
             return true;
@@ -258,6 +281,7 @@ public sealed class NeoWalletSignatureVerifier
         if (normalized.Length == 128 && IsHex(normalized))
         {
             signature = HexToBytes(normalized);
+
             return true;
         }
 
@@ -275,7 +299,9 @@ public sealed class NeoWalletSignatureVerifier
 
     private static string GetScriptHashFromPublicKey(byte[] compressedPublicKey)
     {
-        var verificationScript = HexToBytes($"0c21{ToHex(compressedPublicKey)}41{NeoCheckSigInteropCode}");
+        var verificationScript = HexToBytes(
+            $"0c21{ToHex(compressedPublicKey)}41{NeoCheckSigInteropCode}"
+        );
         var hash160 = Ripemd160(SHA256.HashData(verificationScript));
 
         return ToHex(hash160.Reverse().ToArray());
@@ -396,38 +422,338 @@ public sealed class NeoWalletSignatureVerifier
     {
         private static readonly int[] LeftMessageOrder =
         [
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-            7, 4, 13, 1, 10, 6, 15, 3, 12, 0, 9, 5, 2, 14, 11, 8,
-            3, 10, 14, 4, 9, 15, 8, 1, 2, 7, 0, 6, 13, 11, 5, 12,
-            1, 9, 11, 10, 0, 8, 12, 4, 13, 3, 7, 15, 14, 5, 6, 2,
-            4, 0, 5, 9, 7, 12, 2, 10, 14, 1, 3, 8, 11, 6, 15, 13
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            7,
+            4,
+            13,
+            1,
+            10,
+            6,
+            15,
+            3,
+            12,
+            0,
+            9,
+            5,
+            2,
+            14,
+            11,
+            8,
+            3,
+            10,
+            14,
+            4,
+            9,
+            15,
+            8,
+            1,
+            2,
+            7,
+            0,
+            6,
+            13,
+            11,
+            5,
+            12,
+            1,
+            9,
+            11,
+            10,
+            0,
+            8,
+            12,
+            4,
+            13,
+            3,
+            7,
+            15,
+            14,
+            5,
+            6,
+            2,
+            4,
+            0,
+            5,
+            9,
+            7,
+            12,
+            2,
+            10,
+            14,
+            1,
+            3,
+            8,
+            11,
+            6,
+            15,
+            13
         ];
 
         private static readonly int[] RightMessageOrder =
         [
-            5, 14, 7, 0, 9, 2, 11, 4, 13, 6, 15, 8, 1, 10, 3, 12,
-            6, 11, 3, 7, 0, 13, 5, 10, 14, 15, 8, 12, 4, 9, 1, 2,
-            15, 5, 1, 3, 7, 14, 6, 9, 11, 8, 12, 2, 10, 0, 4, 13,
-            8, 6, 4, 1, 3, 11, 15, 0, 5, 12, 2, 13, 9, 7, 10, 14,
-            12, 15, 10, 4, 1, 5, 8, 7, 6, 2, 13, 14, 0, 3, 9, 11
+            5,
+            14,
+            7,
+            0,
+            9,
+            2,
+            11,
+            4,
+            13,
+            6,
+            15,
+            8,
+            1,
+            10,
+            3,
+            12,
+            6,
+            11,
+            3,
+            7,
+            0,
+            13,
+            5,
+            10,
+            14,
+            15,
+            8,
+            12,
+            4,
+            9,
+            1,
+            2,
+            15,
+            5,
+            1,
+            3,
+            7,
+            14,
+            6,
+            9,
+            11,
+            8,
+            12,
+            2,
+            10,
+            0,
+            4,
+            13,
+            8,
+            6,
+            4,
+            1,
+            3,
+            11,
+            15,
+            0,
+            5,
+            12,
+            2,
+            13,
+            9,
+            7,
+            10,
+            14,
+            12,
+            15,
+            10,
+            4,
+            1,
+            5,
+            8,
+            7,
+            6,
+            2,
+            13,
+            14,
+            0,
+            3,
+            9,
+            11
         ];
 
         private static readonly int[] LeftRotations =
         [
-            11, 14, 15, 12, 5, 8, 7, 9, 11, 13, 14, 15, 6, 7, 9, 8,
-            7, 6, 8, 13, 11, 9, 7, 15, 7, 12, 15, 9, 11, 7, 13, 12,
-            11, 13, 6, 7, 14, 9, 13, 15, 14, 8, 13, 6, 5, 12, 7, 5,
-            11, 12, 14, 15, 14, 15, 9, 8, 9, 14, 5, 6, 8, 6, 5, 12,
-            9, 15, 5, 11, 6, 8, 13, 12, 5, 12, 13, 14, 11, 8, 5, 6
+            11,
+            14,
+            15,
+            12,
+            5,
+            8,
+            7,
+            9,
+            11,
+            13,
+            14,
+            15,
+            6,
+            7,
+            9,
+            8,
+            7,
+            6,
+            8,
+            13,
+            11,
+            9,
+            7,
+            15,
+            7,
+            12,
+            15,
+            9,
+            11,
+            7,
+            13,
+            12,
+            11,
+            13,
+            6,
+            7,
+            14,
+            9,
+            13,
+            15,
+            14,
+            8,
+            13,
+            6,
+            5,
+            12,
+            7,
+            5,
+            11,
+            12,
+            14,
+            15,
+            14,
+            15,
+            9,
+            8,
+            9,
+            14,
+            5,
+            6,
+            8,
+            6,
+            5,
+            12,
+            9,
+            15,
+            5,
+            11,
+            6,
+            8,
+            13,
+            12,
+            5,
+            12,
+            13,
+            14,
+            11,
+            8,
+            5,
+            6
         ];
 
         private static readonly int[] RightRotations =
         [
-            8, 9, 9, 11, 13, 15, 15, 5, 7, 7, 8, 11, 14, 14, 12, 6,
-            9, 13, 15, 7, 12, 8, 9, 11, 7, 7, 12, 7, 6, 15, 13, 11,
-            9, 7, 15, 11, 8, 6, 6, 14, 12, 13, 5, 14, 13, 13, 7, 5,
-            15, 5, 8, 11, 14, 14, 6, 14, 6, 9, 12, 9, 12, 5, 15, 8,
-            8, 5, 12, 9, 12, 5, 14, 6, 8, 13, 6, 5, 15, 13, 11, 11
+            8,
+            9,
+            9,
+            11,
+            13,
+            15,
+            15,
+            5,
+            7,
+            7,
+            8,
+            11,
+            14,
+            14,
+            12,
+            6,
+            9,
+            13,
+            15,
+            7,
+            12,
+            8,
+            9,
+            11,
+            7,
+            7,
+            12,
+            7,
+            6,
+            15,
+            13,
+            11,
+            9,
+            7,
+            15,
+            11,
+            8,
+            6,
+            6,
+            14,
+            12,
+            13,
+            5,
+            14,
+            13,
+            13,
+            7,
+            5,
+            15,
+            5,
+            8,
+            11,
+            14,
+            14,
+            6,
+            14,
+            6,
+            9,
+            12,
+            9,
+            12,
+            5,
+            15,
+            8,
+            8,
+            5,
+            12,
+            9,
+            12,
+            5,
+            14,
+            6,
+            8,
+            13,
+            6,
+            5,
+            15,
+            13,
+            11,
+            11
         ];
 
         public static byte[] Hash(byte[] value)
@@ -440,6 +766,7 @@ public sealed class NeoWalletSignatureVerifier
             uint h4 = 0xc3d2e1f0;
 
             Span<uint> words = stackalloc uint[16];
+
             for (var offset = 0; offset < padded.Length; offset += 64)
             {
                 for (var index = 0; index < 16; index++)
@@ -488,7 +815,8 @@ public sealed class NeoWalletSignatureVerifier
             ref uint h1,
             ref uint h2,
             ref uint h3,
-            ref uint h4)
+            ref uint h4
+        )
         {
             unchecked
             {
@@ -505,18 +833,28 @@ public sealed class NeoWalletSignatureVerifier
 
                 for (var index = 0; index < 80; index++)
                 {
-                    var temp = RotateLeft(
-                        al + F(index, bl, cl, dl) + words[LeftMessageOrder[index]] + LeftConstant(index),
-                        LeftRotations[index]) + el;
+                    var temp =
+                        RotateLeft(
+                            al
+                                + F(index, bl, cl, dl)
+                                + words[LeftMessageOrder[index]]
+                                + LeftConstant(index),
+                            LeftRotations[index]
+                        ) + el;
                     al = el;
                     el = dl;
                     dl = RotateLeft(cl, 10);
                     cl = bl;
                     bl = temp;
 
-                    temp = RotateLeft(
-                        ar + F(79 - index, br, cr, dr) + words[RightMessageOrder[index]] + RightConstant(index),
-                        RightRotations[index]) + er;
+                    temp =
+                        RotateLeft(
+                            ar
+                                + F(79 - index, br, cr, dr)
+                                + words[RightMessageOrder[index]]
+                                + RightConstant(index),
+                            RightRotations[index]
+                        ) + er;
                     ar = er;
                     er = dr;
                     dr = RotateLeft(cr, 10);
@@ -589,7 +927,8 @@ public sealed record WalletSignatureVerificationResult(
     string Error,
     string? PublicKey = null,
     string? Address = null,
-    string? ScriptHash = null)
+    string? ScriptHash = null
+)
 {
     public static WalletSignatureVerificationResult Valid { get; } = new(true, string.Empty);
 }

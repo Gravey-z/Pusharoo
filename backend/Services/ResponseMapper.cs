@@ -12,7 +12,8 @@ public static class ResponseMapper
             project.Description,
             project.CreatedByWalletAddress,
             project.CreatorNetwork,
-            project.CreatedAt);
+            project.CreatedAt
+        );
     }
 
     public static ArtifactResponse ToResponse(this ArtifactDocument artifact)
@@ -28,7 +29,8 @@ public static class ResponseMapper
             artifact.Manifest,
             artifact.Summary,
             artifact.Warnings,
-            artifact.CreatedAt);
+            artifact.CreatedAt
+        );
     }
 
     public static DeploymentResponse ToResponse(this DeploymentDocument deployment)
@@ -51,17 +53,24 @@ public static class ResponseMapper
             deployment.UpdatedAt == default ? deployment.CreatedAt : deployment.UpdatedAt,
             DeploymentData: deployment.AuthorizationSnapshot?.DeploymentData,
             DeploymentDataSha256: deployment.AuthorizationSnapshot?.DeploymentDataSha256,
-            DeploymentDataFormatVersion: deployment.AuthorizationSnapshot?.DeploymentDataFormatVersion,
-            AuthorizationSchemaVersion: deployment.AuthorizationSnapshot?.AuthorizationSchemaVersion ?? 1);
+            DeploymentDataFormatVersion: deployment
+                .AuthorizationSnapshot
+                ?.DeploymentDataFormatVersion,
+            AuthorizationSchemaVersion: deployment.AuthorizationSnapshot?.AuthorizationSchemaVersion
+                ?? 1
+        );
     }
 
-    public static ProjectAuthorizedDeployerResponse ToResponse(this ProjectAuthorizedDeployerDocument authorizedDeployer)
+    public static ProjectAuthorizedDeployerResponse ToResponse(
+        this ProjectAuthorizedDeployerDocument authorizedDeployer
+    )
     {
         return new ProjectAuthorizedDeployerResponse(
             authorizedDeployer.WalletAddress,
             authorizedDeployer.ScriptHash,
             authorizedDeployer.AllowedNetworks,
             authorizedDeployer.AddedAtUtc,
-            authorizedDeployer.UpdatedAtUtc);
+            authorizedDeployer.UpdatedAtUtc
+        );
     }
 }

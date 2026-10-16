@@ -11,7 +11,8 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
         ArtifactDocument artifact,
         CreateDeploymentRequest request,
         string? idempotencyKey,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var deployment = new DeploymentDocument
         {
@@ -36,8 +37,10 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
         return deployment;
     }
 
-    public Task<DeploymentDocument?> GetByTransactionIdAsync(string transactionId, CancellationToken cancellationToken)
-        => deployments.GetByTransactionIdAsync(transactionId, cancellationToken);
+    public Task<DeploymentDocument?> GetByTransactionIdAsync(
+        string transactionId,
+        CancellationToken cancellationToken
+    ) => deployments.GetByTransactionIdAsync(transactionId, cancellationToken);
 
     public async Task<DeploymentDocument> CreateRecoveredAsync(
         string projectId,
@@ -45,7 +48,8 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
         string transactionId,
         string deployedBy,
         string contractHash,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var now = DateTime.UtcNow;
         var deployment = new DeploymentDocument
@@ -64,15 +68,19 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             UpdatedAt = now
         };
         await deployments.InsertAsync(deployment, cancellationToken);
+
         return deployment;
     }
 
-    public Task<DeploymentDocument?> GetByIdAsync(string deploymentId, CancellationToken cancellationToken)
-        => deployments.GetByIdAsync(deploymentId, cancellationToken);
+    public Task<DeploymentDocument?> GetByIdAsync(
+        string deploymentId,
+        CancellationToken cancellationToken
+    ) => deployments.GetByIdAsync(deploymentId, cancellationToken);
 
     public async Task<IReadOnlyList<DeploymentDocument>> GetByProjectIdAsync(
         string projectId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         return await deployments.GetByProjectIdAsync(projectId, cancellationToken);
     }
@@ -84,7 +92,8 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
         string operation,
         DeploymentAuthorizationSnapshot authorizationSnapshot,
         string attemptCapability,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var now = DateTime.UtcNow;
         var deployment = new DeploymentDocument
@@ -100,13 +109,16 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             Status = "awaiting_wallet",
             ActiveAttemptKey = BuildActiveAttemptKey(projectId, request.Network),
             AuthorizationSnapshot = authorizationSnapshot,
-            AttemptCapabilityHash = DeploymentAuthorizationService.HashAttemptCapability(attemptCapability),
+            AttemptCapabilityHash = DeploymentAuthorizationService.HashAttemptCapability(
+                attemptCapability
+            ),
             AttemptCapabilityExpiresAtUtc = now.AddMinutes(10),
             CreatedAt = now,
             UpdatedAt = now
         };
 
         await deployments.InsertAsync(deployment, cancellationToken);
+
         return deployment;
     }
 
@@ -114,7 +126,8 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
         DeploymentDocument deployment,
         string transactionId,
         string nextAttemptCapability,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var updated = deployment with
         {
@@ -122,24 +135,34 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             Status = "submitted",
             FailureStage = null,
             FailureReason = null,
-            AttemptCapabilityHash = DeploymentAuthorizationService.HashAttemptCapability(nextAttemptCapability),
+            AttemptCapabilityHash = DeploymentAuthorizationService.HashAttemptCapability(
+                nextAttemptCapability
+            ),
             AttemptCapabilityExpiresAtUtc = DateTime.UtcNow.AddMinutes(10),
             UpdatedAt = DateTime.UtcNow
         };
         await deployments.ReplaceAsync(updated, cancellationToken);
+
         return updated;
     }
 
-    public Task<DeploymentDocument?> RenewCapabilityAsync(DeploymentDocument deployment,
-        string nextAttemptCapability, CancellationToken cancellationToken)
-        => deployments.RenewCapabilityAsync(deployment,
+    public Task<DeploymentDocument?> RenewCapabilityAsync(
+        DeploymentDocument deployment,
+        string nextAttemptCapability,
+        CancellationToken cancellationToken
+    ) =>
+        deployments.RenewCapabilityAsync(
+            deployment,
             DeploymentAuthorizationService.HashAttemptCapability(nextAttemptCapability),
-            DateTime.UtcNow.AddMinutes(10), cancellationToken);
+            DateTime.UtcNow.AddMinutes(10),
+            cancellationToken
+        );
 
     public async Task<DeploymentDocument> MarkConfirmedAsync(
         DeploymentDocument deployment,
         string contractHash,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var updated = deployment with
         {
@@ -151,12 +174,14 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             UpdatedAt = DateTime.UtcNow
         };
         await deployments.ReplaceAsync(updated, cancellationToken);
+
         return updated;
     }
 
     public async Task<DeploymentDocument> MarkConfirmingAsync(
         DeploymentDocument deployment,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var updated = deployment with
         {
@@ -166,6 +191,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             UpdatedAt = DateTime.UtcNow
         };
         await deployments.ReplaceAsync(updated, cancellationToken);
+
         return updated;
     }
 
@@ -173,7 +199,8 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
         DeploymentDocument deployment,
         string stage,
         string reason,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var updated = deployment with
         {
@@ -184,17 +211,18 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             UpdatedAt = DateTime.UtcNow
         };
         await deployments.ReplaceAsync(updated, cancellationToken);
+
         return updated;
     }
 
-    public Task UpdateAsync(DeploymentDocument deployment, CancellationToken cancellationToken)
-        => deployments.ReplaceAsync(deployment, cancellationToken);
+    public Task UpdateAsync(DeploymentDocument deployment, CancellationToken cancellationToken) =>
+        deployments.ReplaceAsync(deployment, cancellationToken);
 
     private static string? TrimToNull(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
-    private static string BuildActiveAttemptKey(string projectId, string network)
-        => $"{projectId.Trim()}:{network.Trim()}";
+    private static string BuildActiveAttemptKey(string projectId, string network) =>
+        $"{projectId.Trim()}:{network.Trim()}";
 }

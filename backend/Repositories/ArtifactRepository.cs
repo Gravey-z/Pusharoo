@@ -13,10 +13,11 @@ public sealed class ArtifactRepository(MongoDbContext db) : IArtifactRepository
 
     public async Task<IReadOnlyList<ArtifactDocument>> GetByProjectIdAsync(
         string projectId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        return await db.ContractArtifacts
-            .Find(artifact => artifact.ProjectId == projectId)
+        return await db
+            .ContractArtifacts.Find(artifact => artifact.ProjectId == projectId)
             .SortByDescending(artifact => artifact.CreatedAt)
             .ToListAsync(cancellationToken);
     }
@@ -24,24 +25,34 @@ public sealed class ArtifactRepository(MongoDbContext db) : IArtifactRepository
     public async Task<ArtifactDocument?> GetByProjectIdAndVersionAsync(
         string projectId,
         string version,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        return await db.ContractArtifacts
-            .Find(artifact => artifact.ProjectId == projectId && artifact.Version == version)
+        return await db
+            .ContractArtifacts.Find(artifact =>
+                artifact.ProjectId == projectId && artifact.Version == version
+            )
             .SortByDescending(artifact => artifact.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<ArtifactDocument?> GetByIdAsync(string artifactId, CancellationToken cancellationToken)
+    public async Task<ArtifactDocument?> GetByIdAsync(
+        string artifactId,
+        CancellationToken cancellationToken
+    )
     {
-        return await db.ContractArtifacts
-            .Find(artifact => artifact.Id == artifactId)
+        return await db
+            .ContractArtifacts.Find(artifact => artifact.Id == artifactId)
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<ArtifactDocument?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken)
+    public async Task<ArtifactDocument?> GetByIdempotencyKeyAsync(
+        string idempotencyKey,
+        CancellationToken cancellationToken
+    )
     {
-        return await db.ContractArtifacts.Find(artifact => artifact.IdempotencyKey == idempotencyKey)
+        return await db
+            .ContractArtifacts.Find(artifact => artifact.IdempotencyKey == idempotencyKey)
             .FirstOrDefaultAsync(cancellationToken);
     }
 }
