@@ -21,6 +21,10 @@ builder.Services.AddOptions<EventRelayOptions>().Bind(builder.Configuration.GetS
         "Delivery timeout must be at most 60 seconds and attempts at most 100.")
     .Validate(x => x.ReplayMaxRangeBlocks is > 0 and <= 100000 && x.ReplayMaxBlocksPerPoll is > 0 and <= 100 && x.MaxQueueDepth > 0,
         "Invalid replay workload limits.")
+    .Validate(x => x.ReplayProjectBlocksPerDay >= x.ReplayMaxRangeBlocks && x.ReplayProjectBlocksPerDay <= 1000000 &&
+        x.ReplayCooldownSeconds is >= 1 and <= 86400 && x.ReplayMaxActiveJobsPerNetwork is >= 1 and <= 100 &&
+        x.ReplayMaxJobsPerDayPerNetwork >= x.ReplayMaxActiveJobsPerNetwork && x.ReplayMaxJobsPerDayPerNetwork <= 1000,
+        "Invalid replay quota or cooldown limits.")
     .Validate(x => x.OperationsPollSeconds > 0 && x.ScannerStallSeconds > 0 && x.DeliveryWorkerStallSeconds > 0 && x.DeliveryFailureWindowMinutes > 0 && x.DeliveryFailureMinimumAttempts > 0 && x.DeliveryFailureRateThreshold is > 0 and <= 1, "Invalid operations thresholds.")
     .Validate(x => x.FreeTestnetMaxEvents is >= 0 and <= 100000 && x.PaidMaxEvents is >= 0 and <= 100000,
         "Allowance periods support at most 100000 receipts.")

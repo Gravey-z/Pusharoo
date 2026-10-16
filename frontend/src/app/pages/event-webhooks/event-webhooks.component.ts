@@ -42,10 +42,85 @@ interface DeploymentOption {
   styleUrl: './event-webhooks.component.scss'
 })
 export class EventWebhooksComponent implements OnInit, OnDestroy {
-  replayJobs: Partial<Record<string, RelayReplayJob[]>> = {};
-  replayFrom: Record<string, number> = {};
-  replayTo: Record<string, number> = {};
-  replayBusy: Record<string, boolean> = {};
+  recoveryOpen = false;
+  recoveryContract = '';
+  recoveryEvents: Record<string, boolean> = Object.create(null);
+  recoveryFrom: number | null = null;
+  recoveryTo: number | null = null;
+  readonly recoveryJobsByNetwork: Record<string, RelayReplayJob[]> = {};
+  readonly recoveryBusyByNetwork: Record<string, boolean> = {};
+  readonly recoveryMessages: Record<string, string> = {};
+  readonly recoveryErrors: Record<string, string> = {};
+
+  get recoveryJobs(): RelayReplayJob[] { return this.recoveryJobsByNetwork[this.webhookNetwork] ?? []; }
+  get recoveryBusy(): boolean { return this.recoveryBusyByNetwork[this.webhookNetwork] ?? false; }
+  get recoveryEventOptions(): string[] {
+    const manifestNames = this.deploymentOptions.find(x => x.contractHash === this.recoveryContract)?.artifact.manifest.abi.events.map(x => x.name) ?? [];
+    const subscriptions = this.subscriptions.filter(x => x.isEnabled && x.network === this.webhookNetwork && x.contractHash === this.recoveryContract);
+    return [...new Set([...manifestNames, ...subscriptions.flatMap(x => x.eventName ? [x.eventName] : [])])]
+      .filter(name => subscriptions.some(x => !x.eventName || x.eventName === name)).sort();
+  }
+  get recoveryRecipients(): WebhookSubscription[] {
+    const names = this.recoveryEventOptions.filter(name => this.recoveryEvents[name]);
+    return this.subscriptions.filter(x => x.isEnabled && x.network === this.webhookNetwork && x.contractHash === this.recoveryContract &&
+      (!x.eventName ? names.length > 0 : names.includes(x.eventName)));
+  }
+
+  selectRecoveryContract(): void { this.recoveryEvents = Object.create(null); }
+  selectAllRecoveryEvents(): void {
+    this.recoveryEvents = Object.fromEntries(this.recoveryEventOptions.map(name => [name, true]));
+  }
+  async toggleRecovery(): Promise<void> {
+    this.recoveryOpen = !this.recoveryOpen;
+    if (this.recoveryOpen) {
+      if (!this.recoveryContract) this.recoveryContract = this.deploymentOptions[0]?.contractHash ?? '';
+      await this.refreshRecovery();
+    }
+  }
+  async refreshRecovery(): Promise<void> {
+    const network = this.webhookNetwork;
+    if (this.recoveryBusyByNetwork[network]) return;
+    this.recoveryBusyByNetwork[network] = true;
+    try {
+      this.recoveryJobsByNetwork[network] = await this.executeWebhookRequest(() => this.api.getProjectReplayJobs(this.projectId, network));
+      this.recoveryErrors[network] = '';
+    } catch (error) { this.recoveryErrors[network] = this.errors.format(error, 'Could not load recovery progress.'); }
+    finally { this.recoveryBusyByNetwork[network] = false; }
+  }
+  async startRecovery(): Promise<void> {
+    const network = this.webhookNetwork;
+    if (this.recoveryBusyByNetwork[network]) return;
+    this.recoveryErrors[network] = '';
+    this.recoveryMessages[network] = '';
+    const names = this.recoveryEventOptions.filter(name => this.recoveryEvents[name]);
+    const from = this.recoveryFrom, to = this.recoveryTo;
+    if (!this.recoveryContract || !names.length || !Number.isSafeInteger(from) || !Number.isSafeInteger(to) || from! < 0 || to! < from!) {
+      this.recoveryErrors[network] = 'Choose a contract, at least one event type, and an inclusive range of confirmed blocks.';
+      return;
+    }
+    this.recoveryBusyByNetwork[network] = true;
+    const contract = this.recoveryContract;
+    try {
+      const job = await this.executeWebhookRequest(() => this.api.createProjectReplayJob(this.projectId, network, contract, names, from!, to!));
+      this.recoveryJobsByNetwork[network] = [job, ...(this.recoveryJobsByNetwork[network] ?? []).filter(x => x.id !== job.id)];
+      this.recoveryMessages[network] = 'Recovery queued. The block range is scanned once for the selected events.';
+    } catch (error) { this.recoveryErrors[network] = this.errors.format(error, 'Could not start recovery.'); }
+    finally { this.recoveryBusyByNetwork[network] = false; }
+  }
+  async controlRecovery(job: RelayReplayJob, action: 'pause' | 'resume' | 'cancel'): Promise<void> {
+    const network = job.network;
+    if (this.recoveryBusyByNetwork[network]) return;
+    this.recoveryBusyByNetwork[network] = true;
+    try {
+      const updated = await this.executeWebhookRequest(() => this.api.projectReplayAction(this.projectId, network, job.id, action));
+      this.recoveryJobsByNetwork[network] = (this.recoveryJobsByNetwork[network] ?? []).map(x => x.id === job.id ? updated : x);
+      this.recoveryErrors[network] = '';
+    } catch (error) { this.recoveryErrors[network] = this.errors.format(error, 'Could not update recovery.'); }
+    finally { this.recoveryBusyByNetwork[network] = false; }
+  }
+  recoveryEventLabel(job: RelayReplayJob): string {
+    return job.selectedEventNames?.join(', ') || job.eventName || 'All events';
+  }
   overview: ProjectOverviewViewModel | null = null;
   subscriptions: WebhookSubscription[] = [];
   readonly subscriptionsByNetwork: Record<string, WebhookSubscription[]> = {};
@@ -292,6 +367,14 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     }
   }
 
+  async toggleDeliveryHistory(subscription: WebhookSubscription): Promise<void> {
+    if (this.deliveryHistoryForByNetwork[subscription.network] === subscription.id) {
+      this.deliveryHistoryForByNetwork[subscription.network] = '';
+      return;
+    }
+    await this.showDeliveryHistory(subscription);
+  }
+
   async showDeliveryHistory(subscription: WebhookSubscription): Promise<void> {
     const network = subscription.network;
     this.errorMessage = '';
@@ -308,36 +391,6 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     } finally {
       this.loadingDeliveryHistoryForByNetwork[network] = '';
     }
-  }
-
-  async refreshReplays(subscription: WebhookSubscription): Promise<void> {
-    this.replayBusy[subscription.id] = true;
-    try {
-      this.replayJobs[subscription.id] = await this.executeWebhookRequest(() =>
-        this.api.getReplayJobs(this.projectId, subscription.network, subscription.id));
-    } catch (error) { this.errorMessage = this.errors.format(error, 'Could not load replay jobs.'); }
-    finally { this.replayBusy[subscription.id] = false; }
-  }
-  async createReplay(subscription: WebhookSubscription): Promise<void> {
-    const from = this.replayFrom[subscription.id]; const to = this.replayTo[subscription.id];
-    if (!Number.isSafeInteger(from) || !Number.isSafeInteger(to) || from < 0 || to < from) {
-      this.errorMessage = 'Enter an inclusive range of confirmed block heights.'; return;
-    }
-    this.replayBusy[subscription.id] = true;
-    try {
-      await this.executeWebhookRequest(() => this.api.createReplayJob(this.projectId, subscription.network, subscription.id, from, to));
-      this.formStatus = 'Replay queued. Refresh progress to check the scan.';
-      await this.refreshReplays(subscription);
-    } catch (error) { this.errorMessage = this.errors.format(error, 'Could not start replay.'); }
-    finally { this.replayBusy[subscription.id] = false; }
-  }
-  async replayAction(subscription: WebhookSubscription, job: RelayReplayJob, action: 'pause' | 'resume' | 'cancel'): Promise<void> {
-    this.replayBusy[subscription.id] = true;
-    try {
-      await this.executeWebhookRequest(() => this.api.replayAction(this.projectId, subscription.network, subscription.id, job.id, action));
-      await this.refreshReplays(subscription);
-    } catch (error) { this.errorMessage = this.errors.format(error, 'Could not update replay.'); }
-    finally { this.replayBusy[subscription.id] = false; }
   }
 
   async sendTest(subscription: WebhookSubscription): Promise<void> {
@@ -615,6 +668,10 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   }
 
   async selectWebhookNetwork(network: string): Promise<void> {
+    this.recoveryOpen = false;
+    this.recoveryContract = '';
+    this.recoveryEvents = Object.create(null);
+    this.recoveryFrom = this.recoveryTo = null;
     this.webhookNetwork = network;
     this.useRelay(network);
     this.contractHash = this.deploymentOptions[0]?.contractHash ?? '';

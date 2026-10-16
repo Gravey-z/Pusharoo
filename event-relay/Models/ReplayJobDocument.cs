@@ -10,6 +10,8 @@ public sealed record ReplayJobDocument
     [BsonElement("network")] public string Network { get; init; } = "";
     [BsonElement("contractHash")] public string ContractHash { get; init; } = "";
     [BsonElement("eventName")] public string? EventName { get; init; }
+    [BsonElement("selectedEventNames")] public string[]? SelectedEventNames { get; init; }
+    [BsonElement("targets")] public ReplayTarget[]? Targets { get; init; }
     [BsonElement("fromBlock")] public uint FromBlock { get; init; }
     [BsonElement("toBlock")] public uint ToBlock { get; init; }
     [BsonElement("nextBlock")] public uint NextBlock { get; init; }
@@ -25,3 +27,9 @@ public sealed record ReplayJobDocument
     [BsonIgnore] public long TotalBlocks => (long)ToBlock - FromBlock + 1;
 }
 public sealed record CreateReplayRequest([property: JsonRequired] uint FromBlock, [property: JsonRequired] uint ToBlock);
+public sealed record ReplayTarget(
+    [property: BsonElement("subscriptionId")] string SubscriptionId,
+    [property: BsonElement("eventName")] string? EventName);
+public sealed record CreateProjectReplayRequest(
+    [property: JsonRequired] uint FromBlock, [property: JsonRequired] uint ToBlock,
+    [property: JsonRequired] string? ContractHash, [property: JsonRequired] string[]? EventNames);

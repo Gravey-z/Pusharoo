@@ -31,12 +31,18 @@ public sealed class ReplayScanner(INeoRpcClient rpc, ReplayJobRepository jobs, I
         string? transaction = null;
         try
         {
-            var sub = await subscriptions.GetByIdAsync(job.SubscriptionId, work.Token);
-            if (sub is null || sub.ProjectId != job.ProjectId || sub.Network != job.Network)
-                throw new FormatException("Replay subscription no longer exists on this project/network.");
-            if (sub.ContractHash != job.ContractHash || sub.EventName != job.EventName)
-                throw new FormatException("Subscription filter changed; cancel this job and create a new range.");
-            if (!sub.IsEnabled) { await jobs.ActionAsync(job.Id, "pause", work.Token); return true; }
+            var targets = job.Targets ?? [new ReplayTarget(job.SubscriptionId, job.EventName)];
+            var recipients = new List<WebhookSubscriptionDocument>();
+            foreach (var target in targets)
+            {
+                var sub = await subscriptions.GetByIdAsync(target.SubscriptionId, work.Token);
+                if (sub is null || sub.ProjectId != job.ProjectId || sub.Network != job.Network)
+                    throw new FormatException("Replay webhook no longer exists on this project/network.");
+                if (sub.ContractHash != job.ContractHash || sub.EventName != target.EventName)
+                    throw new FormatException("Webhook filter changed; cancel this job and create a new range.");
+                if (!sub.IsEnabled) { await jobs.ActionAsync(job.Id, "pause", work.Token); return true; }
+                recipients.Add(sub);
+            }
             await rpc.ValidateNetworkAsync(work.Token);
             var count = await rpc.GetBlockCountAsync(work.Token);
             if (count == 0 || count - 1 < rpcOptions.Value.ConfirmationBlocks
@@ -53,10 +59,15 @@ public sealed class ReplayScanner(INeoRpcClient rpc, ReplayJobRepository jobs, I
                     transaction = tx;
                     var log = await rpc.GetApplicationLogAsync(tx, work.Token);
                     foreach (var observed in NeoApplicationLogParser.Extract(log, job.Network, tx, block))
-                        if (observed.ContractHash == job.ContractHash && (job.EventName is null || observed.EventName == job.EventName))
+                        if (observed.ContractHash == job.ContractHash &&
+                            (job.SelectedEventNames is null ? job.EventName is null || observed.EventName == job.EventName :
+                                job.SelectedEventNames.Contains(observed.EventName, StringComparer.Ordinal)))
                         {
-                            if (!await jobs.RenewAsync(job, work.Token)) return true;
-                            await queue.QueueAsync(sub, observed, work.Token);
+                            foreach (var sub in recipients.Where(x => x.EventName is null || x.EventName == observed.EventName))
+                            {
+                                if (!await jobs.RenewAsync(job, work.Token)) return true;
+                                await queue.QueueAsync(sub, observed, work.Token);
+                            }
                         }
                 }
                 if (!await jobs.AdvanceAsync(job, height, work.Token)) return true;

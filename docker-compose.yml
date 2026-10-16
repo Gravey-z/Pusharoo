@@ -83,6 +83,10 @@ services:
       NeoRpc__MaxBlocksPerPoll: ${PUSHAROO_RELAY_MAX_BLOCKS_PER_POLL:-10}
       NeoRpc__CatchUpPollIntervalMilliseconds: ${PUSHAROO_RELAY_CATCH_UP_POLL_MILLISECONDS:-250}
       NeoRpc__MinRequestIntervalMilliseconds: ${PUSHAROO_RELAY_RPC_MIN_INTERVAL_MILLISECONDS:-100}
+      EventRelay__ReplayProjectBlocksPerDay: ${PUSHAROO_REPLAY_PROJECT_BLOCKS_PER_DAY:-20000}
+      EventRelay__ReplayCooldownSeconds: ${PUSHAROO_REPLAY_COOLDOWN_SECONDS:-300}
+      EventRelay__ReplayMaxActiveJobsPerNetwork: ${PUSHAROO_REPLAY_MAX_ACTIVE_JOBS:-20}
+      EventRelay__ReplayMaxJobsPerDayPerNetwork: ${PUSHAROO_REPLAY_MAX_JOBS_PER_DAY:-1000}
       EventRelay__OperationsPollSeconds: ${PUSHAROO_RELAY_OPERATIONS_POLL_SECONDS:-30}
       EventRelay__DeliveryFailureWindowMinutes: ${PUSHAROO_RELAY_FAILURE_WINDOW_MINUTES:-15}
       EventRelay__DeliveryFailureMinimumAttempts: ${PUSHAROO_RELAY_FAILURE_MINIMUM_ATTEMPTS:-5}
@@ -121,6 +125,10 @@ services:
       NeoRpc__MaxBlocksPerPoll: ${PUSHAROO_RELAY_MAX_BLOCKS_PER_POLL:-10}
       NeoRpc__CatchUpPollIntervalMilliseconds: ${PUSHAROO_RELAY_CATCH_UP_POLL_MILLISECONDS:-250}
       NeoRpc__MinRequestIntervalMilliseconds: ${PUSHAROO_RELAY_RPC_MIN_INTERVAL_MILLISECONDS:-100}
+      EventRelay__ReplayProjectBlocksPerDay: ${PUSHAROO_REPLAY_PROJECT_BLOCKS_PER_DAY:-20000}
+      EventRelay__ReplayCooldownSeconds: ${PUSHAROO_REPLAY_COOLDOWN_SECONDS:-300}
+      EventRelay__ReplayMaxActiveJobsPerNetwork: ${PUSHAROO_REPLAY_MAX_ACTIVE_JOBS:-20}
+      EventRelay__ReplayMaxJobsPerDayPerNetwork: ${PUSHAROO_REPLAY_MAX_JOBS_PER_DAY:-1000}
       EventRelay__OperationsPollSeconds: ${PUSHAROO_RELAY_OPERATIONS_POLL_SECONDS:-30}
       EventRelay__DeliveryFailureWindowMinutes: ${PUSHAROO_RELAY_FAILURE_WINDOW_MINUTES:-15}
       EventRelay__DeliveryFailureMinimumAttempts: ${PUSHAROO_RELAY_FAILURE_MINIMUM_ATTEMPTS:-5}

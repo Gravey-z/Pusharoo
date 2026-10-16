@@ -19,6 +19,7 @@ public sealed class MongoDbContext
         DeliveryAttempts = database.GetCollection<WebhookDeliveryAttemptDocument>("webhookDeliveryAttempts");
         AllowancePeriods = database.GetCollection<RelayAllowancePeriodDocument>("relayAllowancePeriods");
         ReplayJobs = database.GetCollection<ReplayJobDocument>("eventReplayJobs");
+        ReplayAdmissions = database.GetCollection<BsonDocument>("eventReplayAdmissions").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
         ReplayJobs.Indexes.CreateOne(new CreateIndexModel<ReplayJobDocument>(Builders<ReplayJobDocument>.IndexKeys.Ascending(x => x.Network).Ascending(x => x.Status).Ascending(x => x.CreatedAt)));
         ReplayJobs.Indexes.CreateOne(new CreateIndexModel<ReplayJobDocument>(Builders<ReplayJobDocument>.IndexKeys.Ascending(x => x.SubscriptionId),
             new CreateIndexOptions<ReplayJobDocument> { Name = "one_active_replay_per_subscription", Unique = true,
@@ -66,6 +67,7 @@ public sealed class MongoDbContext
 
     public IMongoCollection<RelayAllowancePeriodDocument> AllowancePeriods { get; }
     public IMongoCollection<ReplayJobDocument> ReplayJobs { get; }
+    public IMongoCollection<BsonDocument> ReplayAdmissions { get; }
     public IMongoCollection<WebhookDeliveryDocument> Deliveries { get; }
     public IMongoCollection<WebhookDeliveryAttemptDocument> DeliveryAttempts { get; }
     public IMongoCollection<RelayEntitlementDocument> Entitlements { get; }

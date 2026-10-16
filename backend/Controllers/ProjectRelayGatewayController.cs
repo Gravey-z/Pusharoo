@@ -51,6 +51,20 @@ public sealed class ProjectRelayGatewayController(
     public Task<IActionResult> ReplayJobs(string projectId, string network, string subscriptionId, CancellationToken ct)
         => Forward(projectId, network, HttpMethod.Post, $"subscriptions/{Uri.EscapeDataString(subscriptionId)}/replays/query", null, ct);
 
+    [HttpPost("replays/query")]
+    public Task<IActionResult> ProjectReplayJobs(string projectId, string network, CancellationToken ct)
+        => Forward(projectId, network, HttpMethod.Post, "replays/query", null, ct);
+
+    [HttpPost("replays")]
+    public Task<IActionResult> CreateProjectReplay(string projectId, string network, [FromBody] JsonElement body, CancellationToken ct)
+        => Forward(projectId, network, HttpMethod.Post, "replays", body, ct);
+
+    [HttpPost("replays/{jobId}/{action}")]
+    public Task<IActionResult> ProjectReplayAction(string projectId, string network, string jobId, string action, CancellationToken ct)
+        => action is "pause" or "resume" or "cancel"
+            ? Forward(projectId, network, HttpMethod.Post, $"replays/{Uri.EscapeDataString(jobId)}/{action}", null, ct)
+            : Task.FromResult<IActionResult>(NotFound());
+
     [HttpPost("subscriptions/{subscriptionId}/replays")]
     public Task<IActionResult> CreateReplay(string projectId, string network, string subscriptionId, [FromBody] JsonElement body, CancellationToken ct)
         => Forward(projectId, network, HttpMethod.Post, $"subscriptions/{Uri.EscapeDataString(subscriptionId)}/replays", body, ct);

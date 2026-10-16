@@ -1,7 +1,7 @@
 .webhook-layout {
   display: grid;
-  grid-template-columns: minmax(320px, 460px) 1fr;
-  gap: 18px;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 28px;
   align-items: start;
 }
 
@@ -155,9 +155,12 @@
 
 .subscription-actions {
   align-items: center;
-  padding: 10px 16px 14px;
+  padding: 14px 20px;
   border-top: 1px solid var(--line);
+  background: var(--field);
 }
+
+.subscription-delete { margin-left: auto; }
 
 .subscription-actions .secondary-button,
 .subscription-actions .danger-button {
@@ -169,7 +172,7 @@
 .delivery-history {
   display: grid;
   gap: var(--space-3);
-  padding: var(--space-3) 16px 16px;
+  padding: 20px;
   border-top: 1px solid var(--line);
   background: rgba(0, 0, 0, 0.1);
 }
@@ -234,6 +237,28 @@
   background: var(--danger-soft);
   color: var(--danger) !important;
 }
+
+.delivery-history > div > .delivery-result.pending-result {
+  border-color: var(--line-strong);
+  background: var(--field);
+  color: var(--text-muted) !important;
+}
+
+.replay-content { display: grid; gap: 12px; padding: 0 20px 20px; }
+.replay-content p { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.replay-content label { display: grid; gap: 6px; }
+.recovery-toggle { display: flex; justify-content: space-between; align-items: center; gap: 16px; width: 100%; padding: 18px 20px; border: 0; background: transparent; color: var(--text); text-align: left; cursor: pointer; font: 700 14px var(--font-body); }
+.recovery-toggle span:last-child { color: var(--text-muted); font-size: 12px; font-weight: 400; }
+.recovery-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.recovery-events { display: grid; gap: 10px; margin: 0; border: 1px solid var(--line); padding: 14px; border-radius: var(--radius-small); }
+.recovery-events label { display: flex; align-items: center; gap: 8px; }
+.recovery-events input { width: auto; }
+.recovery-events legend { color: var(--text-muted); padding: 0 6px; font-size: 12px; }
+.recovery-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.recovery-destinations { margin: 0; padding-left: 18px; color: var(--text-muted); font-size: 12px; overflow-wrap: anywhere; }
+.recovery-job { display: grid; gap: 10px; border: 1px solid var(--line); border-radius: var(--radius-small); padding: 14px; background: var(--field); }
+.replay-content .form-error { color: var(--danger); }
+.replay-content .form-status { color: var(--accent); }
 
 .delivery-response {
   font-family: var(--font-mono);
@@ -311,35 +336,79 @@
 }
 
 .subscription-list {
-  overflow: hidden;
+  display: grid;
+  gap: 22px;
+  min-width: 0;
 }
 
-.subscription-list h2 {
+.subscription-list-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin: 0;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--line);
-  color: var(--accent);
+  color: var(--text);
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 760;
 }
 
-.subscription-list article {
+.subscription-count {
+  padding: 3px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  font: 12px var(--font-body);
+}
+.subscription-list-header p { margin: 8px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+
+.subscription-card {
   display: flex;
   flex-direction: column;
-  border-bottom: 1px solid var(--line);
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-panel);
+  background: var(--card);
+  box-shadow: var(--shadow-panel);
   color: var(--ink);
   font-size: 13px;
 }
 
-.subscription-list article:last-child {
-  border-bottom: 0;
+.subscription-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--accent-soft);
+}
+.subscription-card-header h3 { margin: 0; color: var(--text); font: 700 16px var(--font-display); overflow-wrap: anywhere; }
+.subscription-event { color: var(--text-muted); font-size: 12px; }
+.subscription-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 4px 9px;
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius-pill);
+  color: var(--success);
+  background: var(--success-soft);
+  font-size: 11px;
+}
+.subscription-paused { border-color: var(--line-strong); color: var(--text-muted); background: var(--field); }
+.subscription-state span { font-size: 8px; }
+
+.subscription-metadata .url {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .subscription-summary {
   display: grid;
   gap: var(--space-3);
-  padding: 14px 16px;
+  padding: 20px;
 }
 
 .subscription-identity {
@@ -358,10 +427,12 @@
 
 .subscription-metadata {
   display: grid;
-  grid-template-columns: minmax(120px, 0.7fr) minmax(180px, 1.4fr) minmax(180px, 1fr);
+  grid-template-columns: minmax(110px, .7fr) minmax(0, 1.3fr);
   gap: var(--space-3);
   margin: 0;
 }
+
+.subscription-metadata > div:last-child { grid-column: 1 / -1; padding-top: 12px; border-top: 1px solid var(--line); }
 
 .subscription-metadata div {
   display: grid;
@@ -411,6 +482,9 @@
 }
 
 @media (max-width: 620px) {
+  .subscription-card-header { align-items: flex-start; padding: 16px; }
+  .subscription-summary, .subscription-actions, .delivery-history { padding: 16px; }
+  .subscription-delete { margin-left: 0; }
   .relay-plan { align-items: stretch; flex-direction: column; }
   .relay-plan > .secondary-button { margin-left: 0; }
   .payment-history div,

@@ -281,24 +281,30 @@
           </div>
         </form>
 
-        <section class="subscription-list surface-panel surface-panel--flush" aria-label="Event webhook subscriptions">
-          <h2>Project webhooks</h2>
-          <p class="muted" role="status">Delivery status updates automatically while this page is open.</p>
+        <section class="subscription-list" aria-label="Event webhook subscriptions">
+          <header class="subscription-list-header">
+            <h2>Project webhooks <span class="subscription-count">{{ subscriptions.length }}</span></h2>
+            <p>Delivery status updates automatically while this page is open.</p>
+          </header>
           @if (deliveryRefreshError) {
             <p role="status">{{ deliveryRefreshError }}</p>
           }
           @if (subscriptions.length) {
             @for (subscription of subscriptions; track subscription.id) {
               @let delivery = latestDelivery(subscription.id);
-              <article>
-                <div class="subscription-summary">
+              <article class="subscription-card" [attr.aria-labelledby]="'webhook-' + subscription.id">
+                <header class="subscription-card-header">
                   <div class="subscription-identity">
-                    <strong>{{ subscription.name }}</strong>
-                    <span>{{ eventLabel(subscription) }}</span>
-                    <span class="subscription-state" [class.subscription-paused]="!subscription.isEnabled">
-                      {{ subscription.isEnabled ? 'Active' : 'Paused' }}
-                    </span>
+                    <h3 [id]="'webhook-' + subscription.id">{{ subscription.name }}</h3>
+                    @if (subscription.name !== eventLabel(subscription)) {
+                      <span class="subscription-event">{{ eventLabel(subscription) }}</span>
+                    }
                   </div>
+                  <span class="subscription-state" [class.subscription-paused]="!subscription.isEnabled">
+                    <span aria-hidden="true">●</span> {{ subscription.isEnabled ? 'Active' : 'Paused' }}
+                  </span>
+                </header>
+                <div class="subscription-summary">
                   <dl class="subscription-metadata">
                     <div>
                       <dt>Contract</dt>
@@ -314,9 +320,9 @@
                         <span
                           class="status-pill status-badge"
                           [class.success]="delivery?.succeeded"
-                          [class.failed]="delivery && !delivery.succeeded"
+                          [class.failed]="delivery?.status === 'dead_letter'"
                           [class.status-badge--success]="delivery?.succeeded"
-                          [class.status-badge--danger]="delivery && !delivery.succeeded"
+                          [class.status-badge--danger]="delivery?.status === 'dead_letter'"
                         >
                           @if (delivery) {
                             {{ delivery.succeeded ? 'Delivered' : delivery.status }}
@@ -334,36 +340,15 @@
                   <button class="secondary-button" type="button" (click)="toggle(subscription)" [disabled]="!canManageProject">
                     {{ subscription.isEnabled ? 'Pause delivery' : 'Resume delivery' }}
                   </button>
-                  <button class="secondary-button" type="button" (click)="showDeliveryHistory(subscription)" [disabled]="loadingDeliveryHistoryFor === subscription.id || !canManageProject">
-                    {{ loadingDeliveryHistoryFor === subscription.id ? 'Loading…' : 'History' }}
+                  <button class="secondary-button" type="button" (click)="toggleDeliveryHistory(subscription)" [attr.aria-expanded]="deliveryHistoryFor === subscription.id" [disabled]="loadingDeliveryHistoryFor === subscription.id || !canManageProject">
+                    {{ loadingDeliveryHistoryFor === subscription.id ? 'Loading…' : deliveryHistoryFor === subscription.id ? 'Hide history' : 'History' }}
                   </button>
                   <button class="secondary-button" type="button" (click)="sendTest(subscription)" [disabled]="sendingFor === subscription.id + ':test' || !canManageProject">
                     {{ sendingFor === subscription.id + ':test' ? 'Sending…' : 'Send test event' }}
                   </button>
-                  <button class="danger-button" type="button" (click)="remove(subscription)" [disabled]="!canManageProject">Delete</button>
+                  <button class="danger-button subscription-delete" type="button" (click)="remove(subscription)" [disabled]="!canManageProject">Delete</button>
                 </div>
-                <details class="delivery-history">
-                  <summary (click)="refreshReplays(subscription)">Recover events from a block range</summary>
-                  <p>Scan confirmed blocks. Events already queued for this webhook are skipped. New deliveries use the event allowance.</p>
-                  <label>First block <input type="number" min="0" step="1" [(ngModel)]="replayFrom[subscription.id]" [name]="'replayFrom' + subscription.id" /></label>
-                  <label>Last block <input type="number" min="0" step="1" [(ngModel)]="replayTo[subscription.id]" [name]="'replayTo' + subscription.id" /></label>
-                  <button class="secondary-button" type="button" (click)="createReplay(subscription)" [disabled]="!canManageProject || !subscription.isEnabled || replayBusy[subscription.id]">Start replay</button>
-                  <button class="secondary-button" type="button" (click)="refreshReplays(subscription)" [disabled]="!canManageProject || replayBusy[subscription.id]">Refresh progress</button>
-                  @for (job of replayJobs[subscription.id] ?? []; track job.id) {
-                    <p>Blocks {{ job.fromBlock }}–{{ job.toBlock }}: {{ job.completedBlocks }}/{{ job.totalBlocks }} scanned · {{ job.status }}</p>
-                    @if (job.error) { <p class="form-error">Block {{ job.error.blockIndex }}: {{ job.error.message }}</p> }
-                    @if (job.status === 'running') {
-                      <button class="secondary-button" type="button" (click)="replayAction(subscription, job, 'pause')" [disabled]="!canManageProject || replayBusy[subscription.id]">Pause</button>
-                    }
-                    @if (job.status === 'paused' || job.status === 'blocked') {
-                      <button class="secondary-button" type="button" (click)="replayAction(subscription, job, 'resume')" [disabled]="!canManageProject || !subscription.isEnabled || replayBusy[subscription.id]">Resume</button>
-                    }
-                    @if (job.status !== 'completed' && job.status !== 'cancelled') {
-                      <button class="danger-button" type="button" (click)="replayAction(subscription, job, 'cancel')" [disabled]="!canManageProject || replayBusy[subscription.id]">Cancel scan</button>
-                    }
-                  }
-                  <p>Pause and cancel stop scanning. Already queued deliveries continue. Check delivery history for webhook outcomes.</p>
-                </details>
+
                 @if (deliveryHistoryFor === subscription.id && loadingDeliveryHistoryFor !== subscription.id) {
                   <div class="delivery-history">
                     <header class="delivery-history-header">
@@ -378,7 +363,7 @@
                     @if (deliveryHistory.length) {
                     @for (attempt of deliveryHistory; track attempt.id) {
                       <div>
-                        <span class="delivery-result" [class.failed-text]="!attempt.succeeded">{{ attempt.succeeded ? 'Delivered' : attempt.status }}</span>
+                        <span class="delivery-result" [class.failed-text]="attempt.status === 'dead_letter'" [class.pending-result]="!attempt.succeeded && attempt.status !== 'dead_letter'">{{ attempt.succeeded ? 'Delivered' : attempt.status }}</span>
                         <span class="delivery-response">{{ attempt.statusCode ? 'HTTP ' + attempt.statusCode : 'No response' }}</span>
                         <span class="delivery-time">{{ attempt.deliveredAt | date: 'short' }}</span>
                         @if (attempt.error) { <span class="delivery-error">{{ attempt.error }}</span> }
@@ -403,6 +388,73 @@
               <p>Create one to send matching Neo contract events to your endpoint.</p>
             </div>
           }
+          <section class="advanced-recovery surface-panel surface-panel--flush" aria-label="Advanced recovery">
+            <button class="recovery-toggle" type="button" (click)="toggleRecovery()" [attr.aria-expanded]="recoveryOpen" aria-controls="recovery-controls">
+              <span>Advanced recovery</span>
+              <span>{{ recoveryOpen ? 'Close' : 'Recover missed events' }}</span>
+            </button>
+            @if (recoveryOpen) {
+              <div class="replay-content" id="recovery-controls">
+                <p>Recover historical events when setting up a webhook or filling a gap. Normal delivery failures retry automatically.</p>
+                <label>Contract
+                  <select [(ngModel)]="recoveryContract" name="recoveryContract" (ngModelChange)="selectRecoveryContract()" [disabled]="recoveryBusy">
+                    @for (deployment of deploymentOptions; track deployment.contractHash) {
+                      <option [value]="deployment.contractHash">{{ deployment.label }} · {{ shortHash(deployment.contractHash) }}</option>
+                    }
+                  </select>
+                </label>
+                <fieldset class="recovery-events">
+                  <legend>Event types to recover</legend>
+                  @for (event of recoveryEventOptions; track event) {
+                    <label><input type="checkbox" [(ngModel)]="recoveryEvents[event]" [name]="'recover-' + event" [disabled]="recoveryBusy" /> {{ event }}</label>
+                  } @empty {
+                    <p>Create or resume a matching webhook before recovering events for this contract.</p>
+                  }
+                  <button class="secondary-button" type="button" (click)="selectAllRecoveryEvents()" [disabled]="recoveryBusy || !recoveryEventOptions.length">Select all event types</button>
+                </fieldset>
+                <p>The range is scanned once for all selected event types. Matches go to these existing webhooks:</p>
+                <ul class="recovery-destinations">
+                  @for (recipient of recoveryRecipients; track recipient.id) {
+                    <li>{{ recipient.name }} — {{ recipient.webhookUrl }}</li>
+                  } @empty {
+                    <li>Select event types to see their destinations.</li>
+                  }
+                </ul>
+                <div class="recovery-range">
+                  <label>First block <input type="number" min="0" step="1" [(ngModel)]="recoveryFrom" name="recoveryFrom" [disabled]="recoveryBusy" /></label>
+                  <label>Last block <input type="number" min="0" step="1" [(ngModel)]="recoveryTo" name="recoveryTo" [disabled]="recoveryBusy" /></label>
+                </div>
+                <p>Only confirmed blocks are scanned. Already queued events are skipped per webhook. Each new delivery uses its event allowance; the scanning quota is charged once for the range.</p>
+                <p>All webhooks on this project/network share a scanning quota and cooldown. Cancelling does not refund reserved blocks.</p>
+                @if (recoveryErrors[webhookNetwork]) { <p class="form-error" role="alert">{{ recoveryErrors[webhookNetwork] }}</p> }
+                @if (recoveryMessages[webhookNetwork]) { <p class="form-status" role="status">{{ recoveryMessages[webhookNetwork] }}</p> }
+                <div class="form-actions">
+                  <button class="primary-button" type="button" (click)="startRecovery()" [disabled]="recoveryBusy || !canManageProject || !recoveryRecipients.length">{{ recoveryBusy ? 'Working…' : 'Start recovery' }}</button>
+                  <button class="secondary-button" type="button" (click)="refreshRecovery()" [disabled]="recoveryBusy || !canManageProject">Refresh progress</button>
+                </div>
+                @for (job of recoveryJobs; track job.id) {
+                  <article class="recovery-job">
+                    <strong>{{ shortHash(job.contractHash) }} · {{ recoveryEventLabel(job) }}</strong>
+                    <p>Blocks {{ job.fromBlock }}–{{ job.toBlock }} · {{ job.completedBlocks }}/{{ job.totalBlocks }} scanned · {{ job.status }}</p>
+                    @if (job.targets?.length) { <p>{{ job.targets!.length }} webhook destination(s)</p> }
+                    @if (job.error) { <p class="form-error">Block {{ job.error.blockIndex }}: {{ job.error.message }}</p> }
+                    <div class="form-actions">
+                      @if (job.status === 'running') {
+                        <button class="secondary-button" type="button" (click)="controlRecovery(job, 'pause')" [disabled]="recoveryBusy || !canManageProject">Pause</button>
+                      }
+                      @if (job.status === 'paused' || job.status === 'blocked') {
+                        <button class="secondary-button" type="button" (click)="controlRecovery(job, 'resume')" [disabled]="recoveryBusy || !canManageProject">Resume</button>
+                      }
+                      @if (job.status !== 'completed' && job.status !== 'cancelled') {
+                        <button class="danger-button" type="button" (click)="controlRecovery(job, 'cancel')" [disabled]="recoveryBusy || !canManageProject">Cancel scan</button>
+                      }
+                    </div>
+                  </article>
+                }
+                <p>Pausing or cancelling stops scanning. Deliveries already queued continue; check each webhook’s history for delivery outcomes.</p>
+              </div>
+            }
+          </section>
         </section>
       </section>
     } @else {

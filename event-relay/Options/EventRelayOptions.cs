@@ -10,6 +10,10 @@ public sealed class EventRelayOptions
     public double DeliveryFailureRateThreshold { get; init; } = 0.5;
     public int ReplayMaxRangeBlocks { get; init; } = 10000;
     public int ReplayMaxBlocksPerPoll { get; init; } = 5;
+    public int ReplayProjectBlocksPerDay { get; init; } = 20000;
+    public int ReplayCooldownSeconds { get; init; } = 300;
+    public int ReplayMaxActiveJobsPerNetwork { get; init; } = 20;
+    public int ReplayMaxJobsPerDayPerNetwork { get; init; } = 1000;
     public int WebhookTimeoutSeconds { get; init; } = 15;
     public int WebhookMaxAttempts { get; init; } = 4;
     public int WebhookRetryBaseSeconds { get; init; } = 2;

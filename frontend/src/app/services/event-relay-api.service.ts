@@ -86,6 +86,15 @@ export class EventRelayApiService {
   getReplayJobs(projectId: string, network: string, subscriptionId: string): Observable<RelayReplayJob[]> {
     return this.http.post<RelayReplayJob[]>(this.baseUrl(projectId, network) + '/subscriptions/' + encodeURIComponent(subscriptionId) + '/replays/query', null, this.options());
   }
+  getProjectReplayJobs(projectId: string, network: string): Observable<RelayReplayJob[]> {
+    return this.http.post<RelayReplayJob[]>(this.baseUrl(projectId, network) + '/replays/query', null, this.options());
+  }
+  createProjectReplayJob(projectId: string, network: string, contractHash: string, eventNames: string[], fromBlock: number, toBlock: number): Observable<RelayReplayJob> {
+    return this.http.post<RelayReplayJob>(this.baseUrl(projectId, network) + '/replays', { contractHash, eventNames, fromBlock, toBlock }, this.options());
+  }
+  projectReplayAction(projectId: string, network: string, jobId: string, action: 'pause' | 'resume' | 'cancel'): Observable<RelayReplayJob> {
+    return this.http.post<RelayReplayJob>(this.baseUrl(projectId, network) + '/replays/' + encodeURIComponent(jobId) + '/' + action, null, this.options());
+  }
   createReplayJob(projectId: string, network: string, subscriptionId: string, fromBlock: number, toBlock: number): Observable<RelayReplayJob> {
     return this.http.post<RelayReplayJob>(this.baseUrl(projectId, network) + '/subscriptions/' + encodeURIComponent(subscriptionId) + '/replays', { fromBlock, toBlock }, this.options());
   }

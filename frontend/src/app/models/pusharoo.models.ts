@@ -328,6 +328,10 @@ export interface ProjectOverviewViewModel extends ProjectCardViewModel {
 
 export interface RelayReplayJob {
   id: string; subscriptionId: string; network: string;
+  contractHash: string;
+  eventName?: string | null;
+  selectedEventNames?: string[] | null;
+  targets?: { subscriptionId: string; eventName: string | null }[] | null;
   fromBlock: number; toBlock: number; nextBlock: number; completedBlocks: number; totalBlocks: number;
   status: 'running' | 'paused' | 'blocked' | 'completed' | 'cancelled';
   updatedAt: string;
