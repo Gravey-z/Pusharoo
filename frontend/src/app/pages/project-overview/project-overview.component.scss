@@ -235,12 +235,14 @@ dd {
   font-size: 13px;
 }
 
+.artifact-list-actions,
 .deployment-list-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
+.artifact-list-actions .secondary-button,
 .deployment-list-actions .secondary-button {
   min-height: 36px;
   font-size: 13px;

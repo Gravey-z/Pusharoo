@@ -114,6 +114,7 @@
     <section class="artifact-list" aria-label="Artifacts">
       <header class="artifact-list-header">
         <h2>Artifacts</h2>
+        <div class="artifact-list-actions">
         @if (overview.artifacts.length >= 2) {
           <a class="secondary-button" [routerLink]="['/projects', overview.project.id, 'compare']">
             Compare versions
@@ -124,6 +125,7 @@
             Upload Artifact
           </a>
         }
+        </div>
       </header>
 
       <div class="list-columns artifact-columns" aria-hidden="true">

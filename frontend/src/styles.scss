@@ -586,16 +586,19 @@ textarea:read-only {
 .network-badge {
   display: inline-flex;
   align-items: center;
+  align-self: center;
+  vertical-align: middle;
   width: fit-content;
   min-height: 24px;
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
-  padding: 3px var(--space-2);
+  // Rajdhani's visible glyphs sit high within its line box.
+  padding: 5px var(--space-2) 3px;
   background: var(--card-soft);
   color: var(--text-muted);
   font-size: var(--font-size-caption);
   font-weight: var(--font-weight-bold);
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .status-badge--success {
