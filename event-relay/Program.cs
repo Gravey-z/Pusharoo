@@ -133,8 +133,10 @@ builder.Services.AddScoped<ReplayJobRepository>();
 builder.Services.AddScoped<ReplayScanner>();
 builder.Services.AddHostedService<ReplayWorker>();
 
+builder.Services.AddScoped<WebhookDeliveryService>();
+
 builder
-    .Services.AddHttpClient<WebhookDeliveryService>()
+    .Services.AddHttpClient<IWebhookTransport, WebhookTransport>()
     .ConfigurePrimaryHttpMessageHandler(() =>
         new SocketsHttpHandler
         {
