@@ -102,6 +102,8 @@ builder.Services.AddScoped<IWebhookSubscriptionRepository, WebhookSubscriptionRe
 builder.Services.AddScoped<IWebhookDeliveryRepository, WebhookDeliveryRepository>();
 builder.Services.AddScoped<IEventCheckpointRepository, EventCheckpointRepository>();
 builder.Services.AddSingleton<WebhookDestinationValidator>();
+builder.Services.AddScoped<WebhookSubscriptionValidator>();
+builder.Services.AddScoped<SubscriptionManagementService>();
 builder.Services.AddSingleton<WebhookSecretProtector>();
 builder.Services.AddSingleton<RelayOperationsService>();
 builder.Services.AddSingleton<NeoRpcRequestLimiter>();

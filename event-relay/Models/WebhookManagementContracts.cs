@@ -77,3 +77,16 @@ public sealed record EntitlementHistoryResponse(
     DateTime PeriodEndsAt,
     DateTime GraceEndsAt
 );
+
+public sealed record SubscriptionUsageResponse(
+    string Plan,
+    string Status,
+    DateTime PeriodStart,
+    DateTime PeriodEndsAt,
+    DateTime? GraceEndsAt,
+    int MaxActiveSubscriptions,
+    int ActiveSubscriptions,
+    int MaxEvents,
+    int EventsUsed,
+    int EventsRemaining
+);
