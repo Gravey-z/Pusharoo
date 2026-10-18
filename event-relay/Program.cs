@@ -111,6 +111,7 @@ builder.Services.AddScoped<RelayHealthService>();
 builder.Services.AddSingleton<RelayHealthCache>();
 builder.Services.AddHostedService<RelayAlertWorker>();
 builder.Services.AddScoped<RelayEntitlementService>();
+builder.Services.AddScoped<RelayPaymentVerifier>();
 builder.Services.AddScoped<RelayPaymentService>();
 
 var dataProtection = builder.Services.AddDataProtection().SetApplicationName("Pusharoo.EventRelay");
