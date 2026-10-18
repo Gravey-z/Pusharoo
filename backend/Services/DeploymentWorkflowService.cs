@@ -122,24 +122,3 @@ public sealed record ProjectDeploymentAttemptContext(
     ProjectDocument Project,
     DeploymentDocument Attempt
 );
-
-public sealed record DeploymentWorkflowResult<T>(T? Value, int StatusCode, string? Error)
-{
-    public bool IsSuccess => Value is not null;
-
-    public static DeploymentWorkflowResult<T> Success(T value) =>
-        new(value, StatusCodes.Status200OK, null);
-
-    public static DeploymentWorkflowResult<T> NotFound(string error) =>
-        new(default, StatusCodes.Status404NotFound, error);
-
-    public static DeploymentWorkflowResult<T> BadRequest(string error) =>
-        new(default, StatusCodes.Status400BadRequest, error);
-
-    public static DeploymentWorkflowResult<T> Forbidden(string error) =>
-        new(default, StatusCodes.Status403Forbidden, error);
-
-    public static DeploymentWorkflowResult<T> Failure<TSource>(
-        DeploymentWorkflowResult<TSource> source
-    ) => new(default, source.StatusCode, source.Error);
-}
