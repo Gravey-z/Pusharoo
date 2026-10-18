@@ -8,9 +8,12 @@ namespace Pusharoo.EventRelay.Services;
 public sealed class WebhookTransport(
     HttpClient httpClient,
     WebhookSecretProtector secretProtector,
-    IOptions<EventRelayOptions> options
+    IOptions<EventRelayOptions> options,
+    TimeProvider? timeProvider = null
 ) : IWebhookTransport
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     public async Task<WebhookTransportResult> SendAsync(
         WebhookSubscriptionDocument subscription,
         WebhookDeliveryDocument delivery,
@@ -24,9 +27,13 @@ public sealed class WebhookTransport(
 
         try
         {
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(
-                TimeSpan.FromSeconds(Math.Max(1, options.Value.WebhookTimeoutSeconds))
+            using var deadline = new CancellationTokenSource(
+                TimeSpan.FromSeconds(Math.Max(1, options.Value.WebhookTimeoutSeconds)),
+                clock
+            );
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                deadline.Token
             );
             using var request = new HttpRequestMessage(HttpMethod.Post, subscription.WebhookUrl)
             {

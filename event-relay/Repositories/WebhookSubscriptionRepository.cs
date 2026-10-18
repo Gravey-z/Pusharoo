@@ -4,9 +4,13 @@ using Pusharoo.EventRelay.Services;
 
 namespace Pusharoo.EventRelay.Repositories;
 
-public sealed class WebhookSubscriptionRepository(MongoDbContext db)
-    : IWebhookSubscriptionRepository
+public sealed class WebhookSubscriptionRepository(
+    MongoDbContext db,
+    TimeProvider? timeProvider = null
+) : IWebhookSubscriptionRepository
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     public async Task InsertAsync(
         WebhookSubscriptionDocument subscription,
         CancellationToken cancellationToken
@@ -30,7 +34,7 @@ public sealed class WebhookSubscriptionRepository(MongoDbContext db)
         CancellationToken cancellationToken
     )
     {
-        var now = DateTime.UtcNow;
+        var now = clock.GetUtcNow().UtcDateTime;
 
         return await db
             .Subscriptions.Find(subscription =>
@@ -58,7 +62,7 @@ public sealed class WebhookSubscriptionRepository(MongoDbContext db)
         CancellationToken cancellationToken
     )
     {
-        var now = DateTime.UtcNow;
+        var now = clock.GetUtcNow().UtcDateTime;
         var filter = Builders<WebhookSubscriptionDocument>.Filter.And(
             Builders<WebhookSubscriptionDocument>.Filter.Eq(
                 subscription => subscription.IsEnabled,

@@ -7,9 +7,12 @@ public sealed class NeoEventMonitorService(
     IServiceScopeFactory scopeFactory,
     IOptions<NeoRpcOptions> options,
     ILogger<NeoEventMonitorService> logger,
-    RelayOperationsService operations
+    RelayOperationsService operations,
+    TimeProvider? timeProvider = null
 ) : BackgroundService
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -39,7 +42,7 @@ public sealed class NeoEventMonitorService(
                     operations.Snapshot().ScannerLagBlocks > 0
                         ? TimeSpan.FromMilliseconds(options.Value.CatchUpPollIntervalMilliseconds)
                         : TimeSpan.FromSeconds(options.Value.PollIntervalSeconds);
-                await Task.Delay(delay, stoppingToken);
+                await Task.Delay(delay, clock, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

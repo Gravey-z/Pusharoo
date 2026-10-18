@@ -14,9 +14,12 @@ public sealed class ReplayScanner(
     IWebhookDeliveryRepository deliveries,
     IOptions<NeoRpcOptions> rpcOptions,
     IOptions<EventRelayOptions> options,
-    ILogger<ReplayScanner> logger
+    ILogger<ReplayScanner> logger,
+    TimeProvider? timeProvider = null
 )
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     public async Task<bool> PollOnceAsync(CancellationToken ct)
     {
         // Historical recovery yields while the delivery queue is saturated.
@@ -36,7 +39,7 @@ public sealed class ReplayScanner(
             {
                 while (!work.IsCancellationRequested)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(15), work.Token);
+                    await Task.Delay(TimeSpan.FromSeconds(15), clock, work.Token);
 
                     if (!await jobs.RenewAsync(job, work.Token))
                     {
@@ -170,7 +173,7 @@ public sealed class ReplayScanner(
                 rpcError?.Endpoint ?? rpcOptions.Value.Endpoint,
                 rpcError?.Kind.ToString() ?? "ReplayFailure",
                 ex.Message,
-                DateTime.UtcNow
+                clock.GetUtcNow().UtcDateTime
             );
             var blocked =
                 ex is FormatException
@@ -191,7 +194,7 @@ public sealed class ReplayScanner(
         {
             await work.CancelAsync();
             await renewal;
-            using var release = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var release = new CancellationTokenSource(TimeSpan.FromSeconds(5), clock);
 
             try
             {

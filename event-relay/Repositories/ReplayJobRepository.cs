@@ -5,8 +5,10 @@ using Pusharoo.EventRelay.Services;
 
 namespace Pusharoo.EventRelay.Repositories;
 
-public sealed class ReplayJobRepository(MongoDbContext db)
+public sealed class ReplayJobRepository(MongoDbContext db, TimeProvider? timeProvider = null)
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     private IMongoCollection<ReplayJobDocument> Jobs =>
         db.ReplayJobs.WithWriteConcern(WriteConcern.WMajority.With(journal: true));
 
@@ -78,7 +80,7 @@ public sealed class ReplayJobRepository(MongoDbContext db)
                         new BsonDocument("$lte", new BsonArray { "$nextAttemptAt", "$$NOW" })
                     }
                 )
-            }
+            },
         };
 
         PipelineDefinition<ReplayJobDocument, ReplayJobDocument> pipeline = new[]
@@ -136,7 +138,7 @@ public sealed class ReplayJobRepository(MongoDbContext db)
                     Owned(job) & Builders<ReplayJobDocument>.Filter.Eq(x => x.NextBlock, height),
                     Builders<ReplayJobDocument>
                         .Update.Set(x => x.NextBlock, checked(height + 1))
-                        .Set(x => x.UpdatedAt, DateTime.UtcNow)
+                        .Set(x => x.UpdatedAt, clock.GetUtcNow().UtcDateTime)
                         .Set(x => x.Status, finished ? "completed" : "running")
                         .Set(x => x.Active, !finished)
                         .Set(x => x.Error, null),
@@ -156,8 +158,8 @@ public sealed class ReplayJobRepository(MongoDbContext db)
             Builders<ReplayJobDocument>
                 .Update.Set(x => x.Error, error)
                 .Set(x => x.Status, blocked ? "blocked" : "running")
-                .Set(x => x.NextAttemptAt, DateTime.UtcNow.AddSeconds(15))
-                .Set(x => x.UpdatedAt, DateTime.UtcNow)
+                .Set(x => x.NextAttemptAt, clock.GetUtcNow().UtcDateTime.AddSeconds(15))
+                .Set(x => x.UpdatedAt, clock.GetUtcNow().UtcDateTime)
                 .Unset(x => x.Owner)
                 .Unset(x => x.LeaseUntil),
             cancellationToken: ct
@@ -169,7 +171,7 @@ public sealed class ReplayJobRepository(MongoDbContext db)
             Builders<ReplayJobDocument>
                 .Update.Unset(x => x.Owner)
                 .Unset(x => x.LeaseUntil)
-                .Set(x => x.NextAttemptAt, DateTime.UtcNow.AddSeconds(2)),
+                .Set(x => x.NextAttemptAt, clock.GetUtcNow().UtcDateTime.AddSeconds(2)),
             cancellationToken: ct
         );
 
@@ -195,8 +197,8 @@ public sealed class ReplayJobRepository(MongoDbContext db)
                         .Update.Set(x => x.Status, status)
                         .Set(x => x.Active, action != "cancel")
                         .Set(x => x.Error, null)
-                        .Set(x => x.UpdatedAt, DateTime.UtcNow)
-                        .Set(x => x.NextAttemptAt, DateTime.UtcNow)
+                        .Set(x => x.UpdatedAt, clock.GetUtcNow().UtcDateTime)
+                        .Set(x => x.NextAttemptAt, clock.GetUtcNow().UtcDateTime)
                         .Unset(x => x.Owner)
                         .Unset(x => x.LeaseUntil),
                     cancellationToken: ct

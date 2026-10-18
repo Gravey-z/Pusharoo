@@ -11,6 +11,7 @@ using Neo.Network.P2P.Payloads;
 using Neo.Network.RPC;
 using Neo.SmartContract;
 using Neo.Wallets;
+using TimeProvider = System.TimeProvider;
 using Utility = Neo.Network.RPC.Utility;
 
 namespace backend.Services;
@@ -22,9 +23,12 @@ public sealed class FaucetRelayerWorker(
     IOptions<NeoRpcOptions> neoOptions,
     IOptions<FaucetOptions> faucetOptions,
     IOptions<FaucetRelayerOptions> relayerOptions,
-    ILogger<FaucetRelayerWorker> logger
+    ILogger<FaucetRelayerWorker> logger,
+    TimeProvider? timeProvider = null
 ) : BackgroundService
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     private static readonly TimeSpan Lease = TimeSpan.FromMinutes(2);
 
     private readonly FaucetOptions faucet = faucetOptions.Value;
@@ -104,6 +108,7 @@ public sealed class FaucetRelayerWorker(
 
             await Task.Delay(
                 TimeSpan.FromSeconds(Math.Clamp(relayer.PollIntervalSeconds, 1, 30)),
+                clock,
                 stoppingToken
             );
         }
@@ -111,7 +116,7 @@ public sealed class FaucetRelayerWorker(
 
     private async Task<FaucetClaimDocument?> LeaseClaimAsync(CancellationToken cancellationToken)
     {
-        var now = DateTime.UtcNow;
+        var now = clock.GetUtcNow().UtcDateTime;
         var filter = Builders<FaucetClaimDocument>.Filter.Or(
             Builders<FaucetClaimDocument>.Filter.Eq(claim => claim.State, "Queued"),
             Builders<FaucetClaimDocument>.Filter.And(
@@ -246,7 +251,7 @@ public sealed class FaucetRelayerWorker(
                 .Set(x => x.TransactionHash, transaction.Hash.ToString())
                 .Set(x => x.ValidUntilBlock, transaction.ValidUntilBlock)
                 .Set(x => x.State, "Broadcasting")
-                .Set(x => x.UpdatedAt, DateTime.UtcNow),
+                .Set(x => x.UpdatedAt, clock.GetUtcNow().UtcDateTime),
             cancellationToken: cancellationToken
         );
 
@@ -263,7 +268,7 @@ public sealed class FaucetRelayerWorker(
             x => x.Id == claim.Id,
             Builders<FaucetClaimDocument>
                 .Update.Set(x => x.State, "Submitted")
-                .Set(x => x.UpdatedAt, DateTime.UtcNow)
+                .Set(x => x.UpdatedAt, clock.GetUtcNow().UtcDateTime)
                 .Unset(x => x.LeaseUntil),
             cancellationToken: cancellationToken
         );
@@ -456,7 +461,9 @@ public sealed class FaucetRelayerWorker(
         CancellationToken cancellationToken
     )
     {
-        var budgetId = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var budgetId = clock
+            .GetUtcNow()
+            .UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         var reservationField = $"Reservations.{claimId}";
         var existing = await db
             .FaucetDailyFeeBudgets.Find(x => x.Id == budgetId)
@@ -545,7 +552,7 @@ public sealed class FaucetRelayerWorker(
         var update = Builders<FaucetClaimDocument>
             .Update.Set(x => x.State, state)
             .Set(x => x.Error, error)
-            .Set(x => x.UpdatedAt, DateTime.UtcNow)
+            .Set(x => x.UpdatedAt, clock.GetUtcNow().UtcDateTime)
             .Unset(x => x.LeaseUntil);
 
         if (release)
@@ -569,7 +576,7 @@ public sealed class FaucetRelayerWorker(
                 x => x.IpAddress == claim.ClientIpAddress && x.ClaimId == id,
                 Builders<FaucetIpClaimDocument>.Update.Set(
                     x => x.ExpiresAt,
-                    DateTime.UtcNow.AddHours(24)
+                    clock.GetUtcNow().UtcDateTime.AddHours(24)
                 ),
                 cancellationToken: cancellationToken
             );

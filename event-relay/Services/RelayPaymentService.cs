@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
-using static Pusharoo.EventRelay.Services.NeoPaymentEncoding;
 using Pusharoo.EventRelay.Models;
 using Pusharoo.EventRelay.Options;
+using static Pusharoo.EventRelay.Services.NeoPaymentEncoding;
 
 namespace Pusharoo.EventRelay.Services;
 
@@ -11,9 +11,12 @@ public sealed class RelayPaymentService(
     RelayPaymentVerifier verifier,
     RelayEntitlementService entitlements,
     IOptions<EventRelayOptions> relayOptions,
-    IOptions<NeoRpcOptions> neoRpcOptions
+    IOptions<NeoRpcOptions> neoRpcOptions,
+    TimeProvider? timeProvider = null
 )
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     private readonly EventRelayOptions settings = relayOptions.Value;
 
     private readonly NeoRpcOptions neoSettings = neoRpcOptions.Value;
@@ -29,7 +32,7 @@ public sealed class RelayPaymentService(
     )
     {
         var recipientScriptHash = GetRecipientScriptHash();
-        var now = DateTime.UtcNow;
+        var now = clock.GetUtcNow().UtcDateTime;
         var intent = new RelayPaymentIntentDocument
         {
             Id = Guid.NewGuid().ToString("n"),
@@ -73,7 +76,7 @@ public sealed class RelayPaymentService(
         if (intent.Status is not ("pending" or "awaiting_finality"))
             throw new PaymentValidationException("This payment intent is no longer usable.", 409);
 
-        if (intent.ExpiresAt <= DateTime.UtcNow)
+        if (intent.ExpiresAt <= clock.GetUtcNow().UtcDateTime)
         {
             await db.PaymentIntents.UpdateOneAsync(
                 x => x.Id == intent.Id,
@@ -120,7 +123,7 @@ public sealed class RelayPaymentService(
                 ),
                 Builders<RelayPaymentIntentDocument>
                     .Update.Set(item => item.SubmittedTransactionId, normalizedTransactionId)
-                    .Set(item => item.SubmittedAt, DateTime.UtcNow),
+                    .Set(item => item.SubmittedAt, clock.GetUtcNow().UtcDateTime),
                 cancellationToken: ct
             );
 
@@ -163,7 +166,7 @@ public sealed class RelayPaymentService(
                 Builders<RelayPaymentIntentDocument>
                     .Update.Set(x => x.Status, "confirmed")
                     .Set(x => x.ConfirmedTransactionId, claimed.Id)
-                    .Set(x => x.ConfirmedAt, DateTime.UtcNow),
+                    .Set(x => x.ConfirmedAt, clock.GetUtcNow().UtcDateTime),
                 cancellationToken: ct
             );
 
@@ -221,7 +224,7 @@ public sealed class RelayPaymentService(
             GasDatoshis = verification.GasDatoshis,
             Network = "neo3:mainnet",
             BlockIndex = verification.BlockIndex,
-            VerifiedAt = DateTime.UtcNow
+            VerifiedAt = clock.GetUtcNow().UtcDateTime,
         };
 
         try
@@ -245,7 +248,7 @@ public sealed class RelayPaymentService(
             Builders<RelayPaymentIntentDocument>
                 .Update.Set(x => x.Status, "confirmed")
                 .Set(x => x.ConfirmedTransactionId, payment.Id)
-                .Set(x => x.ConfirmedAt, DateTime.UtcNow),
+                .Set(x => x.ConfirmedAt, clock.GetUtcNow().UtcDateTime),
             cancellationToken: ct
         );
 
@@ -258,7 +261,7 @@ public sealed class RelayPaymentService(
             item =>
                 item.ProjectId == projectId
                 && (item.Status == "pending" || item.Status == "awaiting_finality")
-                && item.ExpiresAt <= DateTime.UtcNow,
+                && item.ExpiresAt <= clock.GetUtcNow().UtcDateTime,
             Builders<RelayPaymentIntentDocument>.Update.Set(item => item.Status, "expired"),
             cancellationToken: ct
         );

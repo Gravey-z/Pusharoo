@@ -1,8 +1,8 @@
+using System.Net;
 using backend.Models;
 using backend.Options;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
-using System.Net;
 
 namespace backend.Services;
 
@@ -11,9 +11,12 @@ public sealed class FaucetService(
     FaucetRpcService rpc,
     NeoWalletAddressValidator addressValidator,
     IOptions<FaucetOptions> faucetOptions,
-    IOptions<FaucetRelayerOptions> relayerOptions
+    IOptions<FaucetRelayerOptions> relayerOptions,
+    TimeProvider? timeProvider = null
 )
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     private readonly FaucetOptions faucet = faucetOptions.Value;
 
     private readonly FaucetRelayerOptions relayer = relayerOptions.Value;
@@ -182,8 +185,8 @@ public sealed class FaucetService(
             ActiveWalletKey = activeKey,
             ClientIpAddress = ipAddress,
             State = "Queued",
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            CreatedAt = clock.GetUtcNow().UtcDateTime,
+            UpdatedAt = clock.GetUtcNow().UtcDateTime,
         };
 
         try
@@ -222,7 +225,7 @@ public sealed class FaucetService(
         CancellationToken cancellationToken
     )
     {
-        var now = DateTime.UtcNow;
+        var now = clock.GetUtcNow().UtcDateTime;
         var reservation = new FaucetIpClaimDocument
         {
             IpAddress = ipAddress,

@@ -4,8 +4,13 @@ using MongoDB.Bson;
 
 namespace backend.Services;
 
-public sealed class DeploymentService(IDeploymentRepository deployments)
+public sealed class DeploymentService(
+    IDeploymentRepository deployments,
+    TimeProvider? timeProvider = null
+)
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     public async Task<DeploymentDocument> CreateAsync(
         string projectId,
         ArtifactDocument artifact,
@@ -28,8 +33,8 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             Operation = "deploy",
             Status = "confirmed",
             IdempotencyKey = idempotencyKey,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            CreatedAt = clock.GetUtcNow().UtcDateTime,
+            UpdatedAt = clock.GetUtcNow().UtcDateTime,
         };
 
         await deployments.InsertAsync(deployment, cancellationToken);
@@ -51,7 +56,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
         CancellationToken cancellationToken
     )
     {
-        var now = DateTime.UtcNow;
+        var now = clock.GetUtcNow().UtcDateTime;
         var deployment = new DeploymentDocument
         {
             Id = ObjectId.GenerateNewId().ToString(),
@@ -95,7 +100,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
         CancellationToken cancellationToken
     )
     {
-        var now = DateTime.UtcNow;
+        var now = clock.GetUtcNow().UtcDateTime;
         var deployment = new DeploymentDocument
         {
             Id = ObjectId.GenerateNewId().ToString(),
@@ -138,8 +143,8 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             AttemptCapabilityHash = DeploymentAuthorizationService.HashAttemptCapability(
                 nextAttemptCapability
             ),
-            AttemptCapabilityExpiresAtUtc = DateTime.UtcNow.AddMinutes(10),
-            UpdatedAt = DateTime.UtcNow
+            AttemptCapabilityExpiresAtUtc = clock.GetUtcNow().UtcDateTime.AddMinutes(10),
+            UpdatedAt = clock.GetUtcNow().UtcDateTime,
         };
         await deployments.ReplaceAsync(updated, cancellationToken);
 
@@ -154,7 +159,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
         deployments.RenewCapabilityAsync(
             deployment,
             DeploymentAuthorizationService.HashAttemptCapability(nextAttemptCapability),
-            DateTime.UtcNow.AddMinutes(10),
+            clock.GetUtcNow().UtcDateTime.AddMinutes(10),
             cancellationToken
         );
 
@@ -171,7 +176,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             FailureStage = null,
             FailureReason = null,
             ActiveAttemptKey = null,
-            UpdatedAt = DateTime.UtcNow
+            UpdatedAt = clock.GetUtcNow().UtcDateTime,
         };
         await deployments.ReplaceAsync(updated, cancellationToken);
 
@@ -188,7 +193,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             Status = "confirming",
             FailureStage = null,
             FailureReason = null,
-            UpdatedAt = DateTime.UtcNow
+            UpdatedAt = clock.GetUtcNow().UtcDateTime,
         };
         await deployments.ReplaceAsync(updated, cancellationToken);
 
@@ -208,7 +213,7 @@ public sealed class DeploymentService(IDeploymentRepository deployments)
             FailureStage = stage,
             FailureReason = TrimToNull(reason),
             ActiveAttemptKey = null,
-            UpdatedAt = DateTime.UtcNow
+            UpdatedAt = clock.GetUtcNow().UtcDateTime,
         };
         await deployments.ReplaceAsync(updated, cancellationToken);
 

@@ -4,8 +4,13 @@ using Microsoft.Extensions.Options;
 
 namespace backend.Services;
 
-public sealed class WalletSignatureRequestValidator(IOptions<WalletSignatureOptions> options)
+public sealed class WalletSignatureRequestValidator(
+    IOptions<WalletSignatureOptions> options,
+    TimeProvider? timeProvider = null
+)
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     private static readonly TimeSpan MaxSignatureAge = TimeSpan.FromMinutes(10);
 
     private static readonly TimeSpan MaxClockSkew = TimeSpan.FromMinutes(2);
@@ -90,7 +95,7 @@ public sealed class WalletSignatureRequestValidator(IOptions<WalletSignatureOpti
         if (!TryParseIssuedAt(signature.IssuedAtUtc, out var issuedAt))
             return "Signature timestamp is invalid.";
 
-        if (!IsFresh(issuedAt, DateTimeOffset.UtcNow))
+        if (!IsFresh(issuedAt, clock.GetUtcNow()))
             return "Wallet signature has expired. Try again.";
 
         return signature.Nonce.Trim().Length < 16 ? "Signature nonce is invalid." : null;

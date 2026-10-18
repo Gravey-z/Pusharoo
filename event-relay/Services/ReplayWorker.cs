@@ -1,8 +1,13 @@
 namespace Pusharoo.EventRelay.Services;
 
-public sealed class ReplayWorker(IServiceScopeFactory scopes, ILogger<ReplayWorker> logger)
-    : BackgroundService
+public sealed class ReplayWorker(
+    IServiceScopeFactory scopes,
+    ILogger<ReplayWorker> logger,
+    TimeProvider? timeProvider = null
+) : BackgroundService
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
@@ -23,7 +28,7 @@ public sealed class ReplayWorker(IServiceScopeFactory scopes, ILogger<ReplayWork
 
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(2), ct);
+                await Task.Delay(TimeSpan.FromSeconds(2), clock, ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {

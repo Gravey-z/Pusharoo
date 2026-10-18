@@ -97,6 +97,7 @@ builder.Services.Configure<PusharooApiOptions>(
     builder.Configuration.GetSection(PusharooApiOptions.SectionName)
 );
 
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddScoped<IWebhookSubscriptionRepository, WebhookSubscriptionRepository>();
 builder.Services.AddScoped<IWebhookDeliveryRepository, WebhookDeliveryRepository>();

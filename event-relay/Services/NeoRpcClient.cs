@@ -1,9 +1,9 @@
-using Pusharoo.EventRelay.Models;
 using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
+using Pusharoo.EventRelay.Models;
 using Pusharoo.EventRelay.Options;
 
 namespace Pusharoo.EventRelay.Services;
@@ -13,9 +13,12 @@ public sealed class NeoRpcClient(
     IOptions<NeoRpcOptions> options,
     RelayOperationsService operations,
     ILogger<NeoRpcClient> logger,
-    NeoRpcRequestLimiter? limiter = null
+    NeoRpcRequestLimiter? limiter = null,
+    TimeProvider? timeProvider = null
 ) : INeoRpcClient
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     private readonly NeoRpcOptions settings = options.Value;
 
     private readonly ConcurrentDictionary<string, DateTime> validated = new(
@@ -57,7 +60,7 @@ public sealed class NeoRpcClient(
     {
         if (
             validated.TryGetValue(endpoint, out var at)
-            && DateTime.UtcNow - at < TimeSpan.FromSeconds(60)
+            && clock.GetUtcNow().UtcDateTime - at < TimeSpan.FromSeconds(60)
         )
             return;
 
@@ -88,7 +91,7 @@ public sealed class NeoRpcClient(
             },
             cancellationToken
         );
-        validated[endpoint] = DateTime.UtcNow;
+        validated[endpoint] = clock.GetUtcNow().UtcDateTime;
     }
 
     public Task<uint> GetBlockCountAsync(CancellationToken cancellationToken) =>
@@ -297,10 +300,14 @@ public sealed class NeoRpcClient(
                     await limiter.WaitAsync(cancellationToken);
 
                 operations.RecordRpcRequest();
-                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
-                    cancellationToken
+                using var deadline = new CancellationTokenSource(
+                    TimeSpan.FromSeconds(settings.RequestTimeoutSeconds),
+                    clock
                 );
-                timeout.CancelAfter(TimeSpan.FromSeconds(settings.RequestTimeoutSeconds));
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
+                    cancellationToken,
+                    deadline.Token
+                );
                 var request = new NeoRpcRequest(
                     method,
                     parameters,
@@ -409,7 +416,7 @@ public sealed class NeoRpcClient(
                     settings.MaxAttempts,
                     failure.Kind
                 );
-                await Task.Delay(TimeSpan.FromMilliseconds(milliseconds), cancellationToken);
+                await Task.Delay(TimeSpan.FromMilliseconds(milliseconds), clock, cancellationToken);
             }
         }
     }

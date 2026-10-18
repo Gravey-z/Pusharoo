@@ -52,6 +52,7 @@ builder.Services.Configure<RelayGatewayOptions>(
     builder.Configuration.GetSection(RelayGatewayOptions.SectionName)
 );
 
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<IArtifactRepository, ArtifactRepository>();

@@ -8,9 +8,12 @@ namespace Pusharoo.EventRelay.Services;
 public sealed class RelayAlertWorker(
     IServiceScopeFactory scopes,
     IOptions<EventRelayOptions> options,
-    ILogger<RelayAlertWorker> logger
+    ILogger<RelayAlertWorker> logger,
+    TimeProvider? timeProvider = null
 ) : BackgroundService
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
         var previous = new HashSet<string>();
@@ -29,7 +32,7 @@ public sealed class RelayAlertWorker(
                 foreach (var alert in status.Alerts)
                     if (
                         !previous.Contains(alert.Code)
-                        || DateTime.UtcNow - repeatedAt > TimeSpan.FromMinutes(5)
+                        || clock.GetUtcNow().UtcDateTime - repeatedAt > TimeSpan.FromMinutes(5)
                     )
                         logger.LogWarning(
                             "Relay alert {Network} {Code} {Severity}: {Message}",
@@ -44,9 +47,9 @@ public sealed class RelayAlertWorker(
 
                 if (
                     !current.SetEquals(previous)
-                    || DateTime.UtcNow - repeatedAt > TimeSpan.FromMinutes(5)
+                    || clock.GetUtcNow().UtcDateTime - repeatedAt > TimeSpan.FromMinutes(5)
                 )
-                    repeatedAt = DateTime.UtcNow;
+                    repeatedAt = clock.GetUtcNow().UtcDateTime;
 
                 previous = current;
             }
@@ -64,7 +67,11 @@ public sealed class RelayAlertWorker(
 
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(options.Value.OperationsPollSeconds), ct);
+                await Task.Delay(
+                    TimeSpan.FromSeconds(options.Value.OperationsPollSeconds),
+                    clock,
+                    ct
+                );
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {

@@ -12,9 +12,12 @@ public sealed class DeploymentLifecycleService(
     DeploymentAuthorizationService deploymentAuthorization,
     DeploymentDataService deploymentData,
     ProjectAuthorizationService projectAuthorization,
-    DeploymentAttemptValidator attemptValidator
+    DeploymentAttemptValidator attemptValidator,
+    TimeProvider? timeProvider = null
 )
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     public async Task<DeploymentWorkflowResult<DeploymentReviewResponse>> ReviewAsync(
         string projectId,
         DeploymentReviewRequest request,
@@ -373,7 +376,7 @@ public sealed class DeploymentLifecycleService(
                 Status = "submitted",
                 FailureStage = "confirmation",
                 FailureReason = verification.Error,
-                UpdatedAt = DateTime.UtcNow,
+                UpdatedAt = clock.GetUtcNow().UtcDateTime,
             };
             await deploymentService.UpdateAsync(submitted, cancellationToken);
 

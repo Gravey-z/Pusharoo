@@ -7,9 +7,12 @@ namespace backend.Services;
 
 public sealed class DeploymentAuthorizationService(
     ProjectAuthorizationService authorization,
-    DeploymentDataService deploymentData
+    DeploymentDataService deploymentData,
+    TimeProvider? timeProvider = null
 )
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     private static readonly JsonSerializerOptions ManifestJsonOptions = new(
         JsonSerializerDefaults.Web
     )
@@ -154,7 +157,7 @@ public sealed class DeploymentAuthorizationService(
             ExpectedTargetContractHash = context.ExpectedTargetContractHash,
             ArtifactNefSha256 = review.ArtifactNefSha256,
             ArtifactManifestSha256 = review.ArtifactManifestSha256,
-            AuthorizedAtUtc = DateTime.UtcNow,
+            AuthorizedAtUtc = clock.GetUtcNow().UtcDateTime,
             AuthorizationSchemaVersion = 3,
             AuthorizationMethod = "wallet-session",
             SessionReference = actor.SessionHash[..Math.Min(32, actor.SessionHash.Length)],
@@ -182,9 +185,14 @@ public sealed class DeploymentAuthorizationService(
 
     public static string HashAttemptCapability(string capability) => Sha256Hex(capability.Trim());
 
-    public static bool IsValidCapability(DeploymentDocument attempt, string? capability)
+    public static bool IsValidCapability(
+        DeploymentDocument attempt,
+        string? capability,
+        TimeProvider? timeProvider = null
+    )
     {
-        return attempt.AttemptCapabilityExpiresAtUtc > DateTime.UtcNow
+        return attempt.AttemptCapabilityExpiresAtUtc
+                > (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime
             && MatchesCapabilityHash(attempt, capability);
     }
 

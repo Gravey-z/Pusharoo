@@ -14,9 +14,12 @@ public sealed class SubscriptionManagementService(
     WebhookSecretProtector secretProtector,
     RelayEntitlementService entitlements,
     IOptions<NeoRpcOptions> neoRpcOptions,
-    IOptions<EventRelayOptions> eventRelayOptions
+    IOptions<EventRelayOptions> eventRelayOptions,
+    TimeProvider? timeProvider = null
 )
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     public async Task<IReadOnlyList<SubscriptionResponse>> GetAllAsync(
         string projectId,
         CancellationToken cancellationToken
@@ -48,7 +51,10 @@ public sealed class SubscriptionManagementService(
             cancellationToken
         );
 
-        if (entitlement.Status != "active" || entitlement.PeriodEndsAt <= DateTime.UtcNow)
+        if (
+            entitlement.Status != "active"
+            || entitlement.PeriodEndsAt <= clock.GetUtcNow().UtcDateTime
+        )
         {
             return SubscriptionManagementResult<SubscriptionResponse>.Invalid(
                 "Relay access is not active for this network."
@@ -75,7 +81,7 @@ public sealed class SubscriptionManagementService(
             return SubscriptionManagementResult<SubscriptionResponse>.Invalid(validation);
         }
 
-        var now = DateTime.UtcNow;
+        var now = clock.GetUtcNow().UtcDateTime;
         var subscription = new WebhookSubscriptionDocument
         {
             Id = Guid.NewGuid().ToString("n"),
@@ -183,7 +189,7 @@ public sealed class SubscriptionManagementService(
 
             if (
                 entitlement.Status != "active"
-                || entitlement.PeriodEndsAt <= DateTime.UtcNow
+                || entitlement.PeriodEndsAt <= clock.GetUtcNow().UtcDateTime
                 || activeSubscriptions >= entitlement.MaxActiveSubscriptions
             )
             {
@@ -216,7 +222,7 @@ public sealed class SubscriptionManagementService(
             IsEnabled = request.IsEnabled,
             PayloadVersion = request.PayloadVersion,
             CreatedAt = existing.CreatedAt,
-            UpdatedAt = DateTime.UtcNow,
+            UpdatedAt = clock.GetUtcNow().UtcDateTime,
             ExpiresAt =
                 string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal)
                 && entitlement.Plan == "free_beta"
@@ -292,7 +298,7 @@ public sealed class SubscriptionManagementService(
         )
         {
             history = history
-                .Where(item => item.DeliveredAt >= DateTime.UtcNow.AddDays(-7))
+                .Where(item => item.DeliveredAt >= clock.GetUtcNow().UtcDateTime.AddDays(-7))
                 .ToList();
         }
 

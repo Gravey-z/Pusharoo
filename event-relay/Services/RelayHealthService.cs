@@ -88,9 +88,12 @@ public sealed class RelayHealthService(
     RelayOperationsService operations,
     IOptions<NeoRpcOptions> rpcOptions,
     IOptions<EventRelayOptions> relayOptions,
-    RelayHealthCache? cache = null
+    RelayHealthCache? cache = null,
+    TimeProvider? timeProvider = null
 )
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     public Task<RelayHealthSnapshot> GetAsync(CancellationToken ct) =>
         cache is null ? ReadAsync(ct) : cache.GetAsync(ReadAsync, ct);
 
@@ -151,7 +154,9 @@ public sealed class RelayHealthService(
             deliveryFilter & Builders<WebhookDeliveryDocument>.Filter.Eq(x => x.AuditPending, true),
             cancellationToken: ct
         );
-        var since = DateTime.UtcNow.AddMinutes(-relayOptions.Value.DeliveryFailureWindowMinutes);
+        var since = clock
+            .GetUtcNow()
+            .UtcDateTime.AddMinutes(-relayOptions.Value.DeliveryFailureWindowMinutes);
         // Read the atomic, authoritative embedded audit, even if its projection is interrupted.
         var recent = await db
             .Deliveries.Aggregate()
@@ -165,7 +170,7 @@ public sealed class RelayHealthService(
                 new BsonDocument
                 {
                     { "_id", "$attempts.succeeded" },
-                    { "count", new BsonDocument("$sum", 1) }
+                    { "count", new BsonDocument("$sum", 1) },
                 }
             )
             .ToListAsync(ct);
@@ -219,7 +224,7 @@ public sealed class RelayHealthService(
                                 }
                             )
                         )
-                    }
+                    },
                 }
             )
             .ToListAsync(ct);
@@ -245,7 +250,7 @@ public sealed class RelayHealthService(
             replays,
             rpcOptions.Value,
             relayOptions.Value,
-            DateTime.UtcNow
+            clock.GetUtcNow().UtcDateTime
         );
     }
 

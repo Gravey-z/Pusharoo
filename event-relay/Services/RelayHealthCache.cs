@@ -2,8 +2,10 @@ namespace Pusharoo.EventRelay.Services;
 
 // Coalesce public health and scrape traffic; a brief cache avoids repeated history aggregations.
 
-public sealed class RelayHealthCache : IDisposable
+public sealed class RelayHealthCache(TimeProvider? timeProvider = null) : IDisposable
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     private readonly SemaphoreSlim gate = new(1, 1);
 
     private RelayHealthSnapshot? value;
@@ -19,12 +21,12 @@ public sealed class RelayHealthCache : IDisposable
 
         try
         {
-            if (value is not null && DateTime.UtcNow < expires)
+            if (value is not null && clock.GetUtcNow().UtcDateTime < expires)
                 return value;
 
             var fresh = await read(ct); // Failed reads are never reported as a fresh healthy sample.
             value = fresh;
-            expires = DateTime.UtcNow.AddSeconds(5);
+            expires = clock.GetUtcNow().UtcDateTime.AddSeconds(5);
 
             return fresh;
         }

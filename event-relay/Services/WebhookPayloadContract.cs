@@ -56,14 +56,15 @@ public static class WebhookPayloadContract
     public static string CreateTest(
         string deliveryId,
         string eventId,
-        WebhookSubscriptionDocument subscription
+        WebhookSubscriptionDocument subscription,
+        TimeProvider? timeProvider = null
     )
     {
         var state = JsonSerializer.SerializeToElement(
             new { test = true, message = "Pusharoo test delivery" }
         );
         var name = subscription.EventName ?? "Pusharoo.Test";
-        var now = DateTime.UtcNow;
+        var now = (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
 
         if (subscription.PayloadVersion != 2)
             throw new InvalidOperationException("Unsupported webhook payload version.");

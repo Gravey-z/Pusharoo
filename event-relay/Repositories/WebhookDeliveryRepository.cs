@@ -1,17 +1,20 @@
 using Microsoft.Extensions.Options;
-using Pusharoo.EventRelay.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Pusharoo.EventRelay.Models;
+using Pusharoo.EventRelay.Options;
 using Pusharoo.EventRelay.Services;
 
 namespace Pusharoo.EventRelay.Repositories;
 
 public sealed class WebhookDeliveryRepository(
     MongoDbContext db,
-    IOptions<NeoRpcOptions>? options = null
+    IOptions<NeoRpcOptions>? options = null,
+    TimeProvider? timeProvider = null
 ) : IWebhookDeliveryRepository
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     public async Task<IReadOnlyList<WebhookDeliveryDocument>> GetBySubscriptionAsync(
         string subscriptionId,
         CancellationToken cancellationToken
@@ -166,13 +169,13 @@ public sealed class WebhookDeliveryRepository(
                     {
                         "$expr",
                         new BsonDocument("$lte", new BsonArray { "$nextAttemptAt", "$$NOW" })
-                    }
+                    },
                 },
                 new BsonDocument
                 {
                     { "status", "delivering" },
                     { "$expr", new BsonDocument("$lte", new BsonArray { "$leaseUntil", "$$NOW" }) }
-                }
+                },
             }
         );
         filter &= await NetworkFilterAsync(cancellationToken);
@@ -187,7 +190,7 @@ public sealed class WebhookDeliveryRepository(
                     { "claimOwner", owner },
                     { "leaseUntil", new BsonDocument("$add", new BsonArray { "$$NOW", 120000 }) }
                 }
-            )
+            ),
         };
 
         return await db
@@ -246,7 +249,7 @@ public sealed class WebhookDeliveryRepository(
                 Builders<WebhookDeliveryDocument>
                     .Update.Set(x => x.Status, "waiting")
                     .Set(x => x.Error, reason)
-                    .Set(x => x.NextAttemptAt, DateTime.UtcNow.AddSeconds(30))
+                    .Set(x => x.NextAttemptAt, clock.GetUtcNow().UtcDateTime.AddSeconds(30))
                     .Unset(x => x.ClaimOwner)
                     .Unset(x => x.LeaseUntil),
                 cancellationToken: cancellationToken
@@ -391,7 +394,7 @@ public sealed class WebhookDeliveryRepository(
                 Builders<ReplayJobDocument>
                     .Update.Set(x => x.Status, "cancelled")
                     .Set(x => x.Active, false)
-                    .Set(x => x.UpdatedAt, DateTime.UtcNow)
+                    .Set(x => x.UpdatedAt, clock.GetUtcNow().UtcDateTime)
                     .Unset(x => x.Owner)
                     .Unset(x => x.LeaseUntil),
                 cancellationToken: cancellationToken

@@ -11,9 +11,12 @@ public sealed class WebhookDeliveryService(
     RelayEntitlementService entitlements,
     RelayOperationsService operations,
     IOptions<EventRelayOptions> options,
-    ILogger<WebhookDeliveryService> logger
+    ILogger<WebhookDeliveryService> logger,
+    TimeProvider? timeProvider = null
 ) : IEventDeliveryQueue
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     private readonly EventRelayOptions _options = options.Value;
 
     public async Task QueueAsync(
@@ -250,17 +253,19 @@ public sealed class WebhookDeliveryService(
             !succeeded && (!retryable || attempt >= Math.Max(1, _options.WebhookMaxAttempts));
         DateTime? next =
             !succeeded && !dead
-                ? DateTime.UtcNow.AddSeconds(
-                    Math.Min(
-                        3600,
-                        Math.Pow(2, Math.Min(16, attempt - 1))
-                            * Math.Max(1, _options.WebhookRetryBaseSeconds)
-                    ) + Random.Shared.NextDouble()
-                )
+                ? clock
+                    .GetUtcNow()
+                    .UtcDateTime.AddSeconds(
+                        Math.Min(
+                            3600,
+                            Math.Pow(2, Math.Min(16, attempt - 1))
+                                * Math.Max(1, _options.WebhookRetryBaseSeconds)
+                        ) + Random.Shared.NextDouble()
+                    )
                 : null;
         var updated = delivery with
         {
-            DeliveredAt = DateTime.UtcNow,
+            DeliveredAt = clock.GetUtcNow().UtcDateTime,
             StatusCode = statusCode,
             Succeeded = succeeded,
             Error = error,
@@ -285,7 +290,7 @@ public sealed class WebhookDeliveryService(
             Retryable = retryable,
             Error = error,
             LatencyMilliseconds = latency,
-            AttemptedAt = DateTime.UtcNow
+            AttemptedAt = clock.GetUtcNow().UtcDateTime,
         };
 
         if (await deliveries.CompleteAsync(updated, record, cancellationToken))
@@ -299,7 +304,7 @@ public sealed class WebhookDeliveryService(
     {
         var deliveryId = Guid.NewGuid().ToString("n");
         var eventId = $"test-{deliveryId}";
-        var payload = WebhookPayloadContract.CreateTest(deliveryId, eventId, subscription);
+        var payload = WebhookPayloadContract.CreateTest(deliveryId, eventId, subscription, clock);
         var delivery = CreateQueuedDelivery(
             deliveryId,
             subscription,
@@ -350,14 +355,14 @@ public sealed class WebhookDeliveryService(
                 RedeliveryOfDeliveryId = original.Id,
                 Status = "pending",
                 AttemptCount = 0,
-                DeliveredAt = DateTime.UtcNow,
-                NextAttemptAt = DateTime.UtcNow
+                DeliveredAt = clock.GetUtcNow().UtcDateTime,
+                NextAttemptAt = clock.GetUtcNow().UtcDateTime,
             },
             cancellationToken
         );
     }
 
-    private static WebhookDeliveryDocument CreateQueuedDelivery(
+    private WebhookDeliveryDocument CreateQueuedDelivery(
         string id,
         WebhookSubscriptionDocument subscription,
         string eventId,
@@ -380,7 +385,7 @@ public sealed class WebhookDeliveryService(
             Trigger = trigger,
             Status = "pending",
             AttemptCount = 0,
-            DeliveredAt = DateTime.UtcNow,
-            NextAttemptAt = DateTime.UtcNow
+            DeliveredAt = clock.GetUtcNow().UtcDateTime,
+            NextAttemptAt = clock.GetUtcNow().UtcDateTime,
         };
 }

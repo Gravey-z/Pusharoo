@@ -8,9 +8,12 @@ public sealed class DeploymentAttemptValidator(
     ArtifactService artifactService,
     DeploymentAuthorizationService deploymentAuthorization,
     DeploymentDataService deploymentData,
-    ProjectAuthorizationService projectAuthorization
+    ProjectAuthorizationService projectAuthorization,
+    TimeProvider? timeProvider = null
 )
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     public async Task<DeploymentWorkflowResult<ProjectDeploymentAttemptContext>> LoadAsync(
         string projectId,
         string deploymentId,
@@ -49,7 +52,7 @@ public sealed class DeploymentAttemptValidator(
             && DeploymentAuthorizationService.MatchesCapabilityHash(attempt, attemptCapability);
 
         if (
-            !DeploymentAuthorizationService.IsValidCapability(attempt, attemptCapability)
+            !DeploymentAuthorizationService.IsValidCapability(attempt, attemptCapability, clock)
             && !canRetryFailedConfirmation
         )
         {

@@ -2,8 +2,10 @@ using Pusharoo.EventRelay.Models;
 
 namespace Pusharoo.EventRelay.Services;
 
-public sealed class RelayOperationsService
+public sealed class RelayOperationsService(TimeProvider? timeProvider = null)
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     private readonly object gate = new();
 
     private DateTime scannerHeartbeat,
@@ -49,13 +51,13 @@ public sealed class RelayOperationsService
     public void ScannerHeartbeat()
     {
         lock (gate)
-            scannerHeartbeat = DateTime.UtcNow;
+            scannerHeartbeat = clock.GetUtcNow().UtcDateTime;
     }
 
     public void WorkerHeartbeat()
     {
         lock (gate)
-            workerHeartbeat = DateTime.UtcNow;
+            workerHeartbeat = clock.GetUtcNow().UtcDateTime;
     }
 
     public void RecordChainTip(uint tip, uint confirmed)
@@ -84,7 +86,7 @@ public sealed class RelayOperationsService
             scannedTransactions += transactions;
             observedEvents += events;
             scanMilliseconds += milliseconds;
-            lastSuccessfulScan = DateTime.UtcNow;
+            lastSuccessfulScan = clock.GetUtcNow().UtcDateTime;
         }
     }
 
@@ -99,7 +101,7 @@ public sealed class RelayOperationsService
         lock (gate)
         {
             activeRpcEndpoint = endpoint;
-            rpcSuccessAt = DateTime.UtcNow;
+            rpcSuccessAt = clock.GetUtcNow().UtcDateTime;
         }
     }
 

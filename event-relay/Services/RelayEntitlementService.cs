@@ -1,6 +1,6 @@
+using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using Microsoft.Extensions.Options;
 using Pusharoo.EventRelay.Models;
 using Pusharoo.EventRelay.Options;
 using Pusharoo.EventRelay.Repositories;
@@ -10,9 +10,12 @@ namespace Pusharoo.EventRelay.Services;
 public sealed class RelayEntitlementService(
     MongoDbContext db,
     IWebhookSubscriptionRepository subscriptions,
-    IOptions<EventRelayOptions> options
+    IOptions<EventRelayOptions> options,
+    TimeProvider? timeProvider = null
 )
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     private readonly EventRelayOptions settings = options.Value;
 
     private static FilterDefinition<RelayEntitlementDocument> VersionFilter(long version) =>
@@ -27,7 +30,7 @@ public sealed class RelayEntitlementService(
         CancellationToken ct
     )
     {
-        var now = DateTime.UtcNow;
+        var now = clock.GetUtcNow().UtcDateTime;
         var existing = await db
             .Entitlements.Find(x => x.ProjectId == projectId && x.Network == network)
             .FirstOrDefaultAsync(ct);
@@ -51,7 +54,7 @@ public sealed class RelayEntitlementService(
                 network == "neo3:testnet" ? settings.FreeTestnetMaxActiveSubscriptions : 0,
             MaxEvents = network == "neo3:testnet" ? settings.FreeTestnetMaxEvents : 0,
             Status = network == "neo3:testnet" ? "active" : "expired",
-            UpdatedAt = now
+            UpdatedAt = now,
         };
 
         try
@@ -119,7 +122,10 @@ public sealed class RelayEntitlementService(
         if (await WasChargedAsync(periodId, deliveryId, ct))
             return true;
 
-        if (entitlement.Status != "active" || entitlement.PeriodEndsAt <= DateTime.UtcNow)
+        if (
+            entitlement.Status != "active"
+            || entitlement.PeriodEndsAt <= clock.GetUtcNow().UtcDateTime
+        )
             return false;
         // The receipt and counter update are atomic. Period receipts survive resets, grants and history pruning.
 
@@ -295,7 +301,7 @@ public sealed class RelayEntitlementService(
                     .Set(item => item.EventsUsed, resetAllowance ? 0 : entitlement.EventsUsed)
                     .Inc(item => item.Version, 1)
                     .Set(item => item.Status, "active")
-                    .Set(item => item.UpdatedAt, DateTime.UtcNow),
+                    .Set(item => item.UpdatedAt, clock.GetUtcNow().UtcDateTime),
                 cancellationToken: ct
             );
 
@@ -314,7 +320,7 @@ public sealed class RelayEntitlementService(
             PaidUntil = entitlement.PaidUntil,
             GraceEndsAt = entitlement.GraceEndsAt,
             LastPaymentId = entitlement.LastPaymentId,
-            UpdatedAt = DateTime.UtcNow,
+            UpdatedAt = clock.GetUtcNow().UtcDateTime,
             Version = entitlement.Version,
             PaymentGrants = entitlement.PaymentGrants
         };
@@ -344,7 +350,7 @@ public sealed class RelayEntitlementService(
                 return current;
             }
 
-            var now = DateTime.UtcNow;
+            var now = clock.GetUtcNow().UtcDateTime;
             var start = current.PaidUntil is { } paidUntil && paidUntil > now ? paidUntil : now;
             var grant = new RelayEntitlementPaymentGrant
             {
@@ -418,7 +424,7 @@ public sealed class RelayEntitlementService(
             PeriodStart = grant.PeriodStart,
             PeriodEndsAt = grant.PeriodEndsAt,
             GraceEndsAt = grant.GraceEndsAt,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = clock.GetUtcNow().UtcDateTime,
         };
         await db.EntitlementHistory.ReplaceOneAsync(
             filter,

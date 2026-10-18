@@ -14,9 +14,12 @@ public sealed class WalletAuthService(
     NeoWalletSignatureVerifier signatureVerifier,
     WalletSignatureRequestValidator signatureRequestValidator,
     IOptions<WalletSignatureOptions> signatureOptions,
-    IOptions<WalletAuthOptions> authOptions
+    IOptions<WalletAuthOptions> authOptions,
+    TimeProvider? timeProvider = null
 )
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     private readonly WalletAuthOptions options = authOptions.Value;
 
     private readonly WalletSignatureOptions signatures = signatureOptions.Value;
@@ -61,7 +64,7 @@ public sealed class WalletAuthService(
                 "Wallet login is not configured."
             );
 
-        var issuedAt = DateTime.UtcNow;
+        var issuedAt = clock.GetUtcNow().UtcDateTime;
         issuedAt = issuedAt.AddTicks(-(issuedAt.Ticks % TimeSpan.TicksPerMillisecond));
         var expiresAt = issuedAt.AddMinutes(Math.Clamp(options.ChallengeLifetimeMinutes, 1, 10));
         var browserToken = NewToken();
@@ -151,7 +154,7 @@ public sealed class WalletAuthService(
         if (
             challenge is null
             || challenge.ConsumedAtUtc is not null
-            || challenge.ExpiresAtUtc <= DateTime.UtcNow
+            || challenge.ExpiresAtUtc <= clock.GetUtcNow().UtcDateTime
             || !FixedHashEquals(challenge.BrowserBindingHash, Hash(browserToken))
         )
         {
@@ -220,7 +223,7 @@ public sealed class WalletAuthService(
             );
         }
 
-        var now = DateTime.UtcNow;
+        var now = clock.GetUtcNow().UtcDateTime;
         var filter = Builders<WalletLoginChallengeDocument>.Filter.Where(x =>
             x.Id == challenge.Id
             && x.BrowserBindingHash == challenge.BrowserBindingHash
@@ -276,7 +279,9 @@ public sealed class WalletAuthService(
             .WalletLoginSessions.Find(x => x.TokenHash == Hash(token))
             .FirstOrDefaultAsync(cancellationToken);
 
-        return session is { RevokedAtUtc: null } && session.ExpiresAtUtc > DateTime.UtcNow
+        return
+            session is { RevokedAtUtc: null }
+            && session.ExpiresAtUtc > clock.GetUtcNow().UtcDateTime
             ? session
             : null;
     }
@@ -288,7 +293,10 @@ public sealed class WalletAuthService(
 
         await db.WalletLoginSessions.UpdateOneAsync(
             x => x.TokenHash == Hash(token) && x.RevokedAtUtc == null,
-            Builders<WalletLoginSessionDocument>.Update.Set(x => x.RevokedAtUtc, DateTime.UtcNow),
+            Builders<WalletLoginSessionDocument>.Update.Set(
+                x => x.RevokedAtUtc,
+                clock.GetUtcNow().UtcDateTime
+            ),
             cancellationToken: cancellationToken
         );
     }

@@ -12,9 +12,12 @@ public sealed class NeoBlockScanner(
     IEventDeliveryQueue deliveries,
     RelayOperationsService operations,
     IOptions<NeoRpcOptions> options,
-    ILogger<NeoBlockScanner> logger
+    ILogger<NeoBlockScanner> logger,
+    TimeProvider? timeProvider = null
 )
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     private readonly NeoRpcOptions settings = options.Value;
 
     public async Task PollOnceAsync(CancellationToken cancellationToken)
@@ -36,7 +39,7 @@ public sealed class NeoBlockScanner(
             {
                 while (true)
                 {
-                    await Task.Delay(duration / 3, work.Token);
+                    await Task.Delay(duration / 3, clock, work.Token);
 
                     if (!await checkpoints.RenewAsync(id, owner, duration, work.Token))
                         throw new InvalidOperationException("Scanner checkpoint lease was lost.");
@@ -202,7 +205,7 @@ public sealed class NeoBlockScanner(
                 rpcError?.Kind.ToString()
                     ?? (actual is FormatException ? "InvalidResponse" : "ScannerFailure"),
                 actual.Message,
-                DateTime.UtcNow
+                clock.GetUtcNow().UtcDateTime
             );
             operations.RecordScannerFailure(error);
             // Provider-declared missing history, corrupt results and mismatched networks must never become a silent skip.
@@ -215,7 +218,10 @@ public sealed class NeoBlockScanner(
                 || actual is FormatException
             )
             {
-                using var persistTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                using var persistTimeout = new CancellationTokenSource(
+                    TimeSpan.FromSeconds(5),
+                    clock
+                );
 
                 if (!await checkpoints.BlockAsync(id, owner, error, persistTimeout.Token))
                     logger.LogWarning(
@@ -245,7 +251,7 @@ public sealed class NeoBlockScanner(
         {
             await work.CancelAsync();
             await renewal;
-            using var releaseTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var releaseTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5), clock);
 
             try
             {

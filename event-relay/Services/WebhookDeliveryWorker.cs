@@ -5,9 +5,12 @@ namespace Pusharoo.EventRelay.Services;
 public sealed class WebhookDeliveryWorker(
     IServiceScopeFactory scopeFactory,
     RelayOperationsService operations,
-    ILogger<WebhookDeliveryWorker> logger
+    ILogger<WebhookDeliveryWorker> logger,
+    TimeProvider? timeProvider = null
 ) : BackgroundService
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -25,7 +28,7 @@ public sealed class WebhookDeliveryWorker(
                 operations.WorkerHeartbeat();
 
                 if (!processed)
-                    await Task.Delay(500, stoppingToken);
+                    await Task.Delay(TimeSpan.FromMilliseconds(500), clock, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -40,7 +43,7 @@ public sealed class WebhookDeliveryWorker(
 
                 try
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
+                    await Task.Delay(TimeSpan.FromSeconds(2), clock, stoppingToken);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {

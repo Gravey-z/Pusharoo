@@ -17,9 +17,12 @@ public sealed class ReplayJobsController(
     ReplayAdmissionService admissions,
     INeoRpcClient rpc,
     IOptions<NeoRpcOptions> rpcOptions,
-    IOptions<EventRelayOptions> options
+    IOptions<EventRelayOptions> options,
+    TimeProvider? timeProvider = null
 ) : ControllerBase
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     private async Task<WebhookSubscriptionDocument?> Subscription(
         string project,
         string id,
@@ -64,6 +67,9 @@ public sealed class ReplayJobsController(
             new ReplayJobDocument
             {
                 Id = Guid.NewGuid().ToString("N"),
+                CreatedAt = clock.GetUtcNow().UtcDateTime,
+                UpdatedAt = clock.GetUtcNow().UtcDateTime,
+                NextAttemptAt = clock.GetUtcNow().UtcDateTime,
                 ProjectId = projectId,
                 SubscriptionId = sub.Id,
                 Network = sub.Network,
@@ -203,6 +209,9 @@ public sealed class ReplayJobsController(
             new ReplayJobDocument
             {
                 Id = Guid.NewGuid().ToString("N"),
+                CreatedAt = clock.GetUtcNow().UtcDateTime,
+                UpdatedAt = clock.GetUtcNow().UtcDateTime,
+                NextAttemptAt = clock.GetUtcNow().UtcDateTime,
                 ProjectId = projectId,
                 SubscriptionId = targets[0].Id,
                 Network = rpcOptions.Value.Network,

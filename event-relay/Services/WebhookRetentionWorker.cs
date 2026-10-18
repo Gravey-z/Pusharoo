@@ -7,9 +7,12 @@ namespace Pusharoo.EventRelay.Services;
 public sealed class WebhookRetentionWorker(
     IServiceScopeFactory scopeFactory,
     IOptions<EventRelayOptions> options,
-    ILogger<WebhookRetentionWorker> logger
+    ILogger<WebhookRetentionWorker> logger,
+    TimeProvider? timeProvider = null
 ) : BackgroundService
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
     private readonly EventRelayOptions settings = options.Value;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -37,7 +40,7 @@ public sealed class WebhookRetentionWorker(
                 }
 
                 var expiredSubscriptions = await subscriptionRepository.DeleteExpiredAsync(
-                    DateTime.UtcNow,
+                    clock.GetUtcNow().UtcDateTime,
                     stoppingToken
                 );
                 await deliveryRepository.DeleteBySubscriptionIdsAsync(
@@ -45,13 +48,17 @@ public sealed class WebhookRetentionWorker(
                     stoppingToken
                 );
                 await deliveryRepository.PurgeExpiredAsync(
-                    DateTime.UtcNow.AddDays(-Math.Max(1, settings.DeliveryPayloadRetentionDays)),
-                    DateTime.UtcNow.AddDays(
-                        -Math.Max(
-                            settings.DeliveryPayloadRetentionDays,
-                            settings.DeliveryHistoryRetentionDays
-                        )
-                    ),
+                    clock
+                        .GetUtcNow()
+                        .UtcDateTime.AddDays(-Math.Max(1, settings.DeliveryPayloadRetentionDays)),
+                    clock
+                        .GetUtcNow()
+                        .UtcDateTime.AddDays(
+                            -Math.Max(
+                                settings.DeliveryPayloadRetentionDays,
+                                settings.DeliveryHistoryRetentionDays
+                            )
+                        ),
                     stoppingToken
                 );
             }
@@ -62,6 +69,7 @@ public sealed class WebhookRetentionWorker(
 
             await Task.Delay(
                 TimeSpan.FromMinutes(Math.Max(5, settings.RetentionSweepMinutes)),
+                clock,
                 stoppingToken
             );
         }
