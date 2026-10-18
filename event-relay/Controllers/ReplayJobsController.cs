@@ -14,6 +14,7 @@ namespace Pusharoo.EventRelay.Controllers;
 public sealed class ReplayJobsController(
     IWebhookSubscriptionRepository subscriptions,
     ReplayJobRepository jobs,
+    ReplayAdmissionService admissions,
     INeoRpcClient rpc,
     IOptions<NeoRpcOptions> rpcOptions,
     IOptions<EventRelayOptions> options
@@ -114,7 +115,7 @@ public sealed class ReplayJobsController(
 
         try
         {
-            var admission = await jobs.TryCreateLimitedAsync(job, options.Value, ct);
+            var admission = await admissions.TryCreateAsync(job, ct);
 
             if (!admission.Accepted)
             {

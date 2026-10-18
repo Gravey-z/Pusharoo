@@ -5,7 +5,7 @@ using Pusharoo.EventRelay.Services;
 
 namespace Pusharoo.EventRelay.Repositories;
 
-public sealed partial class ReplayJobRepository(MongoDbContext db)
+public sealed class ReplayJobRepository(MongoDbContext db)
 {
     private IMongoCollection<ReplayJobDocument> Jobs =>
         db.ReplayJobs.WithWriteConcern(WriteConcern.WMajority.With(journal: true));
@@ -50,8 +50,6 @@ public sealed partial class ReplayJobRepository(MongoDbContext db)
 
     public async Task<ReplayJobDocument?> ClaimAsync(string network, CancellationToken ct)
     {
-        await RecoverAdmissionsAsync(network, ct);
-
         var filter = new BsonDocument
         {
             { "network", network },

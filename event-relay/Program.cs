@@ -131,6 +131,9 @@ builder.Services.AddScoped<IEventDeliveryQueue>(services =>
 
 builder.Services.AddScoped<NeoBlockScanner>();
 builder.Services.AddScoped<ReplayJobRepository>();
+builder.Services.AddScoped<ReplayAdmissionRepository>();
+builder.Services.AddSingleton<ReplayAdmissionPolicy>();
+builder.Services.AddScoped<ReplayAdmissionService>();
 builder.Services.AddScoped<ReplayScanner>();
 builder.Services.AddHostedService<ReplayWorker>();
 

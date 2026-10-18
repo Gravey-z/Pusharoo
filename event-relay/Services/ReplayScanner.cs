@@ -8,6 +8,7 @@ namespace Pusharoo.EventRelay.Services;
 public sealed class ReplayScanner(
     INeoRpcClient rpc,
     ReplayJobRepository jobs,
+    ReplayAdmissionService admissions,
     IWebhookSubscriptionRepository subscriptions,
     IEventDeliveryQueue queue,
     IWebhookDeliveryRepository deliveries,
@@ -22,7 +23,7 @@ public sealed class ReplayScanner(
         if (await deliveries.CountOutstandingAsync(ct) >= options.Value.MaxQueueDepth)
             return false;
 
-        var job = await jobs.ClaimAsync(rpcOptions.Value.Network, ct);
+        var job = await admissions.ClaimAsync(rpcOptions.Value.Network, ct);
 
         if (job is null)
             return false;
