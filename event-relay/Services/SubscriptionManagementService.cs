@@ -15,7 +15,8 @@ public sealed class SubscriptionManagementService(
     RelayEntitlementService entitlements,
     IOptions<NeoRpcOptions> neoRpcOptions,
     IOptions<EventRelayOptions> eventRelayOptions,
-    TimeProvider? timeProvider = null
+    TimeProvider? timeProvider = null,
+    RelayPackageStore? packageStore = null
 )
 {
     private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
@@ -139,7 +140,13 @@ public sealed class SubscriptionManagementService(
             active,
             entitlement.MaxEvents,
             entitlement.EventsUsed,
-            Math.Max(0, entitlement.MaxEvents - entitlement.EventsUsed)
+            Math.Max(0, entitlement.MaxEvents - entitlement.EventsUsed),
+            RelayPackageCompatibility.PackageId(entitlement),
+            entitlement.PurchasedPeriodId,
+            entitlement.PackageTerms,
+            RelayPackageCompatibility.NeedsReconciliation(entitlement, clock.GetUtcNow().UtcDateTime),
+            packageStore is null ? [] : (await packageStore.PeriodsAsync(projectId, cancellationToken))
+                .Where(x => x.StartsAt > clock.GetUtcNow().UtcDateTime).ToArray()
         );
     }
 

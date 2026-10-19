@@ -25,6 +25,9 @@ public static class RelayServiceRegistration
     {
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<MongoDbContext>();
+        services.AddSingleton<RelayPackageCatalog>();
+        services.AddScoped<RelayPackageStore>();
+        services.AddHostedService<RelayCatalogReadinessWorker>();
         services.AddScoped<IWebhookSubscriptionRepository, WebhookSubscriptionRepository>();
         services.AddScoped<IWebhookDeliveryRepository, WebhookDeliveryRepository>();
         services.AddScoped<IEventCheckpointRepository, EventCheckpointRepository>();

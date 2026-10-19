@@ -1,4 +1,6 @@
 using Pusharoo.EventRelay.Options;
+using Pusharoo.EventRelay.Services;
+using Microsoft.Extensions.Options;
 
 namespace Pusharoo.EventRelay.Startup;
 
@@ -13,6 +15,9 @@ internal static class RelayOptionsRegistration
 
         AddNeoRpcOptions(services, configuration);
         AddEventRelayOptions(services, configuration);
+        services.AddSingleton<IValidateOptions<RelayPackageOptions>, RelayPackageOptionsValidator>();
+        services.AddOptions<RelayPackageOptions>()
+            .Bind(configuration.GetSection(RelayPackageOptions.SectionName)).ValidateOnStart();
 
         services.Configure<PusharooApiOptions>(
             configuration.GetSection(PusharooApiOptions.SectionName)

@@ -4,6 +4,9 @@ namespace Pusharoo.EventRelay.Models;
 
 public sealed class RelayPaymentIntentDocument
 {
+    [BsonElement("terms")]
+    public RelayPurchaseTerms? Terms { get; init; }
+
     [BsonId, BsonElement("_id")]
     public string Id { get; init; } = string.Empty;
 
@@ -55,6 +58,9 @@ public sealed class RelayPaymentIntentDocument
 
 public sealed class RelayPaymentDocument
 {
+    [BsonElement("terms")]
+    public RelayPurchaseTerms? Terms { get; init; }
+
     [BsonId, BsonElement("_id")]
     public string Id { get; init; } = string.Empty;
 
@@ -88,6 +94,12 @@ public sealed class RelayPaymentDocument
 
 public sealed class RelayEntitlementHistoryDocument
 {
+    [BsonElement("terms")]
+    public RelayPurchaseTerms? Terms { get; init; }
+
+    [BsonElement("periodId")]
+    public string? PeriodId { get; init; }
+
     [BsonId, BsonElement("_id")]
     public string Id { get; init; } = string.Empty;
 

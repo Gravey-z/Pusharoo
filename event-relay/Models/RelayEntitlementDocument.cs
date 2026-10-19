@@ -16,6 +16,15 @@ public sealed record RelayEntitlementDocument
     [BsonElement("plan")]
     public string Plan { get; init; } = "free_beta";
 
+    [BsonElement("packageId")]
+    public string? PackageId { get; init; }
+
+    [BsonElement("packageTerms")]
+    public RelayPackageTerms? PackageTerms { get; init; }
+
+    [BsonElement("purchasedPeriodId")]
+    public string? PurchasedPeriodId { get; init; }
+
     [BsonElement("status")]
     public string Status { get; init; } = "active";
 
@@ -55,6 +64,12 @@ public sealed record RelayEntitlementDocument
 
 public sealed class RelayEntitlementPaymentGrant
 {
+    [BsonElement("terms")]
+    public RelayPurchaseTerms? Terms { get; init; }
+
+    [BsonElement("periodId")]
+    public string? PeriodId { get; init; }
+
     [BsonElement("paymentId")]
     public string PaymentId { get; init; } = string.Empty;
 

@@ -53,7 +53,8 @@ public sealed record PaymentIntentResponse(
     DateTime CreatedAt,
     DateTime ExpiresAt,
     string? ConfirmedTransactionId,
-    string? SubmittedTransactionId
+    string? SubmittedTransactionId,
+    RelayPurchaseTerms? Terms = null
 );
 
 public sealed record PaymentResponse(
@@ -61,7 +62,8 @@ public sealed record PaymentResponse(
     string IntentId,
     string Status,
     DateTime? EntitlementEndsAt,
-    string? Message = null
+    string? Message = null,
+    RelayPurchaseTerms? Terms = null
 );
 
 public sealed record PaymentHistoryResponse(
@@ -75,7 +77,9 @@ public sealed record EntitlementHistoryResponse(
     string Plan,
     DateTime PeriodStart,
     DateTime PeriodEndsAt,
-    DateTime GraceEndsAt
+    DateTime GraceEndsAt,
+    RelayPurchaseTerms? Terms = null,
+    string? PeriodId = null
 );
 
 public sealed record SubscriptionUsageResponse(
@@ -88,5 +92,10 @@ public sealed record SubscriptionUsageResponse(
     int ActiveSubscriptions,
     int MaxEvents,
     int EventsUsed,
-    int EventsRemaining
+    int EventsRemaining,
+    string? PackageId = null,
+    string? PurchasedPeriodId = null,
+    RelayPackageTerms? PackageTerms = null,
+    bool NeedsReconciliation = false,
+    IReadOnlyList<RelayPeriodResponse>? ScheduledPeriods = null
 );

@@ -202,6 +202,10 @@ public sealed class ProjectRelayGatewayController(
             )
             : Task.FromResult<IActionResult>(NotFound());
 
+    [HttpPost("packages/query")]
+    public Task<IActionResult> Packages(string projectId, string network, CancellationToken ct) =>
+        Forward(projectId, network, HttpMethod.Post, "relay/packages/query", null, ct);
+
     [HttpPost("payments/intents")]
     public Task<IActionResult> CreatePaymentIntent(
         string projectId,

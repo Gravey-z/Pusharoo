@@ -73,12 +73,13 @@ public sealed class RelayEntitlementService(
     public async Task<IReadOnlyList<RelayEntitlementDocument>> GrantPaidAccessAsync(
         string projectId,
         string paymentId,
-        CancellationToken ct
+        CancellationToken ct,
+        RelayPurchaseTerms? purchaseTerms = null
     )
     {
         return await Task.WhenAll(
             new[] { "neo3:mainnet", "neo3:testnet" }.Select(network =>
-                GrantPaidAccessForNetworkAsync(projectId, network, paymentId, ct)
+                GrantPaidAccessForNetworkAsync(projectId, network, paymentId, ct, purchaseTerms)
             )
         );
     }
@@ -233,24 +234,10 @@ public sealed class RelayEntitlementService(
             cancellationToken: ct
         );
 
-        return new RelayEntitlementDocument
+        return entitlement with
         {
-            Id = entitlement.Id,
-            ProjectId = entitlement.ProjectId,
-            Network = entitlement.Network,
-            Plan = entitlement.Plan,
             Status = status,
-            PeriodStart = entitlement.PeriodStart,
-            PeriodEndsAt = entitlement.PeriodEndsAt,
-            MaxActiveSubscriptions = entitlement.MaxActiveSubscriptions,
-            MaxEvents = entitlement.MaxEvents,
-            EventsUsed = entitlement.EventsUsed,
-            PaidUntil = entitlement.PaidUntil,
-            GraceEndsAt = entitlement.GraceEndsAt,
-            LastPaymentId = entitlement.LastPaymentId,
-            UpdatedAt = now,
-            Version = entitlement.Version,
-            PaymentGrants = entitlement.PaymentGrants
+            UpdatedAt = now
         };
     }
 
@@ -330,7 +317,8 @@ public sealed class RelayEntitlementService(
         string projectId,
         string network,
         string paymentId,
-        CancellationToken ct
+        CancellationToken ct,
+        RelayPurchaseTerms? purchaseTerms
     )
     {
         while (true)
@@ -351,13 +339,22 @@ public sealed class RelayEntitlementService(
             }
 
             var now = clock.GetUtcNow().UtcDateTime;
+            var terms = purchaseTerms ?? new RelayPurchaseTerms
+            {
+                Package = RelayPackageCatalog.LegacyTerms(settings),
+                RequiredGasDatoshis = settings.PaidPlanGasDatoshis,
+                QuotedAt = now,
+                Source = "legacy_grant"
+            };
             var start = current.PaidUntil is { } paidUntil && paidUntil > now ? paidUntil : now;
             var grant = new RelayEntitlementPaymentGrant
             {
                 PaymentId = paymentId,
+                Terms = terms,
+                PeriodId = $"{projectId}:{paymentId}",
                 PeriodStart = start,
-                PeriodEndsAt = start.AddDays(settings.PaidPlanDays),
-                GraceEndsAt = start.AddDays(settings.PaidPlanDays + settings.PaidGraceDays)
+                PeriodEndsAt = start.AddDays(terms.Package.Days),
+                GraceEndsAt = start.AddDays(terms.Package.Days + terms.Package.GraceDays)
             };
             var updated = new RelayEntitlementDocument
             {
@@ -365,13 +362,16 @@ public sealed class RelayEntitlementService(
                 ProjectId = current.ProjectId,
                 Network = current.Network,
                 Plan = "paid",
+                PackageId = terms.Package.PackageId,
+                PackageTerms = terms.Package,
+                PurchasedPeriodId = grant.PeriodId,
                 Status = "active",
                 PeriodStart = grant.PeriodStart,
                 PeriodEndsAt = grant.PeriodEndsAt,
                 PaidUntil = grant.PeriodEndsAt,
                 GraceEndsAt = grant.GraceEndsAt,
-                MaxActiveSubscriptions = settings.PaidMaxActiveSubscriptions,
-                MaxEvents = settings.PaidMaxEvents,
+                MaxActiveSubscriptions = terms.Package.MaxActiveSubscriptions,
+                MaxEvents = terms.Package.MaxEvents,
                 EventsUsed = 0,
                 LastPaymentId = paymentId,
                 UpdatedAt = now,
@@ -419,6 +419,8 @@ public sealed class RelayEntitlementService(
         {
             Id = $"{paymentId}:{network}",
             PaymentId = paymentId,
+            Terms = grant.Terms,
+            PeriodId = grant.PeriodId,
             ProjectId = projectId,
             Network = network,
             PeriodStart = grant.PeriodStart,

@@ -12,7 +12,9 @@ public sealed class RelayPaymentService(
     RelayEntitlementService entitlements,
     IOptions<EventRelayOptions> relayOptions,
     IOptions<NeoRpcOptions> neoRpcOptions,
-    TimeProvider? timeProvider = null
+    TimeProvider? timeProvider = null,
+    RelayPackageStore? packageStore = null,
+    RelayPackageCatalog? packageCatalog = null
 )
 {
     private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
@@ -32,7 +34,15 @@ public sealed class RelayPaymentService(
     )
     {
         var recipientScriptHash = GetRecipientScriptHash();
+        if (packageStore is not null && await packageStore.DescribeAsync(ct) is { BillingReady: false } readiness)
+            throw new PaymentValidationException(readiness.BillingBlocker!, 503);
+        if (await db.Entitlements.Find(x => x.ProjectId == projectId && x.PackageId == "pro").AnyAsync(ct)
+            || await db.PurchasedPeriods.Find(x => x.ProjectId == projectId && x.EffectiveTerms.PackageId == "pro").AnyAsync(ct))
+            throw new PaymentValidationException("Select a package explicitly; package-aware purchases are not enabled yet.", 409);
         var now = clock.GetUtcNow().UtcDateTime;
+        var quotedPackage = RelayPackageCatalog.LegacyTerms(settings);
+        if (quotedPackage.PackageId == "starter")
+            quotedPackage = (packageCatalog ?? new RelayPackageCatalog(Microsoft.Extensions.Options.Options.Create(new RelayPackageOptions()))).Get("starter");
         var intent = new RelayPaymentIntentDocument
         {
             Id = Guid.NewGuid().ToString("n"),
@@ -42,6 +52,8 @@ public sealed class RelayPaymentService(
             RecipientAddress = settings.PaymentRecipientAddress.Trim(),
             RecipientScriptHash = recipientScriptHash,
             RequiredGasDatoshis = settings.PaidPlanGasDatoshis,
+            Terms = new RelayPurchaseTerms { Package = quotedPackage,
+                RequiredGasDatoshis = settings.PaidPlanGasDatoshis, QuotedAt = now, Source = "legacy_purchase_path" },
             CreatedAt = now,
             ExpiresAt = now.AddMinutes(settings.PaymentIntentMinutes)
         };
@@ -66,12 +78,16 @@ public sealed class RelayPaymentService(
             throw new PaymentValidationException("Payment intent was not found.", 404);
 
         if (intent.Status == "confirmed")
+        {
+            var confirmedTerms = intent.Terms ?? (await db.Payments.Find(x => x.Id == intent.ConfirmedTransactionId).FirstOrDefaultAsync(ct))?.Terms;
             return new PaymentResponse(
                 intent.ConfirmedTransactionId ?? string.Empty,
                 intent.Id,
                 "confirmed",
-                await PaidUntilAsync(projectId, ct)
+                await PaidUntilAsync(projectId, ct),
+                Terms: confirmedTerms
             );
+        }
 
         if (intent.Status is not ("pending" or "awaiting_finality"))
             throw new PaymentValidationException("This payment intent is no longer usable.", 409);
@@ -145,6 +161,8 @@ public sealed class RelayPaymentService(
             .Payments.Find(x => x.Id == normalizedTransactionId)
             .FirstOrDefaultAsync(ct);
 
+        var purchasedTerms = claimed?.Terms ?? intent.Terms ?? await LegacyTermsAsync(intent, ct);
+
         if (claimed is not null)
         {
             if (!string.Equals(claimed.IntentId, intent.Id, StringComparison.Ordinal))
@@ -156,11 +174,13 @@ public sealed class RelayPaymentService(
             var existingEntitlements = await entitlements.GrantPaidAccessAsync(
                 projectId,
                 claimed.Id,
-                ct
+                ct,
+                purchasedTerms
             );
             var existingPaidUntil = existingEntitlements
                 .First(x => x.Network == "neo3:mainnet")
                 .PeriodEndsAt;
+            await RecordPurchasedPeriodAsync(projectId, claimed.Id, purchasedTerms, existingEntitlements, ct);
             await db.PaymentIntents.UpdateOneAsync(
                 x => x.Id == intent.Id,
                 Builders<RelayPaymentIntentDocument>
@@ -170,7 +190,7 @@ public sealed class RelayPaymentService(
                 cancellationToken: ct
             );
 
-            return new PaymentResponse(claimed.Id, intent.Id, "confirmed", existingPaidUntil);
+            return new PaymentResponse(claimed.Id, intent.Id, "confirmed", existingPaidUntil, Terms: purchasedTerms);
         }
 
         var verification = await verifier.VerifyAsync(normalizedTransactionId, intent, ct);
@@ -225,6 +245,7 @@ public sealed class RelayPaymentService(
             Network = "neo3:mainnet",
             BlockIndex = verification.BlockIndex,
             VerifiedAt = clock.GetUtcNow().UtcDateTime,
+            Terms = purchasedTerms,
         };
 
         try
@@ -236,7 +257,8 @@ public sealed class RelayPaymentService(
             return await ConfirmAsync(projectId, intentId, normalizedTransactionId, ct);
         }
 
-        var granted = await entitlements.GrantPaidAccessAsync(projectId, payment.Id, ct);
+        var granted = await entitlements.GrantPaidAccessAsync(projectId, payment.Id, ct, purchasedTerms);
+        await RecordPurchasedPeriodAsync(projectId, payment.Id, purchasedTerms, granted, ct);
         var paidUntil = granted.First(x => x.Network == "neo3:mainnet").PeriodEndsAt;
         await db.Payments.UpdateOneAsync(
             x => x.Id == payment.Id,
@@ -252,7 +274,7 @@ public sealed class RelayPaymentService(
             cancellationToken: ct
         );
 
-        return new PaymentResponse(payment.Id, intent.Id, "confirmed", paidUntil);
+        return new PaymentResponse(payment.Id, intent.Id, "confirmed", paidUntil, Terms: purchasedTerms);
     }
 
     public async Task<PaymentHistoryResponse> HistoryAsync(string projectId, CancellationToken ct)
@@ -290,7 +312,8 @@ public sealed class RelayPaymentService(
                     x.Id,
                     x.IntentId,
                     "confirmed",
-                    x.EntitlementEndsAt
+                    x.EntitlementEndsAt,
+                    Terms: x.Terms
                 ))
                 .ToArray(),
             history
@@ -299,7 +322,9 @@ public sealed class RelayPaymentService(
                     x.Plan,
                     x.PeriodStart,
                     x.PeriodEndsAt,
-                    x.GraceEndsAt
+                    x.GraceEndsAt,
+                    x.Terms,
+                    x.PeriodId
                 ))
                 .ToArray(),
             pending.Select(ToResponse).ToArray()
@@ -308,6 +333,33 @@ public sealed class RelayPaymentService(
 
     private async Task<DateTime?> PaidUntilAsync(string projectId, CancellationToken ct) =>
         (await entitlements.GetAsync(projectId, "neo3:mainnet", ct)).PaidUntil;
+
+    private async Task<RelayPurchaseTerms> LegacyTermsAsync(RelayPaymentIntentDocument intent, CancellationToken ct)
+    {
+        var baselines = await db.BillingSchema.Find(new MongoDB.Bson.BsonDocument("_id", new MongoDB.Bson.BsonDocument("$regex", "^legacy:"))).Limit(2).ToListAsync(ct);
+        if (baselines.Count != 1)
+            throw new PaymentValidationException("Legacy payment terms need a recorded, unambiguous deployment baseline before confirmation; no payment was discarded.", 503);
+        var terms = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<RelayPackageTerms>(baselines[0]["terms"].AsBsonDocument);
+        if (terms.GasDatoshis != intent.RequiredGasDatoshis)
+            throw new PaymentValidationException("Legacy quote price differs from the recorded baseline; explicit reconciliation is required.", 503);
+        return new() { Package = terms, RequiredGasDatoshis = intent.RequiredGasDatoshis,
+            QuotedAt = intent.CreatedAt, Source = "legacy_baseline:" + baselines[0]["_id"].AsString };
+    }
+
+    private async Task RecordPurchasedPeriodAsync(string projectId, string paymentId, RelayPurchaseTerms terms,
+        IReadOnlyList<RelayEntitlementDocument> granted, CancellationToken ct)
+    {
+        var mainnet = granted.First(x => x.Network == "neo3:mainnet");
+        var testnet = granted.First(x => x.Network == "neo3:testnet");
+        var mainGrant = mainnet.PaymentGrants.Single(x => x.PaymentId == paymentId);
+        var testGrant = testnet.PaymentGrants.Single(x => x.PaymentId == paymentId);
+        var store = packageStore ?? new RelayPackageStore(db, new RelayPackageCatalog(Microsoft.Extensions.Options.Options.Create(new RelayPackageOptions())), relayOptions);
+        await store.InsertPeriodAsync(new() { Id = $"{projectId}:{paymentId}", ProjectId = projectId, PurchaseId = paymentId,
+            StartsAt = mainGrant.PeriodStart, EndsAt = mainGrant.PeriodEndsAt, OriginalTerms = mainGrant.Terms?.Package ?? terms.Package,
+            EffectiveTerms = mainGrant.Terms?.Package ?? terms.Package, Source = "legacy_purchase_path",
+            MainnetLedgerId = RelayEntitlementService.PeriodId(mainnet with { PeriodStart = mainGrant.PeriodStart, LastPaymentId = paymentId }),
+            TestnetLedgerId = RelayEntitlementService.PeriodId(testnet with { PeriodStart = testGrant.PeriodStart, LastPaymentId = paymentId }) }, ct);
+    }
 
     private void EnsureAvailable()
     {
@@ -351,7 +403,8 @@ public sealed class RelayPaymentService(
             intent.CreatedAt,
             intent.ExpiresAt,
             intent.ConfirmedTransactionId,
-            intent.SubmittedTransactionId
+            intent.SubmittedTransactionId,
+            intent.Terms
         );
 }
 

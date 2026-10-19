@@ -14,6 +14,27 @@ public sealed class MongoDbContext
         var client = new MongoClient(mongoOptions.ConnectionString);
         var database = client.GetDatabase(mongoOptions.DatabaseName);
 
+        PurchasedPeriods = database.GetCollection<RelayPurchasedPeriodDocument>("relayPurchasedPeriods").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
+        PeriodUpgrades = database.GetCollection<RelayPeriodUpgradeDocument>("relayPeriodUpgrades").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
+        BillingDecisions = database.GetCollection<RelayBillingDecisionDocument>("relayBillingDecisions").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
+        GrantProgress = database.GetCollection<RelayGrantProgressDocument>("relayGrantProgress").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
+        BillingSchema = database.GetCollection<BsonDocument>("relayBillingSchema").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
+        LegacyBillingSnapshots = database.GetCollection<BsonDocument>("relayLegacyBillingSnapshots").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
+        PurchasedPeriods.Indexes.CreateOne(new CreateIndexModel<RelayPurchasedPeriodDocument>(
+            Builders<RelayPurchasedPeriodDocument>.IndexKeys.Ascending(x => x.ProjectId).Ascending(x => x.PurchaseId),
+            new CreateIndexOptions { Name = "period_purchase_unique", Unique = true }));
+        PurchasedPeriods.Indexes.CreateOne(new CreateIndexModel<RelayPurchasedPeriodDocument>(
+            Builders<RelayPurchasedPeriodDocument>.IndexKeys.Ascending(x => x.ProjectId).Ascending(x => x.StartsAt)));
+        PeriodUpgrades.Indexes.CreateOne(new CreateIndexModel<RelayPeriodUpgradeDocument>(
+            Builders<RelayPeriodUpgradeDocument>.IndexKeys.Ascending(x => x.ProjectId).Ascending(x => x.Target.PeriodId).Ascending(x => x.Target.ExpectedVersion),
+            new CreateIndexOptions { Name = "period_upgrade_version_unique", Unique = true }));
+        BillingDecisions.Indexes.CreateOne(new CreateIndexModel<RelayBillingDecisionDocument>(
+            Builders<RelayBillingDecisionDocument>.IndexKeys.Ascending(x => x.IntentId),
+            new CreateIndexOptions { Name = "decision_intent_unique", Unique = true }));
+        GrantProgress.Indexes.CreateOne(new CreateIndexModel<RelayGrantProgressDocument>(
+            Builders<RelayGrantProgressDocument>.IndexKeys.Ascending(x => x.DecisionId).Ascending(x => x.AllocationId),
+            new CreateIndexOptions { Name = "grant_allocation_unique", Unique = true }));
+
         Subscriptions = database.GetCollection<WebhookSubscriptionDocument>("eventSubscriptions");
         Deliveries = database.GetCollection<WebhookDeliveryDocument>("webhookDeliveries");
         DeliveryAttempts = database.GetCollection<WebhookDeliveryAttemptDocument>(
@@ -151,6 +172,13 @@ public sealed class MongoDbContext
     }
 
     public IMongoCollection<WebhookSubscriptionDocument> Subscriptions { get; }
+
+    public IMongoCollection<RelayPurchasedPeriodDocument> PurchasedPeriods { get; }
+    public IMongoCollection<RelayPeriodUpgradeDocument> PeriodUpgrades { get; }
+    public IMongoCollection<RelayBillingDecisionDocument> BillingDecisions { get; }
+    public IMongoCollection<RelayGrantProgressDocument> GrantProgress { get; }
+    public IMongoCollection<BsonDocument> BillingSchema { get; }
+    public IMongoCollection<BsonDocument> LegacyBillingSnapshots { get; }
 
     public IMongoCollection<RelayAllowancePeriodDocument> AllowancePeriods { get; }
 
