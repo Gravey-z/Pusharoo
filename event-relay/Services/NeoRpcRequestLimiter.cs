@@ -3,8 +3,6 @@ using Pusharoo.EventRelay.Options;
 
 namespace Pusharoo.EventRelay.Services;
 
-// Shared across live scanning, replay and payments within one relay replica.
-
 public sealed class NeoRpcRequestLimiter(
     IOptions<NeoRpcOptions> options,
     TimeProvider? timeProvider = null

@@ -5,7 +5,6 @@ namespace Pusharoo.EventRelay.Services;
 
 public static class NeoApplicationLogParser
 {
-    // Transaction subscriptions support Application only. System/block and Verification triggers are excluded.
     public static IReadOnlyList<ObservedNeoEvent> Extract(
         JsonElement log,
         string network,
@@ -93,7 +92,6 @@ public static class NeoApplicationLogParser
 
             foreach (var notification in notifications.EnumerateArray())
             {
-                // Preserve the original flattened notification position, including excluded executions.
                 var index = eventIndex++;
                 notificationIndex++;
 

@@ -19,7 +19,7 @@ public sealed class NeoRpcClient(HttpClient httpClient)
         {
             Method = method,
             Params = parameters,
-            Id = Interlocked.Increment(ref requestId)
+            Id = Interlocked.Increment(ref requestId),
         };
 
         using var response = await httpClient.PostAsJsonAsync(endpoint, request, cancellationToken);

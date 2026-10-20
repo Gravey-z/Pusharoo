@@ -6,8 +6,6 @@ public sealed class FaucetClientIpResolver
 {
     private const string CapturedIpKey = "Pusharoo.Faucet.ClientIp";
 
-    // https://www.cloudflare.com/ips/ — review these ranges when deploying behind Cloudflare.
-
     private static readonly System.Net.IPNetwork[] CloudflareNetworks =
     [
         System.Net.IPNetwork.Parse("173.245.48.0/20"),
@@ -31,7 +29,7 @@ public sealed class FaucetClientIpResolver
         System.Net.IPNetwork.Parse("2405:b500::/32"),
         System.Net.IPNetwork.Parse("2405:8100::/32"),
         System.Net.IPNetwork.Parse("2a06:98c0::/29"),
-        System.Net.IPNetwork.Parse("2c0f:f248::/32")
+        System.Net.IPNetwork.Parse("2c0f:f248::/32"),
     ];
 
     public void CaptureDirectCloudflareIp(HttpContext context)

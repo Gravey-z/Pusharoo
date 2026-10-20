@@ -28,7 +28,7 @@ public sealed class NeoBlockScanner(
         var checkpoint = await checkpoints.TryAcquireAsync(id, owner, duration, cancellationToken);
 
         if (checkpoint is null)
-            return; // Another replica owns the network.
+            return;
 
         using var work = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         Exception? leaseFailure = null;
@@ -92,7 +92,6 @@ public sealed class NeoBlockScanner(
 
             if (checkpoint.NextBlock is null)
             {
-                // Persist the initial boundary before queuing anything so restart cannot choose a later tip.
                 var initial = settings.StartAtLatest
                     ? checked(confirmedTip + 1)
                     : settings.StartBlock ?? confirmedTip;
@@ -131,7 +130,6 @@ public sealed class NeoBlockScanner(
                 {
                     transaction = hash;
                     var log = await rpc.GetApplicationLogAsync(hash, work.Token);
-                    // Parse the entire transaction before enqueuing any of its notifications.
 
                     foreach (
                         var observed in NeoApplicationLogParser.Extract(
@@ -208,7 +206,6 @@ public sealed class NeoBlockScanner(
                 clock.GetUtcNow().UtcDateTime
             );
             operations.RecordScannerFailure(error);
-            // Provider-declared missing history, corrupt results and mismatched networks must never become a silent skip.
 
             if (
                 rpcError?.Kind

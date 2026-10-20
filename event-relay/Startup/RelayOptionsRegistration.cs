@@ -1,6 +1,6 @@
+using Microsoft.Extensions.Options;
 using Pusharoo.EventRelay.Options;
 using Pusharoo.EventRelay.Services;
-using Microsoft.Extensions.Options;
 
 namespace Pusharoo.EventRelay.Startup;
 
@@ -15,9 +15,14 @@ internal static class RelayOptionsRegistration
 
         AddNeoRpcOptions(services, configuration);
         AddEventRelayOptions(services, configuration);
-        services.AddSingleton<IValidateOptions<RelayPackageOptions>, RelayPackageOptionsValidator>();
-        services.AddOptions<RelayPackageOptions>()
-            .Bind(configuration.GetSection(RelayPackageOptions.SectionName)).ValidateOnStart();
+        services.AddSingleton<
+            IValidateOptions<RelayPackageOptions>,
+            RelayPackageOptionsValidator
+        >();
+        services
+            .AddOptions<RelayPackageOptions>()
+            .Bind(configuration.GetSection(RelayPackageOptions.SectionName))
+            .ValidateOnStart();
 
         services.Configure<PusharooApiOptions>(
             configuration.GetSection(PusharooApiOptions.SectionName)
@@ -119,8 +124,12 @@ internal static class RelayOptionsRegistration
                     && x.PaidMaxEvents is >= 0 and <= 100000,
                 "Allowance periods support at most 100000 receipts."
             )
-            .Validate(x => x.PaymentIntentMinutes is >= 1 and <= 60 && x.PaymentRecoveryPollSeconds is >= 1 and <= 300,
-                "Invalid payment quote expiry or recovery polling interval.")
+            .Validate(
+                x =>
+                    x.PaymentIntentMinutes is >= 1 and <= 60
+                    && x.PaymentRecoveryPollSeconds is >= 1 and <= 300,
+                "Invalid payment quote expiry or recovery polling interval."
+            )
             .ValidateOnStart();
     }
 }

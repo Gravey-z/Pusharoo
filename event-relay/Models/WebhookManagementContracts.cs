@@ -1,6 +1,8 @@
 namespace Pusharoo.EventRelay.Models;
 
-[System.Text.Json.Serialization.JsonUnmappedMemberHandling(System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
+[System.Text.Json.Serialization.JsonUnmappedMemberHandling(
+    System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow
+)]
 public sealed record CreateRelayPaymentIntentRequest(
     string? PackageId = null,
     string Operation = "purchase_period",

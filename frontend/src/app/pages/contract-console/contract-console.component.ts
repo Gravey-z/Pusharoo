@@ -71,11 +71,11 @@ export class ContractConsoleComponent implements OnInit {
   }
 
   get selectedTarget(): ContractTarget | null {
-    return this.targets.find((target) => this.targetKey(target) === this.selectedTargetKey) ?? null;
+    return this.targets.find(target => this.targetKey(target) === this.selectedTargetKey) ?? null;
   }
 
   get selectedMethod(): NeoMethod | null {
-    return this.methods.find((method) => method.name === this.selectedMethodName) ?? null;
+    return this.methods.find(method => method.name === this.selectedMethodName) ?? null;
   }
 
   get methods(): NeoMethod[] {
@@ -116,13 +116,13 @@ export class ContractConsoleComponent implements OnInit {
     this.isLoading = true;
     this.loadError = '';
     this.api.getProjectOverview(this.projectId).subscribe({
-      next: (overview) => {
+      next: overview => {
         if (this.workspace) {
           this.workspace.overview = overview;
         }
         this.applyOverview(overview);
       },
-      error: (error) => {
+      error: error => {
         this.overview = null;
         this.targets = [];
         this.loadError = this.errors.format(error, 'Could not load this project.');
@@ -164,9 +164,10 @@ export class ContractConsoleComponent implements OnInit {
 
     try {
       const parameters = this.toContractParameters(method.parameters);
-      const result = this.mode === 'test'
-        ? await this.testInvoke(target, method, parameters)
-        : await this.sendTransaction(target, method, parameters);
+      const result =
+        this.mode === 'test'
+          ? await this.testInvoke(target, method, parameters)
+          : await this.sendTransaction(target, method, parameters);
 
       this.addConsoleEntry({
         id: crypto.randomUUID(),
@@ -289,7 +290,10 @@ export class ContractConsoleComponent implements OnInit {
   private toContractParameters(parameters: NeoParameter[]): ContractParameter[] {
     return parameters.map((parameter, index) => ({
       type: this.toContractParameterType(parameter.type),
-      value: this.parseParameterValue(parameter, this.parameterValues[this.parameterKey(parameter, index)] ?? '')
+      value: this.parseParameterValue(
+        parameter,
+        this.parameterValues[this.parameterKey(parameter, index)] ?? ''
+      )
     }));
   }
 
@@ -372,8 +376,8 @@ export class ContractConsoleComponent implements OnInit {
 
     return this.deploymentHistory
       .latestConfirmedByNetwork(overview.deployments)
-      .map((deployment) => {
-        const artifact = overview.artifacts.find((item) => item.id === deployment.artifactId);
+      .map(deployment => {
+        const artifact = overview.artifacts.find(item => item.id === deployment.artifactId);
         return artifact ? this.toTarget(deployment, artifact) : null;
       })
       .filter((target): target is ContractTarget => target !== null);
@@ -399,7 +403,9 @@ export class ContractConsoleComponent implements OnInit {
     const hasExpectedLength = expectedLength === undefined || normalized.length === expectedLength;
 
     if (!normalized || !hasExpectedLength || !/^[0-9a-f]+$/i.test(normalized)) {
-      const lengthDescription = expectedLength ? ` with ${expectedLength} hexadecimal characters` : '';
+      const lengthDescription = expectedLength
+        ? ` with ${expectedLength} hexadecimal characters`
+        : '';
       throw new Error(`${this.parameterLabel(parameter)} must be hexadecimal${lengthDescription}.`);
     }
 

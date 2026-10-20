@@ -18,14 +18,14 @@ public sealed class WalletSignatureRequestValidator(
     private static readonly HashSet<string> SupportedNetworks = new(StringComparer.Ordinal)
     {
         "neo3:testnet",
-        "neo3:mainnet"
+        "neo3:mainnet",
     };
 
     private static readonly HashSet<string> SupportedProviders = new(StringComparer.Ordinal)
     {
         "neoline",
         "onegate",
-        "walletconnect"
+        "walletconnect",
     };
 
     private readonly WalletSignatureOptions _options = options.Value;

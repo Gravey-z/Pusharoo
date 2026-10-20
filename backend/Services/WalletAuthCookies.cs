@@ -53,7 +53,7 @@ public sealed class WalletAuthCookies
             Secure = Secure,
             SameSite = SameSiteMode.Lax,
             Path = "/",
-            Expires = new DateTimeOffset(expiry)
+            Expires = new DateTimeOffset(expiry),
         };
 
     public CookieOptions ChallengeOptions(DateTime expiry) =>
@@ -63,7 +63,7 @@ public sealed class WalletAuthCookies
             Secure = Secure,
             SameSite = SameSiteMode.Lax,
             Path = "/",
-            Expires = new DateTimeOffset(expiry)
+            Expires = new DateTimeOffset(expiry),
         };
 
     public CookieOptions ExpiredOptions() =>
@@ -73,7 +73,7 @@ public sealed class WalletAuthCookies
             Secure = Secure,
             SameSite = SameSiteMode.Lax,
             Path = "/",
-            Expires = DateTimeOffset.UnixEpoch
+            Expires = DateTimeOffset.UnixEpoch,
         };
 
     public CookieOptions XsrfOptions() =>
@@ -82,6 +82,6 @@ public sealed class WalletAuthCookies
             HttpOnly = false,
             Secure = Secure,
             SameSite = SameSiteMode.Lax,
-            Path = "/"
+            Path = "/",
         };
 }

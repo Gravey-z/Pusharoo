@@ -2,8 +2,6 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Pusharoo.EventRelay.Models;
 
-// One bounded receipt set per allowance period; retained independently of delivery history.
-
 public sealed class RelayAllowancePeriodDocument
 {
     [BsonId]

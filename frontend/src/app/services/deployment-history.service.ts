@@ -4,24 +4,29 @@ import { Artifact, Deployment, ProjectOverviewViewModel } from '../models/pushar
 @Injectable({ providedIn: 'root' })
 export class DeploymentHistoryService {
   private confirmed(deployments: Deployment[]): Deployment[] {
-    return deployments.filter((deployment) =>
-      Boolean(deployment.contractHash)
-      && (!deployment.status || deployment.status === 'confirmed')
+    return deployments.filter(
+      deployment =>
+        Boolean(deployment.contractHash) &&
+        (!deployment.status || deployment.status === 'confirmed')
     );
   }
 
   latestByNetwork(deployments: Deployment[]): Deployment[] {
-    return [...deployments.reduce((latestByNetwork, deployment) => {
-      const current = latestByNetwork.get(deployment.network);
-      const deploymentTime = new Date(deployment.createdAt).getTime();
-      const currentTime = current ? new Date(current.createdAt).getTime() : 0;
+    return [
+      ...deployments
+        .reduce((latestByNetwork, deployment) => {
+          const current = latestByNetwork.get(deployment.network);
+          const deploymentTime = new Date(deployment.createdAt).getTime();
+          const currentTime = current ? new Date(current.createdAt).getTime() : 0;
 
-      if (!current || deploymentTime > currentTime) {
-        latestByNetwork.set(deployment.network, deployment);
-      }
+          if (!current || deploymentTime > currentTime) {
+            latestByNetwork.set(deployment.network, deployment);
+          }
 
-      return latestByNetwork;
-    }, new Map<string, Deployment>()).values()];
+          return latestByNetwork;
+        }, new Map<string, Deployment>())
+        .values()
+    ];
   }
 
   latestConfirmedByNetwork(deployments: Deployment[]): Deployment[] {
@@ -33,20 +38,26 @@ export class DeploymentHistoryService {
       return null;
     }
 
-    return this.latestConfirmedByNetwork(deployments)
-      .find((deployment) => deployment.network === network) ?? null;
+    return (
+      this.latestConfirmedByNetwork(deployments).find(
+        deployment => deployment.network === network
+      ) ?? null
+    );
   }
 
   forNetwork(deployments: Deployment[], network: string): Deployment[] {
-    return deployments.filter((deployment) => deployment.network === network);
+    return deployments.filter(deployment => deployment.network === network);
   }
 
   latestForArtifact(overview: ProjectOverviewViewModel, artifact: Artifact): Deployment[] {
-    return this.latestConfirmedByNetwork(overview.deployments)
-      .filter((deployment) => deployment.artifactId === artifact.id);
+    return this.latestConfirmedByNetwork(overview.deployments).filter(
+      deployment => deployment.artifactId === artifact.id
+    );
   }
 
   networksForLatestArtifact(overview: ProjectOverviewViewModel, artifact: Artifact): string[] {
-    return [...new Set(this.latestForArtifact(overview, artifact).map((deployment) => deployment.network))];
+    return [
+      ...new Set(this.latestForArtifact(overview, artifact).map(deployment => deployment.network))
+    ];
   }
 }

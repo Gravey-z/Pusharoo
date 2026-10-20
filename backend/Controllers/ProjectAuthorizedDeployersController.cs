@@ -88,7 +88,7 @@ public sealed class ProjectAuthorizedDeployersController(
                 : Conflict(
                     new
                     {
-                        error = "This wallet is already an authorized deployer with different network access."
+                        error = "This wallet is already an authorized deployer with different network access.",
                     }
                 );
         }
@@ -101,7 +101,7 @@ public sealed class ProjectAuthorizedDeployersController(
             return Conflict(
                 new
                 {
-                    error = $"A project can have at most {ProjectAuthorizedDeployerInputValidator.MaxAuthorizedDeployers} authorized deployers."
+                    error = $"A project can have at most {ProjectAuthorizedDeployerInputValidator.MaxAuthorizedDeployers} authorized deployers.",
                 }
             );
         }
@@ -113,7 +113,7 @@ public sealed class ProjectAuthorizedDeployersController(
             ScriptHash = input.ScriptHash,
             AllowedNetworks = input.AllowedNetworks,
             AddedAtUtc = now,
-            UpdatedAtUtc = now
+            UpdatedAtUtc = now,
         };
         var updatedProject = await authorizedDeployerService.AddAsync(
             projectId,
@@ -185,7 +185,7 @@ public sealed class ProjectAuthorizedDeployersController(
         var authorizedDeployer = existing with
         {
             AllowedNetworks = input.AllowedNetworks,
-            UpdatedAtUtc = DateTime.UtcNow
+            UpdatedAtUtc = DateTime.UtcNow,
         };
         var updatedProject = await authorizedDeployerService.UpdateAsync(
             projectId,
@@ -197,7 +197,7 @@ public sealed class ProjectAuthorizedDeployersController(
             ? Conflict(
                 new
                 {
-                    error = "The authorized deployer was removed before this change was saved. Reload the list and try again."
+                    error = "The authorized deployer was removed before this change was saved. Reload the list and try again.",
                 }
             )
             : Ok(authorizedDeployer.ToResponse());
@@ -251,7 +251,7 @@ public sealed class ProjectAuthorizedDeployersController(
             ? Conflict(
                 new
                 {
-                    error = "The authorized deployer was already removed. Reload the list and try again."
+                    error = "The authorized deployer was already removed. Reload the list and try again.",
                 }
             )
             : NoContent();

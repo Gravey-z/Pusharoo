@@ -37,19 +37,41 @@ export class DeploymentRecoveryComponent implements OnInit {
   }
 
   get canInspectRecovery(): boolean {
-    const access = this.deploymentAccess.resolve(this.overview?.project, this.authorizedDeployers, this.walletAddress());
-    return this.deploymentAccess.canDeployToNetwork(access, this.walletNetwork()) || this.hasUnrecordedAttempt;
+    const access = this.deploymentAccess.resolve(
+      this.overview?.project,
+      this.authorizedDeployers,
+      this.walletAddress()
+    );
+    return (
+      this.deploymentAccess.canDeployToNetwork(access, this.walletNetwork()) ||
+      this.hasUnrecordedAttempt
+    );
   }
 
   get hasConfirmedDeploymentOnConnectedNetwork(): boolean {
-    return !this.hasUnrecordedAttempt
-      && Boolean(this.deploymentHistory.latestForNetwork(this.overview?.deployments ?? [], this.walletNetwork()));
+    return (
+      !this.hasUnrecordedAttempt &&
+      Boolean(
+        this.deploymentHistory.latestForNetwork(
+          this.overview?.deployments ?? [],
+          this.walletNetwork()
+        )
+      )
+    );
   }
 
   get hasUnrecordedAttempt(): boolean {
-    return Boolean(this.walletAddress() && this.walletNetwork() && this.overview?.deployments.some((deployment) =>
-      deployment.network === this.walletNetwork() && deployment.deployedBy === this.walletAddress()
-      && ['preparing', 'awaiting_wallet'].includes(deployment.status) && !deployment.transactionId));
+    return Boolean(
+      this.walletAddress() &&
+        this.walletNetwork() &&
+        this.overview?.deployments.some(
+          deployment =>
+            deployment.network === this.walletNetwork() &&
+            deployment.deployedBy === this.walletAddress() &&
+            ['preparing', 'awaiting_wallet'].includes(deployment.status) &&
+            !deployment.transactionId
+        )
+    );
   }
 
   get recoveryAccessMessage(): string {
@@ -96,7 +118,7 @@ export class DeploymentRecoveryComponent implements OnInit {
         this.authorizedDeployers = authorizedDeployers;
         this.isLoading = false;
       },
-      error: (error) => {
+      error: error => {
         this.overview = null;
         this.authorizedDeployers = [];
         this.loadError = this.errors.format(error, 'Could not load this project.');
@@ -110,7 +132,8 @@ export class DeploymentRecoveryComponent implements OnInit {
     this.statusMessage = '';
 
     if (this.hasConfirmedDeploymentOnConnectedNetwork) {
-      this.errorMessage = 'This project already has a confirmed deployment on the connected network.';
+      this.errorMessage =
+        'This project already has a confirmed deployment on the connected network.';
       return;
     }
 
@@ -133,18 +156,22 @@ export class DeploymentRecoveryComponent implements OnInit {
         throw new Error('The connected wallet or network changed. Try recovery again.');
       }
       this.statusMessage = 'Checking the transaction on Neo...';
-      const recovered = await firstValueFrom(this.api.recoverDeployment(this.projectId, {
-        network,
-        transactionId
-      }));
+      const recovered = await firstValueFrom(
+        this.api.recoverDeployment(this.projectId, {
+          network,
+          transactionId
+        })
+      );
       this.attemptCapabilities.remove(recovered.id);
       await this.router.navigate(['/projects', this.projectId, 'deployments']);
     } catch (error) {
       this.statusMessage = '';
-      this.errorMessage = this.errors.format(error, 'Could not recover this deployment transaction.');
+      this.errorMessage = this.errors.format(
+        error,
+        'Could not recover this deployment transaction.'
+      );
     } finally {
       this.isRecovering = false;
     }
   }
-
 }

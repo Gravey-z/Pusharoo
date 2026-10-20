@@ -78,7 +78,7 @@ public sealed record RelayHealthSnapshot(
             Metrics.Retried,
             Metrics.DeadLetters,
             Metrics.AverageDeliveryLatencyMilliseconds,
-            Metrics.RpcFailures
+            Metrics.RpcFailures,
         };
 }
 
@@ -101,7 +101,7 @@ public sealed class RelayHealthService(
     {
         var network = rpcOptions.Value.Network;
         var checkpoint = await checkpoints.GetAsync("neo:" + network, ct);
-        // Legacy deliveries have no network field; derive their network from the current subscription.
+
         var subscriptionIds = await db
             .Subscriptions.Find(x => x.Network == network)
             .Project(x => x.Id)
@@ -157,7 +157,7 @@ public sealed class RelayHealthService(
         var since = clock
             .GetUtcNow()
             .UtcDateTime.AddMinutes(-relayOptions.Value.DeliveryFailureWindowMinutes);
-        // Read the atomic, authoritative embedded audit, even if its projection is interrupted.
+
         var recent = await db
             .Deliveries.Aggregate()
             .Match(
@@ -220,7 +220,7 @@ public sealed class RelayHealthService(
                                         "$subtract",
                                         new BsonArray { "$toBlock", "$fromBlock" }
                                     ),
-                                    1
+                                    1,
                                 }
                             )
                         )
@@ -275,14 +275,14 @@ public sealed class RelayHealthService(
         var error =
             checkpoint?.BlockingError
             ?? (sample.ScannerError?.OccurredAt >= poll ? sample.ScannerError : null);
-        // Public status exposes chain diagnostics, never endpoint credentials or exception text.
+
         var publicError = error is null
             ? null
             : error with
             {
                 Endpoint = PublicEndpoint(error.Endpoint),
                 Message =
-                    "Scanner retained this block. Inspect relay logs and the recovery runbook."
+                    "Scanner retained this block. Inspect relay logs and the recovery runbook.",
             };
         var activity =
             checkpoint?.LastSuccessfulScanAt > poll ? checkpoint.LastSuccessfulScanAt : poll;

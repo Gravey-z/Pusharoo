@@ -1,8 +1,8 @@
+using System.Text.Json;
+using MongoDB.Bson;
+using Pusharoo.EventRelay.Models;
 using Pusharoo.EventRelay.Services;
 using Pusharoo.EventRelay.Startup;
-using MongoDB.Bson;
-using System.Text.Json;
-using Pusharoo.EventRelay.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,13 +12,21 @@ var app = builder.Build();
 
 if (args.Contains("--relay-payment-resolution"))
 {
-    var path = builder.Configuration["relay-payment-resolution"]
+    var path =
+        builder.Configuration["relay-payment-resolution"]
         ?? throw new ArgumentException("An operator resolution JSON path is required.");
-    var request = JsonSerializer.Deserialize<RelayPaymentResolutionRequest>(await File.ReadAllTextAsync(path), new JsonSerializerOptions(JsonSerializerDefaults.Web))
-        ?? throw new ArgumentException("Resolution JSON is missing.");
+    var request =
+        JsonSerializer.Deserialize<RelayPaymentResolutionRequest>(
+            await File.ReadAllTextAsync(path),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        ) ?? throw new ArgumentException("Resolution JSON is missing.");
     using var scope = app.Services.CreateScope();
-    var result = await scope.ServiceProvider.GetRequiredService<RelayPaymentService>().ResolveAsync(request, CancellationToken.None);
-    Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+    var result = await scope
+        .ServiceProvider.GetRequiredService<RelayPaymentService>()
+        .ResolveAsync(request, CancellationToken.None);
+    Console.WriteLine(
+        JsonSerializer.Serialize(result, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+    );
     return;
 }
 
@@ -31,7 +39,9 @@ if (args.Contains("--billing-schema-inventory") || args.Contains("--billing-sche
         var baselineId = builder.Configuration["billing-schema-baseline"];
         var sourceRevision = builder.Configuration["source-revision"];
         if (string.IsNullOrWhiteSpace(baselineId) || string.IsNullOrWhiteSpace(sourceRevision))
-            throw new ArgumentException("Baseline ID and --source-revision are required; use verified historical settings, not guessed current terms.");
+            throw new ArgumentException(
+                "Baseline ID and --source-revision are required; use verified historical settings, not guessed current terms."
+            );
         await store.CaptureLegacyBaselineAsync(baselineId, sourceRevision, CancellationToken.None);
     }
     Console.WriteLine((await store.InventoryAsync(CancellationToken.None)).ToJson());
@@ -66,7 +76,7 @@ app.MapGet(
                 new
                 {
                     status = "degraded",
-                    error = "Relay operations database checks are unavailable."
+                    error = "Relay operations database checks are unavailable.",
                 },
                 statusCode: 503
             );

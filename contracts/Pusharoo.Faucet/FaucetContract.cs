@@ -52,17 +52,19 @@ public class FaucetContract : SmartContract
 
     public static void _deploy(object data, bool update)
     {
-        // Upgrades keep the existing storage and must not reinitialize admin, relayer, or limits.
-        if (update) return;
+        if (update)
+            return;
 
         object[] accounts = (object[])data;
-        if (accounts.Length != 2) throw new Exception("Deployment data must contain administrator and relayer accounts.");
+        if (accounts.Length != 2)
+            throw new Exception("Deployment data must contain administrator and relayer accounts.");
 
         UInt160 admin = (UInt160)accounts[0];
         UInt160 relayer = (UInt160)accounts[1];
         if (admin == UInt160.Zero || relayer == UInt160.Zero || admin == relayer)
             throw new Exception("Administrator and relayer must be distinct, non-zero accounts.");
-        if (!Runtime.CheckWitness(admin)) throw new Exception("Administrator must witness deployment.");
+        if (!Runtime.CheckWitness(admin))
+            throw new Exception("Administrator must witness deployment.");
 
         StorageContext context = Storage.CurrentContext;
         Storage.Put(context, AdminKey, admin);
@@ -77,16 +79,20 @@ public class FaucetContract : SmartContract
     [DisplayName("onNEP17Payment")]
     public static void OnNEP17Payment(UInt160 from, BigInteger amount, object data)
     {
-        if (Runtime.CallingScriptHash != GAS.Hash) throw new Exception("Only native GAS can fund this faucet.");
-        if (amount < 0) throw new Exception("Funding amount cannot be negative.");
+        if (Runtime.CallingScriptHash != GAS.Hash)
+            throw new Exception("Only native GAS can fund this faucet.");
+        if (amount < 0)
+            throw new Exception("Funding amount cannot be negative.");
         Funded(from, amount);
     }
 
     [DisplayName("claim")]
     public static void Claim(UInt160 recipient)
     {
-        if (IsPaused()) throw new Exception("Faucet is paused.");
-        if (IsReentrant()) throw new Exception("Reentrant call.");
+        if (IsPaused())
+            throw new Exception("Faucet is paused.");
+        if (IsReentrant())
+            throw new Exception("Reentrant call.");
 
         if (recipient == UInt160.Zero || recipient == Runtime.ExecutingScriptHash)
             throw new Exception("Recipient is invalid.");
@@ -111,7 +117,8 @@ public class FaucetContract : SmartContract
         ulong today = now / DayMilliseconds;
         BigInteger spentToday = GetSpentToday(today);
         BigInteger dailyCap = DailyCap;
-        if (spentToday + claimAmount > dailyCap) throw new Exception("Faucet daily allocation is exhausted.");
+        if (spentToday + claimAmount > dailyCap)
+            throw new Exception("Faucet daily allocation is exhausted.");
         if (GAS.BalanceOf(Runtime.ExecutingScriptHash) < claimAmount)
             throw new Exception("Faucet has insufficient GAS balance.");
 
@@ -152,7 +159,7 @@ public class FaucetContract : SmartContract
             remaining,
             (today + 1) * DayMilliseconds,
             Admin(),
-            Relayer()
+            Relayer(),
         };
     }
 
@@ -177,7 +184,8 @@ public class FaucetContract : SmartContract
         else if (lastClaims.Get(recipient) is not null)
         {
             nextClaim = (ulong)(BigInteger)lastClaims.Get(recipient) + DayMilliseconds;
-            if (now < nextClaim) reason = "cooldown";
+            if (now < nextClaim)
+                reason = "cooldown";
         }
 
         if (reason == "eligible")
@@ -195,7 +203,9 @@ public class FaucetContract : SmartContract
         bool sponsoredEligible = commonEligible;
         bool directEligible = registered && commonEligible;
         string sponsoredReason = reason;
-        string directReason = registered ? reason : (commonEligible ? "firstSponsoredClaim" : reason);
+        string directReason = registered
+            ? reason
+            : (commonEligible ? "firstSponsoredClaim" : reason);
         return new object[]
         {
             registered,
@@ -203,7 +213,7 @@ public class FaucetContract : SmartContract
             directEligible,
             nextClaim,
             sponsoredReason,
-            directReason
+            directReason,
         };
     }
 
@@ -215,7 +225,8 @@ public class FaucetContract : SmartContract
             throw new Exception("Claim amount must be positive and no greater than the daily cap.");
 
         BigInteger oldAmount = GetClaimAmount();
-        if (oldAmount == amount) return;
+        if (oldAmount == amount)
+            return;
         Storage.Put(Storage.CurrentContext, ClaimAmountKey, amount);
         ClaimAmountChanged(oldAmount, amount);
     }
@@ -236,7 +247,8 @@ public class FaucetContract : SmartContract
             throw new Exception("Relayer must be a distinct, non-zero account.");
 
         UInt160 oldRelayer = Relayer();
-        if (oldRelayer == newRelayer) return;
+        if (oldRelayer == newRelayer)
+            return;
         Storage.Put(Storage.CurrentContext, RelayerKey, newRelayer);
         RelayerChanged(oldRelayer, newRelayer);
     }
@@ -245,7 +257,8 @@ public class FaucetContract : SmartContract
     public static void Update(ByteString nefFile, string manifest)
     {
         RequireAdmin();
-        if (!IsPaused()) throw new Exception("Pause the faucet before upgrading it.");
+        if (!IsPaused())
+            throw new Exception("Pause the faucet before upgrading it.");
         ContractManagement.Update(nefFile, manifest, null);
     }
 
@@ -253,8 +266,10 @@ public class FaucetContract : SmartContract
     public static void Withdraw(UInt160 recipient, BigInteger amount)
     {
         RequireAdmin();
-        if (!IsPaused()) throw new Exception("Pause the faucet before withdrawing funds.");
-        if (IsReentrant()) throw new Exception("Reentrant call.");
+        if (!IsPaused())
+            throw new Exception("Pause the faucet before withdrawing funds.");
+        if (IsReentrant())
+            throw new Exception("Reentrant call.");
         if (recipient == UInt160.Zero || recipient == Runtime.ExecutingScriptHash)
             throw new Exception("Withdrawal recipient is invalid.");
         if (amount <= 0 || GAS.BalanceOf(Runtime.ExecutingScriptHash) < amount)
@@ -270,25 +285,35 @@ public class FaucetContract : SmartContract
 
     private static void RequireAdmin()
     {
-        if (!Runtime.CheckWitness(Admin())) throw new Exception("Administrator witness required.");
+        if (!Runtime.CheckWitness(Admin()))
+            throw new Exception("Administrator witness required.");
     }
 
     private static void RequireRelayer()
     {
-        if (!Runtime.CheckWitness(Relayer())) throw new Exception("Relayer witness required.");
+        if (!Runtime.CheckWitness(Relayer()))
+            throw new Exception("Relayer witness required.");
     }
 
     private static UInt160 Admin() => (UInt160)Storage.Get(Storage.CurrentContext, AdminKey);
+
     private static UInt160 Relayer() => (UInt160)Storage.Get(Storage.CurrentContext, RelayerKey);
-    private static BigInteger GetClaimAmount() => (BigInteger)Storage.Get(Storage.CurrentContext, ClaimAmountKey);
-    private static bool IsPaused() => (BigInteger)Storage.Get(Storage.CurrentContext, PausedKey) != BigInteger.Zero;
-    private static bool IsReentrant() => (BigInteger)Storage.Get(Storage.CurrentContext, ReentrancyKey) != BigInteger.Zero;
+
+    private static BigInteger GetClaimAmount() =>
+        (BigInteger)Storage.Get(Storage.CurrentContext, ClaimAmountKey);
+
+    private static bool IsPaused() =>
+        (BigInteger)Storage.Get(Storage.CurrentContext, PausedKey) != BigInteger.Zero;
+
+    private static bool IsReentrant() =>
+        (BigInteger)Storage.Get(Storage.CurrentContext, ReentrancyKey) != BigInteger.Zero;
 
     private static BigInteger GetSpentToday(ulong today)
     {
         StorageContext context = Storage.CurrentContext;
         ulong storedDay = (ulong)(BigInteger)Storage.Get(context, DayKey);
-        if (storedDay != today) return BigInteger.Zero;
+        if (storedDay != today)
+            return BigInteger.Zero;
         return (BigInteger)Storage.Get(context, SpentKey);
     }
 }

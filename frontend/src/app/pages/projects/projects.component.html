@@ -17,16 +17,24 @@
         </label>
       </div>
       <p class="signature-note">
-        {{ wallet.shortAddress() || 'Connect a wallet' }} will be signed in to Pusharoo before the project is saved.
+        {{ wallet.shortAddress() || 'Connect a wallet' }} will be signed in to Pusharoo before the
+        project is saved.
       </p>
       @if (errorMessage) {
         <p class="form-error">{{ errorMessage }}</p>
       }
       <div class="button-row">
-        <button class="primary-button" type="button" (click)="createProject()" [disabled]="isSaving">
+        <button
+          class="primary-button"
+          type="button"
+          (click)="createProject()"
+          [disabled]="isSaving"
+        >
           {{ isSaving ? 'Saving...' : 'Create project' }}
         </button>
-        <button class="secondary-button" type="button" (click)="cancelCreateProject()">Cancel</button>
+        <button class="secondary-button" type="button" (click)="cancelCreateProject()"
+          >Cancel</button
+        >
       </div>
     </section>
   }
@@ -50,7 +58,15 @@
           <p>Choose a project to review releases, deployments, and on-chain activity.</p>
         </div>
         <section class="project-tools" aria-label="Project search">
-          <input class="project-search" type="search" name="projectSearch" [(ngModel)]="searchTerm" (ngModelChange)="updateSearch()" placeholder="Search projects" aria-label="Search projects" />
+          <input
+            class="project-search"
+            type="search"
+            name="projectSearch"
+            [(ngModel)]="searchTerm"
+            (ngModelChange)="updateSearch()"
+            placeholder="Search projects"
+            aria-label="Search projects"
+          />
         </section>
       </header>
 
@@ -63,28 +79,47 @@
               </div>
               <div class="project-network-chips" aria-label="Deployment networks">
                 @for (network of item.deploymentNetworks; track network) {
-                  <span class="network-badge" [class.network-badge--testnet]="network === 'neo3:testnet'" [class.network-badge--mainnet]="network === 'neo3:mainnet'">{{ networkLabel(network) }}</span>
+                  <span
+                    class="network-badge"
+                    [class.network-badge--testnet]="network === 'neo3:testnet'"
+                    [class.network-badge--mainnet]="network === 'neo3:mainnet'"
+                    >{{ networkLabel(network) }}</span
+                  >
                 }
               </div>
             </header>
 
-            <p class="project-description">{{ item.project.description || 'No project description yet.' }}</p>
+            <p class="project-description">{{
+              item.project.description || 'No project description yet.'
+            }}</p>
 
             <section class="project-release">
               <div>
                 <span>Latest artifact</span>
                 <strong>{{ item.latestArtifact?.version ?? 'No artifact yet' }}</strong>
               </div>
-              <span class="status-badge" [class.status-badge--success]="item.deployed" [class.status-badge--warning]="!item.deployed">{{ item.deployed ? 'Deployed' : 'Not deployed' }}</span>
+              <span
+                class="status-badge"
+                [class.status-badge--success]="item.deployed"
+                [class.status-badge--warning]="!item.deployed"
+                >{{ item.deployed ? 'Deployed' : 'Not deployed' }}</span
+              >
             </section>
 
             <section class="project-details" aria-label="Project details">
               <ul>
-                <li><i aria-hidden="true"></i><span>Owner</span><strong>{{ creatorSummary(item) }}</strong></li>
+                <li
+                  ><i aria-hidden="true"></i><span>Owner</span
+                  ><strong>{{ creatorSummary(item) }}</strong></li
+                >
                 <li>
                   <i [class.success-dot]="item.deployed" aria-hidden="true"></i>
                   <span>Networks</span>
-                  <strong>{{ item.deploymentNetworks.length ? item.deploymentNetworks.length + ' active' : 'No release' }}</strong>
+                  <strong>{{
+                    item.deploymentNetworks.length
+                      ? item.deploymentNetworks.length + ' active'
+                      : 'No release'
+                  }}</strong>
                 </li>
               </ul>
             </section>
@@ -97,9 +132,21 @@
 
       @if (totalPages(projects) > 1) {
         <nav class="pagination" aria-label="Project pages">
-          <button class="secondary-button" type="button" (click)="changePage(projects, -1)" [disabled]="page === 1">Previous</button>
+          <button
+            class="secondary-button"
+            type="button"
+            (click)="changePage(projects, -1)"
+            [disabled]="page === 1"
+            >Previous</button
+          >
           <span>Page {{ page }} of {{ totalPages(projects) }}</span>
-          <button class="secondary-button" type="button" (click)="changePage(projects, 1)" [disabled]="page === totalPages(projects)">Next</button>
+          <button
+            class="secondary-button"
+            type="button"
+            (click)="changePage(projects, 1)"
+            [disabled]="page === totalPages(projects)"
+            >Next</button
+          >
         </nav>
       }
     </section>
@@ -111,7 +158,9 @@
         <li>Upload the matching compiled <code>.nef</code> and manifest.</li>
         <li>Review the release, deploy with your wallet, then monitor it here.</li>
       </ol>
-      <button class="primary-button" type="button" (click)="openCreateProject()">Create your first project</button>
+      <button class="primary-button" type="button" (click)="openCreateProject()"
+        >Create your first project</button
+      >
     </section>
   }
 </app-page-shell>

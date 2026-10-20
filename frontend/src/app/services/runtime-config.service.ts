@@ -49,7 +49,7 @@ export class RuntimeConfigService {
         return;
       }
 
-      const loaded = await response.json() as Partial<RuntimeConfig>;
+      const loaded = (await response.json()) as Partial<RuntimeConfig>;
       this.config = {
         ...defaultConfig,
         ...loaded,

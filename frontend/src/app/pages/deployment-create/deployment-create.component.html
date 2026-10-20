@@ -1,9 +1,22 @@
 <app-page-shell
   [title]="pageTitle"
-  [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: overview?.project?.name ?? 'Project', link: overview ? ['/projects', projectId] : undefined }, { label: 'Deployments', link: overview ? ['/projects', projectId, 'deployments'] : undefined }, { label: pageTitle }]"
+  [breadcrumbs]="[
+    { label: 'Projects', link: '/projects' },
+    {
+      label: overview?.project?.name ?? 'Project',
+      link: overview ? ['/projects', projectId] : undefined
+    },
+    { label: 'Deployments', link: overview ? ['/projects', projectId, 'deployments'] : undefined },
+    { label: pageTitle }
+  ]"
 >
   <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
-  <a actions class="secondary-button" [routerLink]="['/projects', projectId, 'deployments', 'recovery']">Recover by transaction</a>
+  <a
+    actions
+    class="secondary-button"
+    [routerLink]="['/projects', projectId, 'deployments', 'recovery']"
+    >Recover by transaction</a
+  >
 
   @if (isLoading) {
     <p class="missing" aria-live="polite">Loading project…</p>
@@ -13,120 +26,181 @@
       <button class="secondary-button" type="button" (click)="retryLoad()">Try again</button>
     </section>
   } @else if (overview) {
-  <app-project-release-nav [projectId]="projectId" />
+    <app-project-release-nav [projectId]="projectId" />
 
     @if (artifacts.length) {
       @if (showDeploymentAccessNotice) {
-      <aside class="deployment-access-notice access-denied" role="alert">
-        <strong>Deployment access required</strong>
-        <span>{{ deploymentPermissionMessage }}</span>
-      </aside>
+        <aside class="deployment-access-notice access-denied" role="alert">
+          <strong>Deployment access required</strong>
+          <span>{{ deploymentPermissionMessage }}</span>
+        </aside>
       }
       @if (!isReviewing) {
-      <form class="deployment-form surface-panel" (ngSubmit)="reviewRelease()">
-        <header class="form-flow-header">
-          <span class="eyebrow">Release setup</span>
-          <h2>{{ updateMode ? 'Prepare a contract update' : 'Prepare a contract deployment' }}</h2>
-          <p>Choose the release first. You will review the network, signer, and estimated fee before Pusharoo opens your wallet.</p>
-        </header>
+        <form class="deployment-form surface-panel" (ngSubmit)="reviewRelease()">
+          <header class="form-flow-header">
+            <span class="eyebrow">Release setup</span>
+            <h2>{{
+              updateMode ? 'Prepare a contract update' : 'Prepare a contract deployment'
+            }}</h2>
+            <p
+              >Choose the release first. You will review the network, signer, and estimated fee
+              before Pusharoo opens your wallet.</p
+            >
+          </header>
 
-        <section class="form-flow-section">
-          <h3>1. Select the artifact</h3>
-          <label>
-            <span>Artifact version</span>
-            <select name="artifactId" [(ngModel)]="artifactId">
-              @for (artifact of artifacts; track artifact.id) {
-                <option [value]="artifact.id">
-                  {{ artifact.version }} - {{ artifact.contractName }}
-                </option>
+          <section class="form-flow-section">
+            <h3>1. Select the artifact</h3>
+            <label>
+              <span>Artifact version</span>
+              <select name="artifactId" [(ngModel)]="artifactId">
+                @for (artifact of artifacts; track artifact.id) {
+                  <option [value]="artifact.id">
+                    {{ artifact.version }} - {{ artifact.contractName }}
+                  </option>
+                }
+              </select>
+            </label>
+            @if (selectedArtifact) {
+              <p class="field-help"
+                >{{ selectedArtifact.contractName }} · {{ selectedArtifact.nefFileName }}</p
+              >
+            }
+          </section>
+
+          <section class="form-flow-section">
+            <h3>2. Confirm the target</h3>
+            <label [class.mainnet-network]="walletNetwork() === 'neo3:mainnet'">
+              <span class="field-label">
+                Network
+                <small>{{
+                  walletNetwork() === 'neo3:mainnet'
+                    ? 'N3:Mainnet: real GAS and permanent changes'
+                    : 'Selected by the connected wallet'
+                }}</small>
+              </span>
+              <input
+                type="text"
+                name="network"
+                [value]="walletNetwork() || 'Connect wallet first'"
+                readonly
+              />
+            </label>
+
+            <label>
+              <span>Deployed by</span>
+              <input
+                type="text"
+                name="deployedBy"
+                [value]="walletAddress() || 'Connect wallet first'"
+                readonly
+              />
+            </label>
+
+            <p class="network-status">{{ networkDeploymentStatus }}</p>
+          </section>
+
+          @if (operation === 'deploy') {
+            <section class="form-flow-section">
+              <h3>3. Deployment data (optional)</h3>
+              <label>
+                <span>Initialization data</span>
+                <select name="deploymentDataMode" [(ngModel)]="deploymentDataMode">
+                  <option value="none">None (null)</option>
+                  <option value="custom">Enter typed data</option>
+                </select>
+              </label>
+              <p class="field-help deployment-data-help"
+                >This value is public on-chain and is passed to the contract during its initial
+                deployment. Follow the contract documentation for the required types and order.
+                Account values should be public Neo N3 addresses or script hashes. Never enter a WIF
+                or other private key.</p
+              >
+              @if (deploymentDataMode === 'custom') {
+                <app-deployment-data-editor
+                  [value]="deploymentDataDraft"
+                  [connectedWalletAddress]="walletAddress()"
+                  [root]="true"
+                  (valueChange)="onDeploymentDataChanged()"
+                />
               }
-            </select>
-          </label>
-          @if (selectedArtifact) {
-            <p class="field-help">{{ selectedArtifact.contractName }} · {{ selectedArtifact.nefFileName }}</p>
+              @if (deploymentDataError) {
+                <p class="deployment-data-error" role="alert">{{ deploymentDataError }}</p>
+              }
+            </section>
           }
-        </section>
 
-        <section class="form-flow-section">
-          <h3>2. Confirm the target</h3>
-          <label [class.mainnet-network]="walletNetwork() === 'neo3:mainnet'">
-            <span class="field-label">
-              Network
-              <small>{{ walletNetwork() === 'neo3:mainnet' ? 'N3:Mainnet: real GAS and permanent changes' : 'Selected by the connected wallet' }}</small>
-            </span>
-            <input type="text" name="network" [value]="walletNetwork() || 'Connect wallet first'" readonly />
-          </label>
+          <section class="form-flow-section">
+            <h3>{{ operation === 'deploy' ? '4.' : '3.' }} Add an optional note</h3>
+            <label>
+              <span>Notes</span>
+              <textarea
+                name="notes"
+                rows="4"
+                [(ngModel)]="notes"
+                placeholder="What changes in this release?"
+              ></textarea>
+            </label>
+          </section>
 
-          <label>
-            <span>Deployed by</span>
-            <input type="text" name="deployedBy" [value]="walletAddress() || 'Connect wallet first'" readonly />
-          </label>
-
-          <p class="network-status">{{ networkDeploymentStatus }}</p>
-        </section>
-
-        @if (operation === 'deploy') {
-        <section class="form-flow-section">
-          <h3>3. Deployment data (optional)</h3>
-          <label>
-            <span>Initialization data</span>
-            <select name="deploymentDataMode" [(ngModel)]="deploymentDataMode">
-              <option value="none">None (null)</option>
-              <option value="custom">Enter typed data</option>
-            </select>
-          </label>
-          <p class="field-help deployment-data-help">This value is public on-chain and is passed to the contract during its initial deployment. Follow the contract documentation for the required types and order. Account values should be public Neo N3 addresses or script hashes. Never enter a WIF or other private key.</p>
-          @if (deploymentDataMode === 'custom') {
-            <app-deployment-data-editor
-              [value]="deploymentDataDraft"
-              [connectedWalletAddress]="walletAddress()"
-              [root]="true"
-              (valueChange)="onDeploymentDataChanged()"
-            />
+          @if (deployStatus) {
+            <p class="form-status">{{ deployStatus }}</p>
           }
-          @if (deploymentDataError) { <p class="deployment-data-error" role="alert">{{ deploymentDataError }}</p> }
-        </section>
-        }
 
-        <section class="form-flow-section">
-          <h3>{{ operation === 'deploy' ? '4.' : '3.' }} Add an optional note</h3>
-          <label>
-            <span>Notes</span>
-            <textarea name="notes" rows="4" [(ngModel)]="notes" placeholder="What changes in this release?"></textarea>
-          </label>
-        </section>
+          @if (errorMessage) {
+            <p class="form-error">{{ errorMessage }}</p>
+          }
 
-        @if (deployStatus) {
-          <p class="form-status">{{ deployStatus }}</p>
-        }
-
-        @if (errorMessage) {
-          <p class="form-error">{{ errorMessage }}</p>
-        }
-
-        <button class="primary-button" type="submit" [disabled]="isPreparingReview">
-          {{ isPreparingReview ? 'Preparing Review...' : 'Review Release' }}
-        </button>
-      </form>
+          <button class="primary-button" type="submit" [disabled]="isPreparingReview">
+            {{ isPreparingReview ? 'Preparing Review...' : 'Review Release' }}
+          </button>
+        </form>
       } @else {
-        <section class="release-confirmation surface-panel" [class.mainnet-release]="walletNetwork() === 'neo3:mainnet'">
+        <section
+          class="release-confirmation surface-panel"
+          [class.mainnet-release]="walletNetwork() === 'neo3:mainnet'"
+        >
           <div class="confirmation-heading">
             <p class="eyebrow">Release confirmation</p>
-            <h2>{{ operation === 'update' ? 'Review contract update' : 'Review new contract deployment' }}</h2>
+            <h2>{{
+              operation === 'update' ? 'Review contract update' : 'Review new contract deployment'
+            }}</h2>
             <p>Review these details before approving the deployment transaction in your wallet.</p>
           </div>
 
           <dl class="release-details">
-            <div><dt>Network</dt><dd>{{ walletNetwork() }}</dd></div>
-            <div><dt>Action</dt><dd>{{ operation === 'update' ? 'Update existing contract' : 'Deploy new contract' }}</dd></div>
-            <div><dt>Artifact</dt><dd>{{ selectedArtifact?.version }} — {{ selectedArtifact?.contractName }}</dd></div>
-            <div><dt>Signer</dt><dd>{{ walletAddress() }}</dd></div>
+            <div
+              ><dt>Network</dt><dd>{{ walletNetwork() }}</dd></div
+            >
+            <div
+              ><dt>Action</dt
+              ><dd>{{
+                operation === 'update' ? 'Update existing contract' : 'Deploy new contract'
+              }}</dd></div
+            >
+            <div
+              ><dt>Artifact</dt
+              ><dd>{{ selectedArtifact?.version }} — {{ selectedArtifact?.contractName }}</dd></div
+            >
+            <div
+              ><dt>Signer</dt><dd>{{ walletAddress() }}</dd></div
+            >
             @if (authorizationPreview?.expectedTargetContractHash) {
-              <div><dt>Target contract</dt><dd>{{ authorizationPreview?.expectedTargetContractHash }}</dd></div>
+              <div
+                ><dt>Target contract</dt
+                ><dd>{{ authorizationPreview?.expectedTargetContractHash }}</dd></div
+              >
             } @else {
-              <div><dt>Target contract</dt><dd>A new contract address will be created by Neo.</dd></div>
+              <div
+                ><dt>Target contract</dt
+                ><dd>A new contract address will be created by Neo.</dd></div
+              >
             }
-            <div><dt>Expected deployment revision</dt><dd>{{ authorizationPreview?.expectedDeploymentRevision ?? 'Not available' }}</dd></div>
+            <div
+              ><dt>Expected deployment revision</dt
+              ><dd>{{
+                authorizationPreview?.expectedDeploymentRevision ?? 'Not available'
+              }}</dd></div
+            >
           </dl>
 
           @if (operation === 'deploy') {
@@ -141,18 +215,30 @@
           }
 
           @if (!reviewedContextIsCurrent) {
-            <aside class="review-stale-warning" role="status">The connected wallet, network, artifact, or deployment action changed after this review. Edit the release and review it again before continuing.</aside>
+            <aside class="review-stale-warning" role="status"
+              >The connected wallet, network, artifact, or deployment action changed after this
+              review. Edit the release and review it again before continuing.</aside
+            >
           }
 
           @if (operation === 'update') {
             <aside class="update-authorization-note">
               <strong>Contract update authorization</strong>
-              <span>Pusharoo verifies its project access separately. The connected wallet must also be permitted by the contract’s on-chain update authorization, or Neo will reject the transaction.</span>
+              <span
+                >Pusharoo verifies its project access separately. The connected wallet must also be
+                permitted by the contract’s on-chain update authorization, or Neo will reject the
+                transaction.</span
+              >
             </aside>
           }
 
           @if (operation === 'deploy' && deploymentSimulationState !== 'not-run') {
-            <aside class="deployment-simulation-result" [class.simulation-fault]="deploymentSimulationState === 'fault'" [class.simulation-unavailable]="deploymentSimulationState === 'unavailable'" role="status">
+            <aside
+              class="deployment-simulation-result"
+              [class.simulation-fault]="deploymentSimulationState === 'fault'"
+              [class.simulation-unavailable]="deploymentSimulationState === 'unavailable'"
+              role="status"
+            >
               {{ deploymentSimulationMessage }}
             </aside>
           }
@@ -161,22 +247,37 @@
             <h3>Estimated maximum fee</h3>
             @if (feeEstimate && reviewedContextIsCurrent) {
               <div class="fee-grid">
-                <span>System fee <strong>{{ feeEstimate.systemFee }}</strong></span>
-                <span>Network fee <strong>{{ feeEstimate.networkFee }}</strong></span>
-                <span>Total maximum <strong>{{ feeEstimate.total }}</strong></span>
+                <span
+                  >System fee <strong>{{ feeEstimate.systemFee }}</strong></span
+                >
+                <span
+                  >Network fee <strong>{{ feeEstimate.networkFee }}</strong></span
+                >
+                <span
+                  >Total maximum <strong>{{ feeEstimate.total }}</strong></span
+                >
               </div>
               <p>Your wallet calculates the final transaction fee before signing.</p>
             } @else if (!reviewedContextIsCurrent) {
-              <p class="fee-unavailable">Review again to refresh the fee estimate for the current wallet and network.</p>
+              <p class="fee-unavailable"
+                >Review again to refresh the fee estimate for the current wallet and network.</p
+              >
             } @else {
-              <p class="fee-unavailable">Fee estimate unavailable. Review the final fee shown on your wallet’s confirmation screen before signing.</p>
+              <p class="fee-unavailable"
+                >Fee estimate unavailable. Review the final fee shown on your wallet’s confirmation
+                screen before signing.</p
+              >
             }
             @if (feeEstimateError) {
-              <p class="fee-estimate-error">Pusharoo could not estimate the fee: {{ feeEstimateError }}</p>
+              <p class="fee-estimate-error"
+                >Pusharoo could not estimate the fee: {{ feeEstimateError }}</p
+              >
             }
-          @if (walletNetwork() === 'neo3:testnet') {
-            <p class="faucet-fee-link"><a routerLink="/faucet">Need testnet GAS? Visit the faucet.</a></p>
-          }
+            @if (walletNetwork() === 'neo3:testnet') {
+              <p class="faucet-fee-link"
+                ><a routerLink="/faucet">Need testnet GAS? Visit the faucet.</a></p
+              >
+            }
           </section>
 
           @if (walletNetwork() === 'neo3:mainnet') {
@@ -185,7 +286,10 @@
               <p>This creates a permanent on-chain {{ operation }} and may spend real GAS.</p>
               <label class="mainnet-confirmation">
                 <input type="checkbox" name="mainnetConfirmed" [(ngModel)]="mainnetConfirmed" />
-                <span>I reviewed the N3:Mainnet network, signer, contract action, and maximum fee.</span>
+                <span
+                  >I reviewed the N3:Mainnet network, signer, contract action, and maximum
+                  fee.</span
+                >
               </label>
             </section>
           }
@@ -199,13 +303,24 @@
           }
 
           <div class="confirmation-actions">
-            <button class="secondary-button" type="button" (click)="editRelease()" [disabled]="isSaving">Edit Release</button>
+            <button
+              class="secondary-button"
+              type="button"
+              (click)="editRelease()"
+              [disabled]="isSaving"
+              >Edit Release</button
+            >
             <button
               type="button"
               [class.primary-button]="walletNetwork() !== 'neo3:mainnet'"
               [class.mainnet-action-button]="walletNetwork() === 'neo3:mainnet'"
               (click)="save()"
-              [disabled]="isSaving || !reviewedContextIsCurrent || (operation === 'deploy' && deploymentSimulationState === 'fault') || (walletNetwork() === 'neo3:mainnet' && !mainnetConfirmed)"
+              [disabled]="
+                isSaving ||
+                !reviewedContextIsCurrent ||
+                (operation === 'deploy' && deploymentSimulationState === 'fault') ||
+                (walletNetwork() === 'neo3:mainnet' && !mainnetConfirmed)
+              "
             >
               {{ submitLabel }}
             </button>

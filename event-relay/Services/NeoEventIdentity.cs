@@ -4,7 +4,6 @@ namespace Pusharoo.EventRelay.Services;
 
 public static class NeoEventIdentity
 {
-    // Keep Phase 1 keys stable across upgrades. The ordinal counts ALL notifications in the original full log.
     public static string Create(
         string network,
         uint blockIndex,

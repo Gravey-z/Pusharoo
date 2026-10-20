@@ -30,7 +30,11 @@ export class WalletConnectComponent implements OnDestroy {
     readonly auth: WalletAuthService
   ) {
     effect(() => {
-      if (this.wallet.account() && this.wallet.session()?.provider === 'walletconnect' && this.isDialogOpen) {
+      if (
+        this.wallet.account() &&
+        this.wallet.session()?.provider === 'walletconnect' &&
+        this.isDialogOpen
+      ) {
         this.dialogAnnouncement = 'Neon Wallet connected. Pusharoo login is available.';
         this.focusLoginSection();
       }
@@ -68,7 +72,8 @@ export class WalletConnectComponent implements OnDestroy {
     requestAnimationFrame(() => this.walletDialog?.nativeElement.focus());
     void this.wallet.connect('walletconnect').then(() => {
       if (this.wallet.walletConnectUri()) {
-        this.dialogAnnouncement = 'WalletConnect URI is ready. Scan the QR code or open Neon Wallet.';
+        this.dialogAnnouncement =
+          'WalletConnect URI is ready. Scan the QR code or open Neon Wallet.';
       }
     });
   }
@@ -135,7 +140,10 @@ export class WalletConnectComponent implements OnDestroy {
     const last = focusable[focusable.length - 1];
     const activeElement = document.activeElement as HTMLElement | null;
 
-    if (event.shiftKey && (activeElement === first || !this.walletDialog?.nativeElement.contains(activeElement))) {
+    if (
+      event.shiftKey &&
+      (activeElement === first || !this.walletDialog?.nativeElement.contains(activeElement))
+    ) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && activeElement === last) {
@@ -149,7 +157,10 @@ export class WalletConnectComponent implements OnDestroy {
     this.unlockBackground();
   }
 
-  private async connectExtensionWallet(provider: 'neoline' | 'onegate', label: string): Promise<void> {
+  private async connectExtensionWallet(
+    provider: 'neoline' | 'onegate',
+    label: string
+  ): Promise<void> {
     this.dialogAnnouncement = `Connecting to ${label}.`;
     await this.wallet.connect(provider);
 
@@ -175,9 +186,11 @@ export class WalletConnectComponent implements OnDestroy {
       return [];
     }
 
-    return Array.from(dialog.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    )).filter((element) => element.offsetParent !== null);
+    return Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter(element => element.offsetParent !== null);
   }
 
   private lockBackground(): void {

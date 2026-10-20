@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.RateLimiting;
 using Pusharoo.EventRelay.Models;
 using Pusharoo.EventRelay.Services;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Pusharoo.EventRelay.Controllers;
 
@@ -16,7 +16,8 @@ public sealed class RelayPaymentsController(RelayPaymentService payments) : Cont
     public async Task<ActionResult<PaymentIntentResponse>> CreateIntent(
         string projectId,
         CancellationToken ct,
-        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] CreateRelayPaymentIntentRequest? request = null
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)]
+            CreateRelayPaymentIntentRequest? request = null
     )
     {
         try

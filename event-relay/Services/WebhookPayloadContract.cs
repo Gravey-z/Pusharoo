@@ -15,7 +15,7 @@ public static class WebhookPayloadContract
             "X-Pusharoo-Event",
             "X-Pusharoo-Signature",
             "X-Pusharoo-Event-Id",
-            "X-Pusharoo-Payload-Version"
+            "X-Pusharoo-Payload-Version",
         }.Contains(name, StringComparer.OrdinalIgnoreCase);
 
     public static bool IsSupported(int version) => version == 2;
@@ -68,7 +68,6 @@ public static class WebhookPayloadContract
 
         if (subscription.PayloadVersion != 2)
             throw new InvalidOperationException("Unsupported webhook payload version.");
-        // Tests are synthetic: never invent block metadata or pretend their event IDs identify chain events.
 
         return JsonSerializer.Serialize(
             new PayloadV2(
@@ -142,7 +141,6 @@ public static class WebhookPayloadContract
             body["trigger"] = "manual";
             changed = true;
         }
-        // Retries preserve exact original bytes; manual redelivery changes the delivery ID.
 
         return changed ? body.ToJsonString(JsonOptions) : payload;
     }

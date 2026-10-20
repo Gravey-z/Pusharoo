@@ -50,11 +50,11 @@ export class ProjectDeleteComponent implements OnInit {
     this.isLoading = true;
     this.loadError = '';
     this.api.getProjectOverview(this.projectId).subscribe({
-      next: (overview) => {
+      next: overview => {
         this.project = overview?.project ?? null;
         this.isLoading = false;
       },
-      error: (error) => {
+      error: error => {
         this.project = null;
         this.loadError = this.errors.format(error, 'Could not load this project.');
         this.isLoading = false;
@@ -63,8 +63,12 @@ export class ProjectDeleteComponent implements OnInit {
   }
 
   get canDelete(): boolean {
-    return Boolean(this.project && this.confirmationName.trim() === this.project.name && !this.isDeleting
-      && this.ownership.canManage(this.project, this.walletAddress()));
+    return Boolean(
+      this.project &&
+        this.confirmationName.trim() === this.project.name &&
+        !this.isDeleting &&
+        this.ownership.canManage(this.project, this.walletAddress())
+    );
   }
 
   async deleteProject(): Promise<void> {
@@ -82,9 +86,11 @@ export class ProjectDeleteComponent implements OnInit {
     this.isDeleting = true;
     try {
       await this.auth.ensureAuthenticated();
-      await firstValueFrom(this.api.deleteProject(this.project.id, {
-        projectName: this.project.name
-      }));
+      await firstValueFrom(
+        this.api.deleteProject(this.project.id, {
+          projectName: this.project.name
+        })
+      );
       await this.router.navigate(['/projects']);
     } catch (error) {
       this.errorMessage = this.errors.format(error, 'Could not delete the project.');
@@ -92,5 +98,4 @@ export class ProjectDeleteComponent implements OnInit {
       this.isDeleting = false;
     }
   }
-
 }

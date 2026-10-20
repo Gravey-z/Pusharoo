@@ -61,7 +61,7 @@ public sealed class BsonValueJsonConverter : JsonConverter<BsonValue>
             JsonTokenType.True => BsonBoolean.True,
             JsonTokenType.False => BsonBoolean.False,
             JsonTokenType.Null => BsonNull.Value,
-            _ => throw new JsonException($"Unexpected JSON token '{reader.TokenType}'.")
+            _ => throw new JsonException($"Unexpected JSON token '{reader.TokenType}'."),
         };
     }
 

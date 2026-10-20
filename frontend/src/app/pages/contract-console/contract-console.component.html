@@ -1,6 +1,9 @@
 <app-page-shell
   [title]="pageTitle"
-  [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: overview?.project?.name ?? 'Project' }]"
+  [breadcrumbs]="[
+    { label: 'Projects', link: '/projects' },
+    { label: overview?.project?.name ?? 'Project' }
+  ]"
 >
   <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
 
@@ -20,7 +23,9 @@
           <header class="call-panel-header">
             <span class="eyebrow">Contract call</span>
             <h2>Run a method</h2>
-            <p>Preview is read-only. Wallet actions are clearly labelled before you approve them.</p>
+            <p
+              >Preview is read-only. Wallet actions are clearly labelled before you approve them.</p
+            >
           </header>
 
           <section class="call-section">
@@ -62,7 +67,9 @@
 
             @if (selectedMethod; as method) {
               <div class="method-meta">
-                <span>Returns <code>{{ methodReturnType(method) }}</code></span>
+                <span
+                  >Returns <code>{{ methodReturnType(method) }}</code></span
+                >
                 <span [class.safe]="method.safe" [class.unsafe]="!method.safe">
                   {{ method.safe ? 'Read-only method' : 'May change contract state' }}
                 </span>
@@ -76,14 +83,20 @@
                 <span>2</span>
                 <div>
                   <h3>Set parameters</h3>
-                  <p>Values are sent exactly as entered. Technical types use their expected format.</p>
+                  <p
+                    >Values are sent exactly as entered. Technical types use their expected
+                    format.</p
+                  >
                 </div>
               </header>
               @if (method.parameters.length) {
                 <div class="parameters">
                   @for (parameter of method.parameters; track parameterKey(parameter, $index)) {
                     <label>
-                      <span>{{ parameter.name || 'Parameter ' + ($index + 1) }} <code>{{ parameter.type }}</code></span>
+                      <span
+                        >{{ parameter.name || 'Parameter ' + ($index + 1) }}
+                        <code>{{ parameter.type }}</code></span
+                      >
                       <input
                         class="parameter-input"
                         type="text"
@@ -122,10 +135,16 @@
             </div>
 
             @if (mode === 'transaction' && selectedTarget; as target) {
-              <aside class="wallet-action-notice" [class.mainnet-action]="isMainnet(target.network)">
-                <strong>{{ isMainnet(target.network) ? 'Mainnet wallet action' : 'Wallet action' }}</strong>
+              <aside
+                class="wallet-action-notice"
+                [class.mainnet-action]="isMainnet(target.network)"
+              >
+                <strong>{{
+                  isMainnet(target.network) ? 'Mainnet wallet action' : 'Wallet action'
+                }}</strong>
                 <span>
-                  {{ wallet.networkLabel(target.network) }}: your wallet will ask you to approve this {{ selectedMethod?.name }} call.
+                  {{ wallet.networkLabel(target.network) }}: your wallet will ask you to approve
+                  this {{ selectedMethod?.name }} call.
                 </span>
               </aside>
             }
@@ -145,7 +164,10 @@
           </button>
         </form>
 
-        <section class="result-panel surface-panel surface-panel--flush" aria-label="Contract call results">
+        <section
+          class="result-panel surface-panel surface-panel--flush"
+          aria-label="Contract call results"
+        >
           <h2>Console</h2>
           @if (consoleEntries.length) {
             @for (entry of consoleEntries; track entry.id) {
@@ -157,7 +179,9 @@
                 </header>
                 @if (readableResult(entry); as readable) {
                   <div class="decoded-result">
-                    <span>{{ entry.mode === 'test' ? 'Decoded ' + entry.returnType : 'Transaction ID' }}</span>
+                    <span>{{
+                      entry.mode === 'test' ? 'Decoded ' + entry.returnType : 'Transaction ID'
+                    }}</span>
                     <strong>{{ readable }}</strong>
                   </div>
                 }
@@ -178,7 +202,10 @@
     } @else {
       <section class="empty-state">
         <strong>Console needs a deployed contract</strong>
-        <p>Deploy this project and upload an artifact with ABI methods before calling the contract.</p>
+        <p
+          >Deploy this project and upload an artifact with ABI methods before calling the
+          contract.</p
+        >
         <a class="primary-button" [routerLink]="['/projects', projectId, 'deployments', 'new']">
           Deploy Contract
         </a>

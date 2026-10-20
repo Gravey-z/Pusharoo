@@ -22,7 +22,6 @@ public sealed class EventCheckpointRepository(MongoDbContext db) : IEventCheckpo
         CancellationToken cancellationToken
     )
     {
-        // Insert first, then acquire with a conditional update; never upsert over another owner's lease.
         try
         {
             await Collection.InsertOneAsync(
@@ -43,7 +42,7 @@ public sealed class EventCheckpointRepository(MongoDbContext db) : IEventCheckpo
                         "$ifNull",
                         new BsonArray { "$scannerLeaseUntil", new BsonDateTime(DateTime.UnixEpoch) }
                     ),
-                    "$$NOW"
+                    "$$NOW",
                 }
             )
         );
@@ -54,7 +53,7 @@ public sealed class EventCheckpointRepository(MongoDbContext db) : IEventCheckpo
             LeaseUpdate(owner, duration),
             new FindOneAndUpdateOptions<EventCheckpointDocument>
             {
-                ReturnDocument = ReturnDocument.After
+                ReturnDocument = ReturnDocument.After,
             },
             cancellationToken
         );
@@ -78,9 +77,9 @@ public sealed class EventCheckpointRepository(MongoDbContext db) : IEventCheckpo
                                 "$add",
                                 new BsonArray { "$$NOW", (long)duration.TotalMilliseconds }
                             )
-                        }
+                        },
                     }
-                )
+                ),
             }
         );
 

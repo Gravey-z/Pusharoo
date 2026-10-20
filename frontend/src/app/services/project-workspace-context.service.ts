@@ -18,8 +18,8 @@ export class ProjectWorkspaceContextService {
   }
 
   getFreshOverview(projectId: string): ProjectOverviewViewModel | null {
-    return this.cachedOverview?.project.id === projectId
-      && Date.now() - this.cachedAt < PROJECT_DATA_CACHE_TTL_MS
+    return this.cachedOverview?.project.id === projectId &&
+      Date.now() - this.cachedAt < PROJECT_DATA_CACHE_TTL_MS
       ? this.cachedOverview
       : null;
   }

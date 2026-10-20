@@ -1,6 +1,10 @@
 <app-page-shell
   title="Delete Project"
-  [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: project?.name ?? 'Project', link: project ? ['/projects', projectId] : undefined }, { label: 'Delete Project' }]"
+  [breadcrumbs]="[
+    { label: 'Projects', link: '/projects' },
+    { label: project?.name ?? 'Project', link: project ? ['/projects', projectId] : undefined },
+    { label: 'Delete Project' }
+  ]"
 >
   <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Cancel</a>
 
@@ -16,12 +20,14 @@
       <span class="eyebrow">Irreversible action</span>
       <h1>Delete {{ project.name }}?</h1>
       <p>
-        This permanently removes the project, all uploaded artifacts, deployment records,
-        webhooks, and webhook delivery history. It does not remove contracts already deployed on Neo.
+        This permanently removes the project, all uploaded artifacts, deployment records, webhooks,
+        and webhook delivery history. It does not remove contracts already deployed on Neo.
       </p>
 
       <label>
-        <span>Type <strong>{{ project.name }}</strong> to confirm</span>
+        <span
+          >Type <strong>{{ project.name }}</strong> to confirm</span
+        >
         <input
           type="text"
           name="confirmationName"
@@ -33,7 +39,11 @@
 
       <label>
         <span>Project owner wallet</span>
-        <input type="text" [value]="project.createdByWalletAddress || 'Legacy project owner unavailable'" readonly />
+        <input
+          type="text"
+          [value]="project.createdByWalletAddress || 'Legacy project owner unavailable'"
+          readonly
+        />
       </label>
 
       <label>

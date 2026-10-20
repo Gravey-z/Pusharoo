@@ -1,7 +1,13 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { Artifact, Deployment, DeploymentDataValue, ProjectAuthorizedDeployer, ProjectOverviewViewModel } from '../../models/pusharoo.models';
+import {
+  Artifact,
+  Deployment,
+  DeploymentDataValue,
+  ProjectAuthorizedDeployer,
+  ProjectOverviewViewModel
+} from '../../models/pusharoo.models';
 import { ClipboardService } from '../../services/clipboard.service';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
@@ -64,7 +70,9 @@ export class ProjectOverviewComponent implements OnInit {
 
   ngOnInit(): void {
     this.releaseTab = this.route.snapshot.data['releaseTab'] ?? 'overview';
-    (this.route.parent ?? this.route).paramMap.subscribe((params) => this.loadOverview(params.get('projectId') ?? ''));
+    (this.route.parent ?? this.route).paramMap.subscribe(params =>
+      this.loadOverview(params.get('projectId') ?? '')
+    );
   }
 
   canManageProject(overview: ProjectOverviewViewModel): boolean {
@@ -73,7 +81,11 @@ export class ProjectOverviewComponent implements OnInit {
 
   canDeployToNetwork(overview: ProjectOverviewViewModel, network: string): boolean {
     return this.deploymentAccess.canDeployToNetwork(
-      this.deploymentAccess.resolve(overview.project, this.authorizedDeployers, this.wallet.account()?.address),
+      this.deploymentAccess.resolve(
+        overview.project,
+        this.authorizedDeployers,
+        this.wallet.account()?.address
+      ),
       `neo3:${network}`
     );
   }
@@ -81,19 +93,32 @@ export class ProjectOverviewComponent implements OnInit {
   canStartDeploymentToNetwork(overview: ProjectOverviewViewModel, network: string): boolean {
     const normalizedNetwork = network.startsWith('neo3:') ? network : `neo3:${network}`;
     return this.deploymentAccess.canStartDeployment(
-      this.deploymentAccess.resolve(overview.project, this.authorizedDeployers, this.wallet.account()?.address),
+      this.deploymentAccess.resolve(
+        overview.project,
+        this.authorizedDeployers,
+        this.wallet.account()?.address
+      ),
       normalizedNetwork
     );
   }
 
   hasAnyDeploymentAccess(overview: ProjectOverviewViewModel): boolean {
-    return this.deploymentAccess.resolve(overview.project, this.authorizedDeployers, this.wallet.account()?.address)
-      .allowedNetworks.length > 0;
+    return (
+      this.deploymentAccess.resolve(
+        overview.project,
+        this.authorizedDeployers,
+        this.wallet.account()?.address
+      ).allowedNetworks.length > 0
+    );
   }
 
   deploymentAccessMessage(overview: ProjectOverviewViewModel): string {
     return this.deploymentAccess.description(
-      this.deploymentAccess.resolve(overview.project, this.authorizedDeployers, this.wallet.account()?.address)
+      this.deploymentAccess.resolve(
+        overview.project,
+        this.authorizedDeployers,
+        this.wallet.account()?.address
+      )
     );
   }
 
@@ -105,30 +130,35 @@ export class ProjectOverviewComponent implements OnInit {
   }
 
   liveDeployments(overview: ProjectOverviewViewModel): Deployment[] {
-    return this.deploymentHistory.latestConfirmedByNetwork(overview.deployments)
-      .filter((deployment) => ['neo3:testnet', 'neo3:mainnet'].includes(deployment.network));
+    return this.deploymentHistory
+      .latestConfirmedByNetwork(overview.deployments)
+      .filter(deployment => ['neo3:testnet', 'neo3:mainnet'].includes(deployment.network));
   }
 
   hasConfirmedDeploymentOnConnectedNetwork(overview: ProjectOverviewViewModel): boolean {
     const network = this.wallet.session()?.network;
-    return Boolean(network && this.deploymentHistory.latestForNetwork(overview.deployments, network));
+    return Boolean(
+      network && this.deploymentHistory.latestForNetwork(overview.deployments, network)
+    );
   }
 
   deploymentAttempts(overview: ProjectOverviewViewModel): Deployment[] {
-    return [...overview.deployments]
-      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+    return [...overview.deployments].sort(
+      (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+    );
   }
 
   overviewArtifacts(overview: ProjectOverviewViewModel): Artifact[] {
-    const artifacts = [...overview.artifacts]
-      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
-    const includedArtifactIds = new Set(artifacts.slice(0, 4).map((artifact) => artifact.id));
+    const artifacts = [...overview.artifacts].sort(
+      (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+    );
+    const includedArtifactIds = new Set(artifacts.slice(0, 4).map(artifact => artifact.id));
 
     for (const deployment of this.liveDeployments(overview)) {
       includedArtifactIds.add(deployment.artifactId);
     }
 
-    return artifacts.filter((artifact) => includedArtifactIds.has(artifact.id));
+    return artifacts.filter(artifact => includedArtifactIds.has(artifact.id));
   }
 
   overviewDeployments(overview: ProjectOverviewViewModel): Deployment[] {
@@ -142,16 +172,27 @@ export class ProjectOverviewComponent implements OnInit {
   }
 
   hasActiveAttempt(overview: ProjectOverviewViewModel, network: string): boolean {
-    return overview.deployments.some((deployment) => deployment.network === `neo3:${network}`
-      && ['preparing', 'awaiting_wallet', 'submitted', 'confirming'].includes(deployment.status));
+    return overview.deployments.some(
+      deployment =>
+        deployment.network === `neo3:${network}` &&
+        ['preparing', 'awaiting_wallet', 'submitted', 'confirming'].includes(deployment.status)
+    );
   }
 
   hasUnrecordedAttemptForConnectedWallet(overview: ProjectOverviewViewModel): boolean {
     const account = this.wallet.account();
     const network = this.wallet.session()?.network;
-    return Boolean(account && network && overview.deployments.some((deployment) =>
-      deployment.network === network && deployment.deployedBy === account.address
-      && ['preparing', 'awaiting_wallet'].includes(deployment.status) && !deployment.transactionId));
+    return Boolean(
+      account &&
+        network &&
+        overview.deployments.some(
+          deployment =>
+            deployment.network === network &&
+            deployment.deployedBy === account.address &&
+            ['preparing', 'awaiting_wallet'].includes(deployment.status) &&
+            !deployment.transactionId
+        )
+    );
   }
 
   deployerLabel(overview: ProjectOverviewViewModel, walletAddress: string): string {
@@ -159,7 +200,9 @@ export class ProjectOverviewComponent implements OnInit {
       return 'Owner';
     }
 
-    return this.authorizedDeployers.some((authorizedDeployer) => authorizedDeployer.walletAddress === walletAddress)
+    return this.authorizedDeployers.some(
+      authorizedDeployer => authorizedDeployer.walletAddress === walletAddress
+    )
       ? 'Authorized deployer'
       : 'Deployment wallet';
   }
@@ -177,7 +220,7 @@ export class ProjectOverviewComponent implements OnInit {
   }
 
   hasWebhookTarget(overview: ProjectOverviewViewModel): boolean {
-    return overview.deployments.some((deployment) => Boolean(deployment.contractHash));
+    return overview.deployments.some(deployment => Boolean(deployment.contractHash));
   }
 
   shortText(value: string | null | undefined, leading = 3, trailing = 4): string {
@@ -225,7 +268,11 @@ export class ProjectOverviewComponent implements OnInit {
     return status === 'confirmed' || !status ? 'success' : 'warning';
   }
 
-  explorerUrl(network: string, kind: 'transaction' | 'contract' | 'address', value: string): string {
+  explorerUrl(
+    network: string,
+    kind: 'transaction' | 'contract' | 'address',
+    value: string
+  ): string {
     const normalizedNetwork = network.toLowerCase().includes('mainnet') ? 'mainnet' : 'testnet';
     const path = kind === 'transaction' ? 'transaction' : kind;
 
@@ -233,7 +280,7 @@ export class ProjectOverviewComponent implements OnInit {
   }
 
   releaseTimeline(overview: ProjectOverviewViewModel): ReleaseTimelineEvent[] {
-    const artifacts = overview.artifacts.map((artifact) => ({
+    const artifacts = overview.artifacts.map(artifact => ({
       id: `artifact-${artifact.id}`,
       occurredAt: artifact.createdAt,
       type: 'artifact' as const,
@@ -241,19 +288,21 @@ export class ProjectOverviewComponent implements OnInit {
       detail: `${artifact.contractName} • ${artifact.nefFileName}`
     }));
 
-    const deployments = overview.deployments.flatMap((deployment) => {
+    const deployments = overview.deployments.flatMap(deployment => {
       const failed = deployment.status === 'failed' || deployment.status === 'record_failed';
       const confirmed = deployment.status === 'confirmed' || !deployment.status;
       const action = deployment.operation === 'update' ? 'Contract update' : 'Contract deployment';
-      const events: ReleaseTimelineEvent[] = [{
-        id: `deployment-started-${deployment.id}`,
-        occurredAt: deployment.createdAt,
-        type: deployment.operation === 'update' ? 'update' : 'deployment',
-        title: `${action} started`,
-        detail: `${deployment.version} • ${this.wallet.networkLabel(deployment.network)} • ${this.shortText(deployment.deployedBy)} (${this.deployerLabel(overview, deployment.deployedBy)})`,
-        network: deployment.network,
-        deployment
-      }];
+      const events: ReleaseTimelineEvent[] = [
+        {
+          id: `deployment-started-${deployment.id}`,
+          occurredAt: deployment.createdAt,
+          type: deployment.operation === 'update' ? 'update' : 'deployment',
+          title: `${action} started`,
+          detail: `${deployment.version} • ${this.wallet.networkLabel(deployment.network)} • ${this.shortText(deployment.deployedBy)} (${this.deployerLabel(overview, deployment.deployedBy)})`,
+          network: deployment.network,
+          deployment
+        }
+      ];
 
       if (deployment.transactionId) {
         events.push({
@@ -272,9 +321,13 @@ export class ProjectOverviewComponent implements OnInit {
           id: `deployment-result-${deployment.id}`,
           occurredAt: deployment.updatedAt,
           type: failed ? 'failure' : deployment.operation === 'update' ? 'update' : 'deployment',
-          title: failed ? `${action} failed` : confirmed ? `${action} confirmed` : `${action} ${this.deploymentStatusLabel(deployment)}`,
+          title: failed
+            ? `${action} failed`
+            : confirmed
+              ? `${action} confirmed`
+              : `${action} ${this.deploymentStatusLabel(deployment)}`,
           detail: failed
-            ? (deployment.failureReason || 'The release did not complete.')
+            ? deployment.failureReason || 'The release did not complete.'
             : `${deployment.version} • ${this.wallet.networkLabel(deployment.network)}${deployment.contractHash ? ` • ${this.shortText(deployment.contractHash, 10, 4)}` : ''}`,
           network: deployment.network,
           deployment
@@ -285,7 +338,9 @@ export class ProjectOverviewComponent implements OnInit {
     });
 
     return [...artifacts, ...deployments]
-      .sort((left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime())
+      .sort(
+        (left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime()
+      )
       .slice(0, 10);
   }
 
@@ -297,49 +352,76 @@ export class ProjectOverviewComponent implements OnInit {
   }
 
   canResumeConfirmation(deployment: Deployment): boolean {
-    const retryableFailure = deployment.status === 'failed'
-      && deployment.failureStage === 'confirmation'
-      && deployment.failureReason?.startsWith('Pusharoo could not verify the submitted invocation:');
-    const locallySubmitted = deployment.status === 'awaiting_wallet'
-      && Boolean(this.attemptCapabilities.getTransactionId(deployment.id));
+    const retryableFailure =
+      deployment.status === 'failed' &&
+      deployment.failureStage === 'confirmation' &&
+      deployment.failureReason?.startsWith('Pusharoo could not verify the submitted invocation:');
+    const locallySubmitted =
+      deployment.status === 'awaiting_wallet' &&
+      Boolean(this.attemptCapabilities.getTransactionId(deployment.id));
     return Boolean(
-      (deployment.transactionId || this.attemptCapabilities.getTransactionId(deployment.id))
-      && (['submitted', 'confirming'].includes(deployment.status) || retryableFailure || locallySubmitted)
-      && this.wallet.account()?.address === deployment.deployedBy
+      (deployment.transactionId || this.attemptCapabilities.getTransactionId(deployment.id)) &&
+        (['submitted', 'confirming'].includes(deployment.status) ||
+          retryableFailure ||
+          locallySubmitted) &&
+        this.wallet.account()?.address === deployment.deployedBy
     );
   }
 
   canCancelAttempt(deployment: Deployment): boolean {
-    return deployment.status === 'awaiting_wallet'
-      && !deployment.transactionId
-      && !this.attemptCapabilities.getTransactionId(deployment.id)
-      && this.wallet.account()?.address === deployment.deployedBy;
+    return (
+      deployment.status === 'awaiting_wallet' &&
+      !deployment.transactionId &&
+      !this.attemptCapabilities.getTransactionId(deployment.id) &&
+      this.wallet.account()?.address === deployment.deployedBy
+    );
   }
 
   async cancelAttempt(overview: ProjectOverviewViewModel, deployment: Deployment): Promise<void> {
-    if (!this.canCancelAttempt(deployment)
-      || !window.confirm('Cancel this attempt only if your wallet did not submit a transaction. Continue?')) return;
+    if (
+      !this.canCancelAttempt(deployment) ||
+      !window.confirm(
+        'Cancel this attempt only if your wallet did not submit a transaction. Continue?'
+      )
+    )
+      return;
     this.confirmingDeploymentId = deployment.id;
     this.confirmationErrorDeploymentId = '';
     this.confirmationError = '';
     try {
       await this.auth.ensureAuthenticated();
-      const renewed = await firstValueFrom(this.api.resumeDeploymentAttempt(overview.project.id, deployment.id));
-      if (!renewed.attemptCapability) throw new Error('Pusharoo could not renew the attempt. Refresh and try again.');
-      await firstValueFrom(this.api.markDeploymentFailed(overview.project.id, deployment.id,
-        renewed.attemptCapability, 'wallet', 'Canceled before transaction submission.'));
+      const renewed = await firstValueFrom(
+        this.api.resumeDeploymentAttempt(overview.project.id, deployment.id)
+      );
+      if (!renewed.attemptCapability)
+        throw new Error('Pusharoo could not renew the attempt. Refresh and try again.');
+      await firstValueFrom(
+        this.api.markDeploymentFailed(
+          overview.project.id,
+          deployment.id,
+          renewed.attemptCapability,
+          'wallet',
+          'Canceled before transaction submission.'
+        )
+      );
       this.attemptCapabilities.remove(deployment.id);
       if (this.workspace) this.workspace.overview = null;
       this.loadOverview(overview.project.id);
     } catch (error) {
       this.confirmationErrorDeploymentId = deployment.id;
-      this.confirmationError = this.errors.format(error, 'Could not cancel this deployment attempt.');
+      this.confirmationError = this.errors.format(
+        error,
+        'Could not cancel this deployment attempt.'
+      );
     } finally {
       this.confirmingDeploymentId = '';
     }
   }
 
-  async resumeConfirmation(overview: ProjectOverviewViewModel, deployment: Deployment): Promise<void> {
+  async resumeConfirmation(
+    overview: ProjectOverviewViewModel,
+    deployment: Deployment
+  ): Promise<void> {
     if (!this.canResumeConfirmation(deployment)) {
       return;
     }
@@ -349,20 +431,36 @@ export class ProjectOverviewComponent implements OnInit {
     this.confirmationError = '';
     try {
       await this.auth.ensureAuthenticated();
-      const renewed = await firstValueFrom(this.api.resumeDeploymentAttempt(overview.project.id, deployment.id));
+      const renewed = await firstValueFrom(
+        this.api.resumeDeploymentAttempt(overview.project.id, deployment.id)
+      );
       let capability = renewed.attemptCapability;
-      if (!capability) throw new Error('Pusharoo could not renew the attempt. Refresh and try again.');
+      if (!capability)
+        throw new Error('Pusharoo could not renew the attempt. Refresh and try again.');
       this.attemptCapabilities.set(deployment.id, capability);
-      const transactionId = renewed.transactionId ?? this.attemptCapabilities.getTransactionId(deployment.id);
-      if (!transactionId) throw new Error('The submitted transaction ID is missing. Recover it by transaction hash.');
+      const transactionId =
+        renewed.transactionId ?? this.attemptCapabilities.getTransactionId(deployment.id);
+      if (!transactionId)
+        throw new Error('The submitted transaction ID is missing. Recover it by transaction hash.');
       if (!renewed.transactionId) {
-        const submitted = await firstValueFrom(this.api.markDeploymentSubmitted(
-          overview.project.id, deployment.id, transactionId, capability));
+        const submitted = await firstValueFrom(
+          this.api.markDeploymentSubmitted(
+            overview.project.id,
+            deployment.id,
+            transactionId,
+            capability
+          )
+        );
         capability = submitted.attemptCapability;
-        if (!capability) throw new Error('Pusharoo could not renew the submitted attempt. Try Resume Confirmation again.');
+        if (!capability)
+          throw new Error(
+            'Pusharoo could not renew the submitted attempt. Try Resume Confirmation again.'
+          );
         this.attemptCapabilities.set(deployment.id, capability);
       }
-      await firstValueFrom(this.api.confirmDeploymentAttempt(overview.project.id, deployment.id, capability));
+      await firstValueFrom(
+        this.api.confirmDeploymentAttempt(overview.project.id, deployment.id, capability)
+      );
       this.attemptCapabilities.remove(deployment.id);
       if (this.workspace) this.workspace.overview = null;
       this.loadOverview(overview.project.id);
@@ -389,7 +487,7 @@ export class ProjectOverviewComponent implements OnInit {
     this.loadError = '';
     this.overview = null;
     this.api.getProjectOverview(projectId).subscribe({
-      next: (overview) => {
+      next: overview => {
         this.overview = overview;
         if (this.workspace) {
           this.workspace.overview = overview;
@@ -397,7 +495,7 @@ export class ProjectOverviewComponent implements OnInit {
         this.loadAuthorizedDeployers(projectId);
         this.isLoading = false;
       },
-      error: (error) => {
+      error: error => {
         this.loadError = this.errors.format(error, 'Could not load this project.');
         this.isLoading = false;
       }
@@ -411,12 +509,12 @@ export class ProjectOverviewComponent implements OnInit {
   private loadAuthorizedDeployers(projectId: string): void {
     this.authorizedDeployerAccessError = '';
     this.api.getAuthorizedDeployers(projectId).subscribe({
-      next: (authorizedDeployers) => this.authorizedDeployers = authorizedDeployers,
+      next: authorizedDeployers => (this.authorizedDeployers = authorizedDeployers),
       error: () => {
         this.authorizedDeployers = [];
-        this.authorizedDeployerAccessError = 'Could not verify authorized-deployer access. Refresh before starting a deployment.';
+        this.authorizedDeployerAccessError =
+          'Could not verify authorized-deployer access. Refresh before starting a deployment.';
       }
     });
   }
-
 }

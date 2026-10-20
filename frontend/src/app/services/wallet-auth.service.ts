@@ -6,7 +6,13 @@ import { ApiErrorFormatterService } from './api-error-formatter.service';
 import { RuntimeConfigService } from './runtime-config.service';
 import { WalletService } from './wallet.service';
 
-export type WalletAuthState = 'checking' | 'anonymous' | 'signing-in' | 'authenticated' | 'expired' | 'logout-pending';
+export type WalletAuthState =
+  | 'checking'
+  | 'anonymous'
+  | 'signing-in'
+  | 'authenticated'
+  | 'expired'
+  | 'logout-pending';
 
 @Injectable({ providedIn: 'root' })
 export class WalletAuthService {
@@ -26,8 +32,11 @@ export class WalletAuthService {
   readonly errorMessage = signal('');
   readonly canUseSession = computed(() => {
     const session = this.serverSession();
-    return this.state() === 'authenticated' && this.matchesConnectedWallet(session)
-      && Date.parse(session!.expiresAtUtc ?? '') > Date.now();
+    return (
+      this.state() === 'authenticated' &&
+      this.matchesConnectedWallet(session) &&
+      Date.parse(session!.expiresAtUtc ?? '') > Date.now()
+    );
   });
 
   constructor(
@@ -48,11 +57,16 @@ export class WalletAuthService {
       if (disconnectEpoch !== this.lastDisconnectEpoch) {
         this.lastDisconnectEpoch = disconnectEpoch;
         void this.logout().catch(() => {});
-      } else if (accountChanged && account && session?.authenticated && !this.matchesConnectedWallet(session)) {
+      } else if (
+        accountChanged &&
+        account &&
+        session?.authenticated &&
+        !this.matchesConnectedWallet(session)
+      ) {
         void this.logout().catch(() => {});
       }
     });
-    window.addEventListener('storage', (event) => this.onStorageChange(event));
+    window.addEventListener('storage', event => this.onStorageChange(event));
   }
 
   restore(): Promise<void> {
@@ -60,8 +74,12 @@ export class WalletAuthService {
     const promise = this.restoreNow();
     this.restorePromise = promise;
     void promise.then(
-      () => { if (this.restorePromise === promise) this.restorePromise = null; },
-      () => { if (this.restorePromise === promise) this.restorePromise = null; }
+      () => {
+        if (this.restorePromise === promise) this.restorePromise = null;
+      },
+      () => {
+        if (this.restorePromise === promise) this.restorePromise = null;
+      }
     );
     return promise;
   }
@@ -72,8 +90,12 @@ export class WalletAuthService {
     const promise = this.loginNow();
     this.loginPromise = promise;
     void promise.then(
-      () => { if (this.loginPromise === promise) this.loginPromise = null; },
-      () => { if (this.loginPromise === promise) this.loginPromise = null; }
+      () => {
+        if (this.loginPromise === promise) this.loginPromise = null;
+      },
+      () => {
+        if (this.loginPromise === promise) this.loginPromise = null;
+      }
     );
     return promise;
   }
@@ -120,7 +142,9 @@ export class WalletAuthService {
       if (generation !== this.generation) return;
       this.serverSession.set(null);
       this.state.set(this.isLogoutPending() ? 'logout-pending' : 'anonymous');
-      this.errorMessage.set(this.errors.format(error, 'Could not check the Pusharoo login session.'));
+      this.errorMessage.set(
+        this.errors.format(error, 'Could not check the Pusharoo login session.')
+      );
     }
   }
 
@@ -129,18 +153,25 @@ export class WalletAuthService {
     if (this.isLogoutPending()) {
       const pendingGeneration = this.generation;
       await this.finishLogout();
-      if (pendingGeneration !== this.generation) throw new Error('Wallet sign-in was canceled. Try again.');
+      if (pendingGeneration !== this.generation)
+        throw new Error('Wallet sign-in was canceled. Try again.');
     }
     const account = this.wallet.account();
     const walletSession = this.wallet.session();
-    if (!account || !walletSession) throw new Error('Connect a wallet before signing in to Pusharoo.');
+    if (!account || !walletSession)
+      throw new Error('Connect a wallet before signing in to Pusharoo.');
     if (this.canUseSession()) return;
 
     const initialGeneration = this.generation;
     this.errorMessage.set('');
     try {
       const existing = await this.fetchSession();
-      this.assertWalletCurrent(account.address, account.scriptHash, walletSession.network, initialGeneration);
+      this.assertWalletCurrent(
+        account.address,
+        account.scriptHash,
+        walletSession.network,
+        initialGeneration
+      );
       if (existing.authenticated) {
         if (this.matchesConnectedWallet(existing)) {
           this.acceptSession(existing);
@@ -148,7 +179,8 @@ export class WalletAuthService {
         }
         const expectedGeneration = this.generation + 1;
         await this.logout();
-        if (this.generation !== expectedGeneration) throw new Error('Wallet sign-in was canceled. Try again.');
+        if (this.generation !== expectedGeneration)
+          throw new Error('Wallet sign-in was canceled. Try again.');
       }
 
       const generation = this.generation;
@@ -158,9 +190,19 @@ export class WalletAuthService {
         network: walletSession.network,
         provider: walletSession.provider
       });
-      this.assertWalletCurrent(account.address, account.scriptHash, walletSession.network, generation);
+      this.assertWalletCurrent(
+        account.address,
+        account.scriptHash,
+        walletSession.network,
+        generation
+      );
       const signature = await this.wallet.signWalletLogin(challenge);
-      this.assertWalletCurrent(account.address, account.scriptHash, walletSession.network, generation);
+      this.assertWalletCurrent(
+        account.address,
+        account.scriptHash,
+        walletSession.network,
+        generation
+      );
       const session = await this.postWithCsrfRefresh<WalletLoginSession>('login', {
         challengeId: challenge.challengeId,
         signature
@@ -168,7 +210,9 @@ export class WalletAuthService {
       if (generation !== this.generation || !this.matchesConnectedWallet(session)) {
         if (this.logoutPromise) await this.logoutPromise.catch(() => {});
         await this.logout();
-        throw new Error('The connected wallet changed during sign-in. Sign in again with the current wallet.');
+        throw new Error(
+          'The connected wallet changed during sign-in. Sign in again with the current wallet.'
+        );
       }
       this.acceptSession(session);
       this.broadcast('login');
@@ -190,7 +234,12 @@ export class WalletAuthService {
       this.broadcast('logout');
     } catch (error) {
       this.state.set('logout-pending');
-      this.errorMessage.set(this.errors.format(error, 'Could not finish signing out. Try again when Pusharoo is available.'));
+      this.errorMessage.set(
+        this.errors.format(
+          error,
+          'Could not finish signing out. Try again when Pusharoo is available.'
+        )
+      );
       throw error;
     }
   }
@@ -200,8 +249,12 @@ export class WalletAuthService {
     const promise = this.completeLogout();
     this.logoutPromise = promise;
     void promise.then(
-      () => { if (this.logoutPromise === promise) this.logoutPromise = null; },
-      () => { if (this.logoutPromise === promise) this.logoutPromise = null; }
+      () => {
+        if (this.logoutPromise === promise) this.logoutPromise = null;
+      },
+      () => {
+        if (this.logoutPromise === promise) this.logoutPromise = null;
+      }
     );
     return promise;
   }
@@ -223,7 +276,12 @@ export class WalletAuthService {
 
   private acceptSession(session: WalletLoginSession): void {
     this.clearExpiryTimer();
-    if (!session.authenticated || !session.address || !session.scriptHash || !session.expiresAtUtc) {
+    if (
+      !session.authenticated ||
+      !session.address ||
+      !session.scriptHash ||
+      !session.expiresAtUtc
+    ) {
       this.serverSession.set(null);
       this.state.set('anonymous');
       return;
@@ -236,21 +294,36 @@ export class WalletAuthService {
     }
     this.serverSession.set(session);
     this.state.set('authenticated');
-    this.expiryTimer = window.setTimeout(() => this.invalidateAfterUnauthorized(), Math.min(remaining, 2_147_483_647));
+    this.expiryTimer = window.setTimeout(
+      () => this.invalidateAfterUnauthorized(),
+      Math.min(remaining, 2_147_483_647)
+    );
   }
 
-  private assertWalletCurrent(address: string, scriptHash: string, network: string, generation: number): void {
-    if (generation !== this.generation || this.wallet.account()?.address !== address
-      || this.wallet.account()?.scriptHash?.toLowerCase() !== scriptHash.toLowerCase()
-      || this.wallet.session()?.network !== network) {
+  private assertWalletCurrent(
+    address: string,
+    scriptHash: string,
+    network: string,
+    generation: number
+  ): void {
+    if (
+      generation !== this.generation ||
+      this.wallet.account()?.address !== address ||
+      this.wallet.account()?.scriptHash?.toLowerCase() !== scriptHash.toLowerCase() ||
+      this.wallet.session()?.network !== network
+    ) {
       throw new Error('The wallet changed during sign-in. Try again with the connected account.');
     }
   }
 
   private matchesConnectedWallet(session: WalletLoginSession | null): boolean {
     const account = this.wallet.account();
-    return Boolean(session?.authenticated && account && session.address === account.address
-      && session.scriptHash?.toLowerCase() === account.scriptHash?.toLowerCase());
+    return Boolean(
+      session?.authenticated &&
+        account &&
+        session.address === account.address &&
+        session.scriptHash?.toLowerCase() === account.scriptHash?.toLowerCase()
+    );
   }
 
   private accountKey(): string | null {
@@ -260,15 +333,21 @@ export class WalletAuthService {
 
   private apiBaseUrl(): string {
     const url = new URL(this.runtimeConfig.value.apiBaseUrl, window.location.origin);
-    if (url.origin !== window.location.origin || (url.pathname !== '/api' && !url.pathname.startsWith('/api/'))) {
+    if (
+      url.origin !== window.location.origin ||
+      (url.pathname !== '/api' && !url.pathname.startsWith('/api/'))
+    ) {
       throw new Error('Pusharoo wallet login requires the same-origin /api route.');
     }
     return url.pathname.replace(/\/$/, '');
   }
 
   private isAntiforgeryError(error: unknown): boolean {
-    return error instanceof HttpErrorResponse && error.status === 403
-      && error.error?.code === 'antiforgery_failed';
+    return (
+      error instanceof HttpErrorResponse &&
+      error.status === 403 &&
+      error.error?.code === 'antiforgery_failed'
+    );
   }
 
   private clearExpiryTimer(): void {
@@ -277,18 +356,27 @@ export class WalletAuthService {
   }
 
   private isLogoutPending(): boolean {
-    try { return localStorage.getItem(this.pendingKey) === '1'; } catch { return this.state() === 'logout-pending'; }
+    try {
+      return localStorage.getItem(this.pendingKey) === '1';
+    } catch {
+      return this.state() === 'logout-pending';
+    }
   }
 
   private setLogoutPending(pending: boolean): void {
     try {
       if (pending) localStorage.setItem(this.pendingKey, '1');
       else localStorage.removeItem(this.pendingKey);
-    } catch { /* The in-memory state still blocks protected actions. */ }
+    } catch {}
   }
 
   private broadcast(action: 'login' | 'logout' | 'logout-pending'): void {
-    try { localStorage.setItem(this.eventKey, JSON.stringify({ action, tabId: this.tabId, at: Date.now() })); } catch { /* Storage may be unavailable. */ }
+    try {
+      localStorage.setItem(
+        this.eventKey,
+        JSON.stringify({ action, tabId: this.tabId, at: Date.now() })
+      );
+    } catch {}
   }
 
   private onStorageChange(event: StorageEvent): void {
@@ -309,6 +397,6 @@ export class WalletAuthService {
         this.serverSession.set(null);
         this.state.set(message.action === 'logout' ? 'anonymous' : 'logout-pending');
       }
-    } catch { /* Ignore malformed events from other tabs. */ }
+    } catch {}
   }
 }

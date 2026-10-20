@@ -78,7 +78,7 @@ export class ArtifactCompareComponent implements OnInit {
     this.isProjectLoading = true;
     this.loadError = '';
     this.api.getProjectOverview(this.projectId).subscribe({
-      next: (overview) => {
+      next: overview => {
         this.overview = overview;
         this.artifacts = overview?.artifacts ?? [];
 
@@ -90,7 +90,7 @@ export class ArtifactCompareComponent implements OnInit {
 
         this.isProjectLoading = false;
       },
-      error: (error) => {
+      error: error => {
         this.overview = null;
         this.artifacts = [];
         this.loadError = this.errors.format(error, 'Could not load this project.');
@@ -115,7 +115,7 @@ export class ArtifactCompareComponent implements OnInit {
 
     this.isLoading = true;
     this.api.compareArtifacts(this.projectId, this.fromVersion, this.toVersion).subscribe({
-      next: (comparison) => {
+      next: comparison => {
         this.isLoading = false;
         this.comparison = comparison;
         this.errorMessage = comparison ? '' : 'Could not compare those artifact versions.';
@@ -145,21 +145,21 @@ export class ArtifactCompareComponent implements OnInit {
 
     const fromParameters = this.parseParameters(match[1]);
     const toParameters = this.parseParameters(match[2]);
-    const fromMap = new Map(fromParameters.map((parameter) => [parameter.name, parameter]));
-    const toMap = new Map(toParameters.map((parameter) => [parameter.name, parameter]));
-    const added = toParameters.filter((parameter) => !fromMap.has(parameter.name));
-    const removed = fromParameters.filter((parameter) => !toMap.has(parameter.name));
+    const fromMap = new Map(fromParameters.map(parameter => [parameter.name, parameter]));
+    const toMap = new Map(toParameters.map(parameter => [parameter.name, parameter]));
+    const added = toParameters.filter(parameter => !fromMap.has(parameter.name));
+    const removed = fromParameters.filter(parameter => !toMap.has(parameter.name));
     const changed = toParameters
-      .filter((parameter) => {
+      .filter(parameter => {
         const fromParameter = fromMap.get(parameter.name);
         return fromParameter && fromParameter.type !== parameter.type;
       })
-      .map((parameter) => ({
+      .map(parameter => ({
         name: parameter.name,
         fromType: fromMap.get(parameter.name)?.type ?? '',
         toType: parameter.type
       }));
-    const unchanged = toParameters.filter((parameter) => {
+    const unchanged = toParameters.filter(parameter => {
       const fromParameter = fromMap.get(parameter.name);
       return fromParameter && fromParameter.type === parameter.type;
     });
@@ -175,8 +175,8 @@ export class ArtifactCompareComponent implements OnInit {
 
   methodDetails(version: string, methodName: string): MethodDetails | null {
     const method = this.artifacts
-      .find((artifact) => this.isVersionMatch(artifact.version, version))
-      ?.manifest.abi.methods.find((artifactMethod) => artifactMethod.name === methodName);
+      .find(artifact => this.isVersionMatch(artifact.version, version))
+      ?.manifest.abi.methods.find(artifactMethod => artifactMethod.name === methodName);
 
     if (!method) {
       return null;
@@ -191,7 +191,7 @@ export class ArtifactCompareComponent implements OnInit {
   }
 
   private toParameterEntries(parameters: NeoParameter[]): ParameterEntry[] {
-    return parameters.map((parameter) => ({
+    return parameters.map(parameter => ({
       name: parameter.name,
       type: parameter.type,
       label: `${parameter.name}: ${parameter.type}`
@@ -212,7 +212,7 @@ export class ArtifactCompareComponent implements OnInit {
       return [];
     }
 
-    return trimmedValue.split(',').map((parameter) => {
+    return trimmedValue.split(',').map(parameter => {
       const [rawName, ...rawType] = parameter.trim().split(':');
       const name = rawName.trim();
       const type = rawType.join(':').trim();

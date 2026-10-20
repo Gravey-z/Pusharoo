@@ -19,8 +19,14 @@ public sealed class WebhookSubscriptionRepository(
     {
         if (lifecycle is not null && subscription.ProjectId is not null)
         {
-            var error = await lifecycle.MutateSubscriptionAsync(subscription, true, false, cancellationToken);
-            if (error is not null) throw new InvalidOperationException(error);
+            var error = await lifecycle.MutateSubscriptionAsync(
+                subscription,
+                true,
+                false,
+                cancellationToken
+            );
+            if (error is not null)
+                throw new InvalidOperationException(error);
             return;
         }
         await db.Subscriptions.InsertOneAsync(subscription, cancellationToken: cancellationToken);
@@ -30,10 +36,13 @@ public sealed class WebhookSubscriptionRepository(
         CancellationToken cancellationToken
     )
     {
-        return await OverlayAsync(await db
-            .Subscriptions.Find(x => !x.Deleted)
-            .SortByDescending(subscription => subscription.CreatedAt)
-            .ToListAsync(cancellationToken), cancellationToken);
+        return await OverlayAsync(
+            await db
+                .Subscriptions.Find(x => !x.Deleted)
+                .SortByDescending(subscription => subscription.CreatedAt)
+                .ToListAsync(cancellationToken),
+            cancellationToken
+        );
     }
 
     public async Task<IReadOnlyList<WebhookSubscriptionDocument>> GetByProjectIdAsync(
@@ -43,14 +52,17 @@ public sealed class WebhookSubscriptionRepository(
     {
         var now = clock.GetUtcNow().UtcDateTime;
 
-        return await OverlayAsync(await db
-            .Subscriptions.Find(subscription =>
-                subscription.ProjectId == projectId
-                && !subscription.Deleted
-                && (subscription.ExpiresAt == null || subscription.ExpiresAt > now)
-            )
-            .SortByDescending(subscription => subscription.CreatedAt)
-            .ToListAsync(cancellationToken), cancellationToken);
+        return await OverlayAsync(
+            await db
+                .Subscriptions.Find(subscription =>
+                    subscription.ProjectId == projectId
+                    && !subscription.Deleted
+                    && (subscription.ExpiresAt == null || subscription.ExpiresAt > now)
+                )
+                .SortByDescending(subscription => subscription.CreatedAt)
+                .ToListAsync(cancellationToken),
+            cancellationToken
+        );
     }
 
     public async Task<WebhookSubscriptionDocument?> GetByIdAsync(
@@ -58,7 +70,10 @@ public sealed class WebhookSubscriptionRepository(
         CancellationToken cancellationToken
     )
     {
-        var value = await db.Subscriptions.Find(subscription => subscription.Id == subscriptionId && !subscription.Deleted)
+        var value = await db
+            .Subscriptions.Find(subscription =>
+                subscription.Id == subscriptionId && !subscription.Deleted
+            )
             .FirstOrDefaultAsync(cancellationToken);
         return value is null ? null : (await OverlayAsync([value], cancellationToken)).Single();
     }
@@ -111,8 +126,14 @@ public sealed class WebhookSubscriptionRepository(
             )
         );
 
-        return (await OverlayAsync(await db.Subscriptions.Find(filter).ToListAsync(cancellationToken), cancellationToken))
-            .Where(x => x.IsEnabled).ToArray();
+        return (
+            await OverlayAsync(
+                await db.Subscriptions.Find(filter).ToListAsync(cancellationToken),
+                cancellationToken
+            )
+        )
+            .Where(x => x.IsEnabled)
+            .ToArray();
     }
 
     public async Task<bool> ReplaceAsync(
@@ -121,7 +142,13 @@ public sealed class WebhookSubscriptionRepository(
     )
     {
         if (lifecycle is not null && subscription.ProjectId is not null)
-            return await lifecycle.MutateSubscriptionAsync(subscription, false, false, cancellationToken) is null;
+            return await lifecycle.MutateSubscriptionAsync(
+                subscription,
+                false,
+                false,
+                cancellationToken
+            )
+                is null;
         var result = await db.Subscriptions.ReplaceOneAsync(
             item => item.Id == subscription.Id,
             subscription,
@@ -137,7 +164,13 @@ public sealed class WebhookSubscriptionRepository(
         {
             var subscription = await GetByIdAsync(subscriptionId, cancellationToken);
             return subscription?.ProjectId is not null
-                && await lifecycle.MutateSubscriptionAsync(subscription, false, true, cancellationToken) is null;
+                && await lifecycle.MutateSubscriptionAsync(
+                    subscription,
+                    false,
+                    true,
+                    cancellationToken
+                )
+                    is null;
         }
         var result = await db.Subscriptions.DeleteOneAsync(
             subscription => subscription.Id == subscriptionId,
@@ -172,7 +205,15 @@ public sealed class WebhookSubscriptionRepository(
                 }
                 var current = await GetByIdAsync(subscription.Id, cancellationToken);
                 if (current is not null)
-                    await lifecycle.MutateSubscriptionAsync(current with { ExpiresAt = current.CreatedAt.AddDays(days) }, false, false, cancellationToken);
+                    await lifecycle.MutateSubscriptionAsync(
+                        current with
+                        {
+                            ExpiresAt = current.CreatedAt.AddDays(days),
+                        },
+                        false,
+                        false,
+                        cancellationToken
+                    );
                 continue;
             }
             await db.Subscriptions.UpdateOneAsync(
@@ -223,11 +264,23 @@ public sealed class WebhookSubscriptionRepository(
             foreach (var id in ids)
             {
                 var value = await GetByIdAsync(id, cancellationToken);
-                if (value?.ProjectId is null) continue;
+                if (value?.ProjectId is null)
+                    continue;
                 await lifecycle.EnsureAsync(value.ProjectId, cancellationToken);
                 value = await GetByIdAsync(id, cancellationToken);
-                if (value?.ExpiresAt is { } expiry && expiry <= now
-                    && await lifecycle.MutateSubscriptionAsync(value, false, true, cancellationToken, expiredOnly: true) is null) removed.Add(id);
+                if (
+                    value?.ExpiresAt is { } expiry
+                    && expiry <= now
+                    && await lifecycle.MutateSubscriptionAsync(
+                        value,
+                        false,
+                        true,
+                        cancellationToken,
+                        expiredOnly: true
+                    )
+                        is null
+                )
+                    removed.Add(id);
             }
             return removed;
         }
@@ -238,16 +291,39 @@ public sealed class WebhookSubscriptionRepository(
         return ids;
     }
 
-    private async Task<IReadOnlyList<WebhookSubscriptionDocument>> OverlayAsync(IReadOnlyList<WebhookSubscriptionDocument> items, CancellationToken ct)
+    private async Task<IReadOnlyList<WebhookSubscriptionDocument>> OverlayAsync(
+        IReadOnlyList<WebhookSubscriptionDocument> items,
+        CancellationToken ct
+    )
     {
-        var projects = items.Where(x => x.ProjectId is not null).Select(x => x.ProjectId!).Distinct().ToArray();
-        var states = await db.ProjectAdmissions.Find(x => projects.Contains(x.Id)).Project(x => new { x.Id, x.Slots, x.Transition }).ToListAsync(ct);
-        return items.Select(x => {
-            var state = states.SingleOrDefault(s => s.Id == x.ProjectId);
-            if (state is null) return x;
-            var slots = state.Transition?.Slots ?? state.Slots;
-            var enabled = slots.Any(s => s.Id == x.Id && s.Network == x.Network);
-            return x with { IsEnabled = enabled, PauseReason = !enabled && x.IsEnabled ? "package_limit" : x.PauseReason };
-        }).ToArray();
+        var projects = items
+            .Where(x => x.ProjectId is not null)
+            .Select(x => x.ProjectId!)
+            .Distinct()
+            .ToArray();
+        var states = await db
+            .ProjectAdmissions.Find(x => projects.Contains(x.Id))
+            .Project(x => new
+            {
+                x.Id,
+                x.Slots,
+                x.Transition,
+            })
+            .ToListAsync(ct);
+        return items
+            .Select(x =>
+            {
+                var state = states.SingleOrDefault(s => s.Id == x.ProjectId);
+                if (state is null)
+                    return x;
+                var slots = state.Transition?.Slots ?? state.Slots;
+                var enabled = slots.Any(s => s.Id == x.Id && s.Network == x.Network);
+                return x with
+                {
+                    IsEnabled = enabled,
+                    PauseReason = !enabled && x.IsEnabled ? "package_limit" : x.PauseReason,
+                };
+            })
+            .ToArray();
     }
 }

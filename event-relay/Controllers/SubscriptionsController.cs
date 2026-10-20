@@ -41,10 +41,21 @@ public sealed class SubscriptionsController(SubscriptionManagementService manage
         Ok(await management.TransitionsAsync(projectId, ct));
 
     [HttpPost("transitions/selection")]
-    public async Task<IActionResult> Selection(string projectId, SetRelayDowngradeSelectionRequest request, CancellationToken ct)
+    public async Task<IActionResult> Selection(
+        string projectId,
+        SetRelayDowngradeSelectionRequest request,
+        CancellationToken ct
+    )
     {
-        try { await management.SetDowngradeSelectionAsync(projectId, request, ct); return Ok(await management.TransitionsAsync(projectId, ct)); }
-        catch (PaymentValidationException e) { return StatusCode(e.StatusCode, new { error = e.Message }); }
+        try
+        {
+            await management.SetDowngradeSelectionAsync(projectId, request, ct);
+            return Ok(await management.TransitionsAsync(projectId, ct));
+        }
+        catch (PaymentValidationException e)
+        {
+            return StatusCode(e.StatusCode, new { error = e.Message });
+        }
     }
 
     [HttpPut("{subscriptionId}")]

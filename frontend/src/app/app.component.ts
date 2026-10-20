@@ -10,7 +10,10 @@ import { WalletAuthService } from './services/wallet-auth.service';
   styleUrl: './app.component.scss'
 })
 export class AppComponent implements OnInit {
-  constructor(private readonly wallet: WalletService, private readonly auth: WalletAuthService) {}
+  constructor(
+    private readonly wallet: WalletService,
+    private readonly auth: WalletAuthService
+  ) {}
 
   ngOnInit(): void {
     void this.initializeSession();
@@ -19,9 +22,7 @@ export class AppComponent implements OnInit {
   private async initializeSession(): Promise<void> {
     try {
       await this.wallet.restoreSavedSession();
-    } catch {
-      // A failed wallet restoration should not prevent checking the API session.
-    }
+    } catch {}
     await this.auth.restore();
   }
 }

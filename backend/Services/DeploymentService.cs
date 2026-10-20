@@ -70,7 +70,7 @@ public sealed class DeploymentService(
             Operation = "deploy",
             Status = "confirmed",
             CreatedAt = now,
-            UpdatedAt = now
+            UpdatedAt = now,
         };
         await deployments.InsertAsync(deployment, cancellationToken);
 
@@ -119,7 +119,7 @@ public sealed class DeploymentService(
             ),
             AttemptCapabilityExpiresAtUtc = now.AddMinutes(10),
             CreatedAt = now,
-            UpdatedAt = now
+            UpdatedAt = now,
         };
 
         await deployments.InsertAsync(deployment, cancellationToken);

@@ -1,9 +1,15 @@
-<app-page-shell title="Testnet GAS Faucet" [breadcrumbs]="[{ label: 'Workspace', link: '/projects' }, { label: 'Faucet' }]">
+<app-page-shell
+  title="Testnet GAS Faucet"
+  [breadcrumbs]="[{ label: 'Workspace', link: '/projects' }, { label: 'Faucet' }]"
+>
   <section class="faucet-intro">
     <div>
       <p class="eyebrow">NEO N3 TESTNET</p>
       <h2>Get GAS for testing</h2>
-      <p>Claim test GAS for your wallet here. Pusharoo covers the transaction fee for faucet claims.</p>
+      <p
+        >Claim test GAS for your wallet here. Pusharoo covers the transaction fee for faucet
+        claims.</p
+      >
     </div>
     <span class="network-badge">N3:Testnet only</span>
   </section>
@@ -12,20 +18,31 @@
     <section class="notice notice-warning" role="status">
       <div>
         <strong>This faucet is unavailable on mainnet.</strong>
-        <p>Switch Pusharoo and your wallet to N3:Testnet to request test GAS. No mainnet transaction will be sent.</p>
+        <p
+          >Switch Pusharoo and your wallet to N3:Testnet to request test GAS. No mainnet transaction
+          will be sent.</p
+        >
       </div>
-      <button type="button" class="secondary-button" (click)="switchToTestnet()">Switch to testnet</button>
+      <button type="button" class="secondary-button" (click)="switchToTestnet()"
+        >Switch to testnet</button
+      >
     </section>
   } @else {
     <section class="faucet-overview" aria-label="Faucet status">
       <article class="stat-card">
         <span>Current claim</span>
-        <strong>{{ status?.claimAmount ? formatDatoshi(status?.claimAmount) + ' GAS' : '—' }}</strong>
+        <strong>{{
+          status?.claimAmount ? formatDatoshi(status?.claimAmount) + ' GAS' : '—'
+        }}</strong>
         <small>Amount set by the faucet contract</small>
       </article>
       <article class="stat-card">
         <span>Daily allowance left</span>
-        <strong>{{ status?.remainingDailyAllowance ? formatDatoshi(status?.remainingDailyAllowance) + ' GAS' : '—' }}</strong>
+        <strong>{{
+          status?.remainingDailyAllowance
+            ? formatDatoshi(status?.remainingDailyAllowance) + ' GAS'
+            : '—'
+        }}</strong>
         <small>Shared by all testnet wallets</small>
       </article>
       <article class="stat-card">
@@ -39,14 +56,22 @@
       <section class="notice" role="status">Checking faucet status on N3:Testnet…</section>
     } @else if (statusError) {
       <section class="notice notice-error" role="alert">
-        <div><strong>Faucet status is unavailable.</strong><p>{{ statusError }}</p></div>
+        <div
+          ><strong>Faucet status is unavailable.</strong><p>{{ statusError }}</p></div
+        >
         <button type="button" class="secondary-button" (click)="refresh()">Try again</button>
       </section>
     } @else if (status?.paused === 'true') {
-      <section class="notice notice-warning" role="status"><strong>Claims are paused.</strong><p>The faucet administrator has temporarily stopped claims.</p></section>
+      <section class="notice notice-warning" role="status"
+        ><strong>Claims are paused.</strong
+        ><p>The faucet administrator has temporarily stopped claims.</p></section
+      >
     } @else if (status) {
       @if (status.balance === '0') {
-        <section class="notice notice-warning" role="status"><strong>The faucet is out of GAS.</strong><p>Claims will be available again when the contract is funded.</p></section>
+        <section class="notice notice-warning" role="status"
+          ><strong>The faucet is out of GAS.</strong
+          ><p>Claims will be available again when the contract is funded.</p></section
+        >
       }
 
       <section class="claim-panel" aria-labelledby="claim-heading">
@@ -66,17 +91,31 @@
           <div class="registration-line">
             <span class="state-dot" [class.state-dot--ready]="claimAvailable"></span>
             <strong>{{ claimAvailable ? 'Claim available' : 'Claim status' }}</strong>
-            <button type="button" class="refresh-status" [disabled]="statusLoading || !!busy" (click)="refresh()">Refresh status</button>
+            <button
+              type="button"
+              class="refresh-status"
+              [disabled]="statusLoading || !!busy"
+              (click)="refresh()"
+              >Refresh status</button
+            >
           </div>
           <p class="wallet-guidance">{{ walletStatusText }}</p>
 
           @if (isTestnetWallet && status.sponsoredAvailable && status.sponsoredEligible) {
-            <button type="button" class="claim-button" [disabled]="!!busy || !!pendingClaim" (click)="claimSponsored()">
+            <button
+              type="button"
+              class="claim-button"
+              [disabled]="!!busy || !!pendingClaim"
+              (click)="claimSponsored()"
+            >
               {{ busy === 'sponsored' ? 'Preparing claim…' : 'Claim through faucet' }}
             </button>
             <p class="button-note">Pusharoo pays the transaction fee.</p>
           } @else if (!status.sponsoredAvailable) {
-            <div class="route-unavailable"><strong>Sponsored claiming is unavailable.</strong><span>{{ status.sponsoredReason || 'Try again later.' }}</span></div>
+            <div class="route-unavailable"
+              ><strong>Sponsored claiming is unavailable.</strong
+              ><span>{{ status.sponsoredReason || 'Try again later.' }}</span></div
+            >
           } @else if (!status.sponsoredEligible) {
             <div class="route-unavailable">{{ reasonText(status.sponsoredIneligibleReason) }}</div>
           }
@@ -86,21 +125,46 @@
           <p class="activity-message" role="status" aria-live="polite">{{ activityMessage }}</p>
         }
         @if (pendingClaim?.transactionHash; as hash) {
-          <p class="pending-link">Transaction: <a [href]="explorerUrl(hash)" target="_blank" rel="noreferrer">{{ hash }}</a></p>
+          <p class="pending-link"
+            >Transaction:
+            <a [href]="explorerUrl(hash)" target="_blank" rel="noreferrer">{{ hash }}</a></p
+          >
         }
         @if (successMessage) {
-          <div class="notice notice-success" role="status"><strong>{{ successMessage }}</strong></div>
+          <div class="notice notice-success" role="status"
+            ><strong>{{ successMessage }}</strong></div
+          >
         }
         @if (operationError) {
-          <div class="notice notice-error" role="alert"><strong>{{ operationError }}</strong></div>
+          <div class="notice notice-error" role="alert"
+            ><strong>{{ operationError }}</strong></div
+          >
         }
       </section>
     }
 
     <section class="faucet-rules">
-      <div><strong>One claim every 24 hours</strong><p>Wallets share the same cooldown across claim methods. Sponsored claims are also limited to one per public IP.</p></div>
-      <div><strong>Transaction fees</strong><p>Pusharoo pays the fee when you claim here. Direct contract calls use your wallet's GAS.</p></div>
-      <div><strong>Testnet GAS only</strong><p>These funds have no mainnet value. Pusharoo never asks for your seed phrase or private key.</p></div>
+      <div
+        ><strong>One claim every 24 hours</strong
+        ><p
+          >Wallets share the same cooldown across claim methods. Sponsored claims are also limited
+          to one per public IP.</p
+        ></div
+      >
+      <div
+        ><strong>Transaction fees</strong
+        ><p
+          >Pusharoo pays the fee when you claim here. Direct contract calls use your wallet's
+          GAS.</p
+        ></div
+      >
+      <div
+        ><strong>Testnet GAS only</strong
+        ><p
+          >These funds have no mainnet value. Pusharoo never asks for your seed phrase or private
+          key.</p
+        ></div
+      >
     </section>
   }
 </app-page-shell>

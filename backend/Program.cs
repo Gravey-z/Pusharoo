@@ -27,7 +27,7 @@ app.Use(
                 new
                 {
                     code = "auth_unavailable",
-                    error = "Wallet authentication is temporarily unavailable."
+                    error = "Wallet authentication is temporarily unavailable.",
                 }
             );
         }
@@ -97,7 +97,7 @@ app.MapPost(
             new
             {
                 code = "client_outdated",
-                error = "Pusharoo was updated. Reload this page and sign in again."
+                error = "Pusharoo was updated. Reload this page and sign in again.",
             },
             statusCode: StatusCodes.Status410Gone
         );
@@ -114,7 +114,7 @@ app.MapPost(
             new
             {
                 code = "client_outdated",
-                error = "Pusharoo was updated. Reload this page and sign in again."
+                error = "Pusharoo was updated. Reload this page and sign in again.",
             },
             statusCode: StatusCodes.Status410Gone
         );
@@ -131,7 +131,7 @@ app.MapPost(
             new
             {
                 code = "client_outdated",
-                error = "Pusharoo was updated. Reload this page and sign in again."
+                error = "Pusharoo was updated. Reload this page and sign in again.",
             },
             statusCode: StatusCodes.Status410Gone
         );

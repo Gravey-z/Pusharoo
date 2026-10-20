@@ -97,8 +97,6 @@ public sealed class WebhookDeliveryRepository(
         catch (MongoWriteException ex)
             when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
         {
-            // A duplicate is successful only if the intended automatic/manual identity is already durable.
-            // Do not mistake an unrelated _id collision or an uncommitted insert for queued work.
             var existing = await db
                 .Deliveries.WithReadConcern(ReadConcern.Majority)
                 .Find(x =>
@@ -174,7 +172,7 @@ public sealed class WebhookDeliveryRepository(
                 new BsonDocument
                 {
                     { "status", "delivering" },
-                    { "$expr", new BsonDocument("$lte", new BsonArray { "$leaseUntil", "$$NOW" }) }
+                    { "$expr", new BsonDocument("$lte", new BsonArray { "$leaseUntil", "$$NOW" }) },
                 },
             }
         );
@@ -188,7 +186,7 @@ public sealed class WebhookDeliveryRepository(
                 {
                     { "status", "delivering" },
                     { "claimOwner", owner },
-                    { "leaseUntil", new BsonDocument("$add", new BsonArray { "$$NOW", 120000 }) }
+                    { "leaseUntil", new BsonDocument("$add", new BsonArray { "$$NOW", 120000 }) },
                 }
             ),
         };
@@ -201,7 +199,7 @@ public sealed class WebhookDeliveryRepository(
                 new FindOneAndUpdateOptions<WebhookDeliveryDocument>
                 {
                     ReturnDocument = ReturnDocument.After,
-                    Sort = Builders<WebhookDeliveryDocument>.Sort.Ascending(x => x.NextAttemptAt)
+                    Sort = Builders<WebhookDeliveryDocument>.Sort.Ascending(x => x.NextAttemptAt),
                 },
                 cancellationToken
             );
@@ -264,13 +262,12 @@ public sealed class WebhookDeliveryRepository(
         CancellationToken cancellationToken
     )
     {
-        // Outcome and authoritative attempt history commit together in one document, without requiring transactions.
         var updated = delivery with
         {
             ClaimOwner = null,
             LeaseUntil = null,
             AuditPending = true,
-            Attempts = [.. delivery.Attempts, attempt]
+            Attempts = [.. delivery.Attempts, attempt],
         };
         var result = await db
             .Deliveries.WithWriteConcern(WriteConcern.WMajority.With(journal: true))
@@ -302,7 +299,6 @@ public sealed class WebhookDeliveryRepository(
                         new ReplaceOptions { IsUpsert = true },
                         cancellationToken
                     );
-            // A concurrent completion must keep its own pending audit flag.
 
             await db.Deliveries.UpdateOneAsync(
                 x => x.Id == delivery.Id && x.AttemptCount == delivery.AttemptCount,
@@ -357,8 +353,7 @@ public sealed class WebhookDeliveryRepository(
             item => expired.Contains(item.DeliveryId),
             cancellationToken
         );
-        // Retain automatic keys even when history expires: a stalled, partially queued block can outlive retention.
-        // Removing the unique key here would allow a restart to recreate an automatic delivery.
+
         await db.Deliveries.UpdateManyAsync(
             item => expired.Contains(item.Id) && item.Trigger == "automatic",
             Builders<WebhookDeliveryDocument>

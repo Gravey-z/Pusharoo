@@ -33,7 +33,13 @@ export class ArtifactUploadComponent implements OnInit {
   suggestedVersion = '';
   existingVersions: string[] = [];
   readonly projectId: string;
-  private uploadAttempt: { version: string; notes: string; nef: File; manifest: File; key: string } | null = null;
+  private uploadAttempt: {
+    version: string;
+    notes: string;
+    nef: File;
+    manifest: File;
+    key: string;
+  } | null = null;
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -60,10 +66,10 @@ export class ArtifactUploadComponent implements OnInit {
     this.isLoading = true;
     this.loadError = '';
     this.api.getProjectOverview(this.projectId).subscribe({
-      next: (overview) => {
+      next: overview => {
         this.overview = overview;
         const artifacts = overview?.artifacts ?? [];
-        this.existingVersions = artifacts.map((artifact) => artifact.version);
+        this.existingVersions = artifacts.map(artifact => artifact.version);
         this.latestVersion = artifacts[0]?.version ?? '';
         this.suggestedVersion = this.latestVersion
           ? this.getNextVersion(this.latestVersion)
@@ -71,7 +77,7 @@ export class ArtifactUploadComponent implements OnInit {
         this.version = this.suggestedVersion;
         this.isLoading = false;
       },
-      error: (error) => {
+      error: error => {
         this.overview = null;
         this.loadError = this.errors.format(error, 'Could not load this project.');
         this.isLoading = false;
@@ -80,7 +86,7 @@ export class ArtifactUploadComponent implements OnInit {
   }
 
   get versionAlreadyExists(): boolean {
-    return this.existingVersions.some((existingVersion) =>
+    return this.existingVersions.some(existingVersion =>
       this.isSameVersion(existingVersion, this.version)
     );
   }
@@ -142,18 +148,31 @@ export class ArtifactUploadComponent implements OnInit {
     try {
       await this.auth.ensureAuthenticated();
       const version = this.version.trim();
-      if (!this.uploadAttempt || this.uploadAttempt.version !== version || this.uploadAttempt.notes !== this.notes
-        || this.uploadAttempt.nef !== nefFile || this.uploadAttempt.manifest !== manifestFile) {
-        this.uploadAttempt = { version, notes: this.notes, nef: nefFile, manifest: manifestFile, key: crypto.randomUUID() };
+      if (
+        !this.uploadAttempt ||
+        this.uploadAttempt.version !== version ||
+        this.uploadAttempt.notes !== this.notes ||
+        this.uploadAttempt.nef !== nefFile ||
+        this.uploadAttempt.manifest !== manifestFile
+      ) {
+        this.uploadAttempt = {
+          version,
+          notes: this.notes,
+          nef: nefFile,
+          manifest: manifestFile,
+          key: crypto.randomUUID()
+        };
       }
-      await firstValueFrom(this.api.uploadArtifact(
-        this.projectId,
-        version,
-        this.notes,
-        nefFile,
-        manifestFile,
-        this.uploadAttempt.key
-      ));
+      await firstValueFrom(
+        this.api.uploadArtifact(
+          this.projectId,
+          version,
+          this.notes,
+          nefFile,
+          manifestFile,
+          this.uploadAttempt.key
+        )
+      );
       await this.router.navigate(['/projects', this.projectId]);
     } catch (error) {
       this.errorMessage = this.errors.format(error, 'Could not upload artifact.');
@@ -169,9 +188,8 @@ export class ArtifactUploadComponent implements OnInit {
 
   private getNextVersion(version: string): string {
     const trimmedVersion = version.trim();
-    const prefix = trimmedVersion.startsWith('v') || trimmedVersion.startsWith('V')
-      ? trimmedVersion[0]
-      : '';
+    const prefix =
+      trimmedVersion.startsWith('v') || trimmedVersion.startsWith('V') ? trimmedVersion[0] : '';
     const versionWithoutPrefix = prefix ? trimmedVersion.slice(1) : trimmedVersion;
     const parts = versionWithoutPrefix.split('.');
     const lastPart = parts.at(-1);

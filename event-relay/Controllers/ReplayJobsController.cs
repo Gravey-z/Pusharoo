@@ -77,7 +77,7 @@ public sealed class ReplayJobsController(
                 EventName = sub.EventName,
                 FromBlock = request.FromBlock,
                 ToBlock = request.ToBlock,
-                NextBlock = request.FromBlock
+                NextBlock = request.FromBlock,
             },
             ct
         );
@@ -93,7 +93,7 @@ public sealed class ReplayJobsController(
             return BadRequest(
                 new
                 {
-                    error = $"Choose an inclusive range of at most {options.Value.ReplayMaxRangeBlocks} blocks."
+                    error = $"Choose an inclusive range of at most {options.Value.ReplayMaxRangeBlocks} blocks.",
                 }
             );
 
@@ -198,7 +198,7 @@ public sealed class ReplayJobsController(
             return BadRequest(
                 new
                 {
-                    error = "Every selected event needs an enabled matching webhook for this contract and network. Create or resume those webhooks first."
+                    error = "Every selected event needs an enabled matching webhook for this contract and network. Create or resume those webhooks first.",
                 }
             );
 
@@ -220,7 +220,7 @@ public sealed class ReplayJobsController(
                 Targets = targets.Select(x => new ReplayTarget(x.Id, x.EventName)).ToArray(),
                 FromBlock = request.FromBlock,
                 ToBlock = request.ToBlock,
-                NextBlock = request.FromBlock
+                NextBlock = request.FromBlock,
             },
             ct
         );
@@ -259,7 +259,7 @@ public sealed class ReplayJobsController(
                     return BadRequest(
                         new
                         {
-                            error = "All recovery webhooks must exist, be enabled and keep their original contract/event filters before resuming."
+                            error = "All recovery webhooks must exist, be enabled and keep their original contract/event filters before resuming.",
                         }
                     );
             }

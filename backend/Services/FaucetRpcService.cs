@@ -115,7 +115,7 @@ public sealed class FaucetRpcService(
                 JsonValueKind.Number => value.GetRawText(),
                 JsonValueKind.True => "true",
                 JsonValueKind.False => "false",
-                _ => value.GetRawText()
+                _ => value.GetRawText(),
             };
         }
 

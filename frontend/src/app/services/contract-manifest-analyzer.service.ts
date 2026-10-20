@@ -13,9 +13,8 @@ export class ContractManifestAnalyzerService {
   async getUpdateWarning(file: File): Promise<string> {
     try {
       const manifest = JSON.parse(await file.text()) as ManifestLike;
-      const hasUpdateMethod = manifest.abi?.methods?.some((method) =>
-        method.name === 'update'
-      ) ?? false;
+      const hasUpdateMethod =
+        manifest.abi?.methods?.some(method => method.name === 'update') ?? false;
 
       return hasUpdateMethod
         ? ''

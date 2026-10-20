@@ -308,8 +308,15 @@ dd {
   color: var(--danger);
 }
 
-.deployment-data-record { grid-column: 1 / -1; }
-.deployment-data-record pre { max-height: 280px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.deployment-data-record {
+  grid-column: 1 / -1;
+}
+.deployment-data-record pre {
+  max-height: 280px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 
 .deployment-failure {
   grid-column: 1 / -1;

@@ -97,12 +97,17 @@
   box-shadow: var(--shadow-panel);
   color: var(--text);
   text-decoration: none;
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .project-card:hover {
   border-color: var(--accent);
-  box-shadow: var(--shadow-overlay), 0 0 0 1px rgba(21, 244, 200, 0.16);
+  box-shadow:
+    var(--shadow-overlay),
+    0 0 0 1px rgba(21, 244, 200, 0.16);
   transform: translateY(-2px);
 }
 
@@ -288,7 +293,6 @@
   .project-tools .project-search {
     grid-column: 1 / -1;
   }
-
 }
 
 @media (max-width: 420px) {

@@ -33,13 +33,15 @@ export class ManifestViewerComponent implements OnInit {
 
   ngOnInit(): void {
     this.artifact$ = this.route.paramMap.pipe(
-      map((params) => params.get('artifactId') ?? ''),
-      switchMap((artifactId) => this.api.getArtifact(artifactId)),
-      switchMap((artifact) => this.api.getProjectOverview(artifact.projectId).pipe(
-        tap((overview) => this.projectName = overview.project.name),
-        map(() => artifact),
-        catchError(() => of(artifact))
-      ))
+      map(params => params.get('artifactId') ?? ''),
+      switchMap(artifactId => this.api.getArtifact(artifactId)),
+      switchMap(artifact =>
+        this.api.getProjectOverview(artifact.projectId).pipe(
+          tap(overview => (this.projectName = overview.project.name)),
+          map(() => artifact),
+          catchError(() => of(artifact))
+        )
+      )
     );
   }
 
@@ -85,7 +87,7 @@ export class ManifestViewerComponent implements OnInit {
       return '-';
     }
 
-    return parameters.map((parameter) => `${parameter.name}: ${parameter.type}`).join(', ');
+    return parameters.map(parameter => `${parameter.name}: ${parameter.type}`).join(', ');
   }
 
   formatEventParameters(event: NeoEvent): string {
@@ -93,7 +95,7 @@ export class ManifestViewerComponent implements OnInit {
       return '-';
     }
 
-    return event.parameters.map((parameter) => parameter.name).join(', ');
+    return event.parameters.map(parameter => parameter.name).join(', ');
   }
 
   rawJson(artifact: Artifact): string {

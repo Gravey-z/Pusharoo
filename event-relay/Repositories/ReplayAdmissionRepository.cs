@@ -125,8 +125,6 @@ public sealed class ReplayAdmissionRepository(MongoDbContext db)
         if (await db.ReplayAdmissions.Find(new BsonDocument("_id", network)).AnyAsync(ct))
             return;
 
-        // Import existing jobs on first deployment, so an upgrade cannot reset usage.
-
         var hello = await db.ReplayAdmissions.Database.RunCommandAsync<BsonDocument>(
             new BsonDocument("hello", 1),
             cancellationToken: ct
@@ -176,7 +174,7 @@ public sealed class ReplayAdmissionRepository(MongoDbContext db)
             .FirstOrDefaultAsync(ct);
 
         if (ledger is null)
-            return; // Existing jobs still run before the first limited submission.
+            return;
 
         var intents = ledger["entries"]
             .AsBsonArray.Select(x => x.AsBsonDocument)
@@ -209,8 +207,6 @@ public sealed class ReplayAdmissionRepository(MongoDbContext db)
         {
             if (await Jobs.Find(x => x.Id == job.Id).AnyAsync(ct))
                 return;
-
-            // A conflicting legacy writer must not leave an unrecoverable reserved slot.
 
             await db.ReplayAdmissions.UpdateOneAsync(
                 new BsonDocument { { "_id", job.Network }, { "entries.job._id", job.Id } },

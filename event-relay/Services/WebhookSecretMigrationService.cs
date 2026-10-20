@@ -29,7 +29,7 @@ public sealed class WebhookSecretMigrationService(
             var migrated = subscription with
             {
                 Secret = secretProtector.Protect(subscription.Secret),
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = DateTime.UtcNow,
             };
 
             await subscriptions.ReplaceAsync(migrated, cancellationToken);

@@ -78,16 +78,21 @@ public static class NeoGasTransferVerifier
                     && transferAmount > 0
                 )
                 {
-                    // Require at least one full quoted transfer, while retaining
-                    // every matching amount so additional transfers are not lost.
                     hasRequiredTransfer |= transferAmount >= minimum;
-                    try { total = checked(total + transferAmount); }
-                    catch (OverflowException) { return false; }
+                    try
+                    {
+                        total = checked(total + transferAmount);
+                    }
+                    catch (OverflowException)
+                    {
+                        return false;
+                    }
                 }
             }
         }
 
-        if (!hasRequiredTransfer) return false;
+        if (!hasRequiredTransfer)
+            return false;
         amount = total;
         return true;
     }

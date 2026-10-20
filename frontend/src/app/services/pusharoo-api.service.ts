@@ -35,30 +35,47 @@ interface CachedGetRequest {
 @Injectable({ providedIn: 'root' })
 export class PusharooApiService {
   private readonly getCache = new Map<string, CachedGetRequest>();
-  private get apiBaseUrl(): string { return this.runtimeConfig.value.apiBaseUrl.replace(/\/$/, ''); }
+  private get apiBaseUrl(): string {
+    return this.runtimeConfig.value.apiBaseUrl.replace(/\/$/, '');
+  }
 
-  constructor(private readonly http: HttpClient, private readonly runtimeConfig: RuntimeConfigService) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly runtimeConfig: RuntimeConfigService
+  ) {}
 
   getProjectCards(): Observable<ProjectListItem[]> {
-    return this.cachedGet('projects:cards', () => this.http.get<ProjectListItem[]>(`${this.apiBaseUrl}/projects/cards`));
+    return this.cachedGet('projects:cards', () =>
+      this.http.get<ProjectListItem[]>(`${this.apiBaseUrl}/projects/cards`)
+    );
   }
 
   getProjectOverview(projectId: string): Observable<ProjectOverviewViewModel> {
-    return this.cachedGet(`project:${projectId}:overview`, () => forkJoin({
-      project: this.http.get<Project>(`${this.apiBaseUrl}/projects/${projectId}`),
-      artifacts: this.getArtifacts(projectId),
-      deployments: this.getDeployments(projectId)
-    }).pipe(map(({ project, artifacts, deployments }) => this.toProjectCard(project, artifacts, deployments))));
+    return this.cachedGet(`project:${projectId}:overview`, () =>
+      forkJoin({
+        project: this.http.get<Project>(`${this.apiBaseUrl}/projects/${projectId}`),
+        artifacts: this.getArtifacts(projectId),
+        deployments: this.getDeployments(projectId)
+      }).pipe(
+        map(({ project, artifacts, deployments }) =>
+          this.toProjectCard(project, artifacts, deployments)
+        )
+      )
+    );
   }
 
   getArtifact(artifactId: string): Observable<Artifact> {
-    return this.cachedGet(`artifact:${artifactId}`, () => this.http.get<Artifact>(`${this.apiBaseUrl}/artifacts/${artifactId}`));
+    return this.cachedGet(`artifact:${artifactId}`, () =>
+      this.http.get<Artifact>(`${this.apiBaseUrl}/artifacts/${artifactId}`)
+    );
   }
 
   getArtifactNefHex(artifactId: string): Observable<string> {
-    return this.cachedGet(`artifact:${artifactId}:nef`, () => this.http
-      .get(`${this.apiBaseUrl}/artifacts/${artifactId}/nef`, { responseType: 'arraybuffer' })
-      .pipe(map((buffer) => this.arrayBufferToHex(buffer))));
+    return this.cachedGet(`artifact:${artifactId}:nef`, () =>
+      this.http
+        .get(`${this.apiBaseUrl}/artifacts/${artifactId}/nef`, { responseType: 'arraybuffer' })
+        .pipe(map(buffer => this.arrayBufferToHex(buffer)))
+    );
   }
 
   createProject(
@@ -67,28 +84,46 @@ export class PusharooApiService {
     creatorNetwork: string,
     idempotencyKey: string
   ): Observable<Project> {
-    return this.http.post<Project>(`${this.apiBaseUrl}/projects`, {
-      name,
-      description: description.trim() || null,
-      creatorNetwork
-    }, { context: this.walletSessionContext(), headers: { 'Idempotency-Key': idempotencyKey } })
+    return this.http
+      .post<Project>(
+        `${this.apiBaseUrl}/projects`,
+        {
+          name,
+          description: description.trim() || null,
+          creatorNetwork
+        },
+        { context: this.walletSessionContext(), headers: { 'Idempotency-Key': idempotencyKey } }
+      )
       .pipe(tap(() => this.clearGetCache()));
   }
 
   deleteProject(projectId: string, request: DeleteProjectRequest): Observable<void> {
-    return this.http.delete<void>(`${this.apiBaseUrl}/projects/${projectId}`,
-      { body: request, context: this.walletSessionContext() })
+    return this.http
+      .delete<void>(`${this.apiBaseUrl}/projects/${projectId}`, {
+        body: request,
+        context: this.walletSessionContext()
+      })
       .pipe(tap(() => this.clearGetCache()));
   }
 
   getAuthorizedDeployers(projectId: string): Observable<ProjectAuthorizedDeployer[]> {
     return this.cachedGet(`project:${projectId}:authorized-deployers`, () =>
-      this.http.get<ProjectAuthorizedDeployer[]>(`${this.apiBaseUrl}/projects/${projectId}/authorized-deployers`));
+      this.http.get<ProjectAuthorizedDeployer[]>(
+        `${this.apiBaseUrl}/projects/${projectId}/authorized-deployers`
+      )
+    );
   }
 
-  addAuthorizedDeployer(projectId: string, request: AddProjectAuthorizedDeployerRequest): Observable<ProjectAuthorizedDeployer> {
-    return this.http.post<ProjectAuthorizedDeployer>(`${this.apiBaseUrl}/projects/${projectId}/authorized-deployers`, request,
-      { context: this.walletSessionContext() })
+  addAuthorizedDeployer(
+    projectId: string,
+    request: AddProjectAuthorizedDeployerRequest
+  ): Observable<ProjectAuthorizedDeployer> {
+    return this.http
+      .post<ProjectAuthorizedDeployer>(
+        `${this.apiBaseUrl}/projects/${projectId}/authorized-deployers`,
+        request,
+        { context: this.walletSessionContext() }
+      )
       .pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
@@ -97,21 +132,22 @@ export class PusharooApiService {
     walletAddress: string,
     request: UpdateProjectAuthorizedDeployerRequest
   ): Observable<ProjectAuthorizedDeployer> {
-    return this.http.put<ProjectAuthorizedDeployer>(
-      `${this.apiBaseUrl}/projects/${projectId}/authorized-deployers/${encodeURIComponent(walletAddress)}`,
-      request,
-      { context: this.walletSessionContext() }
-    ).pipe(tap(() => this.invalidateProjectCache(projectId)));
+    return this.http
+      .put<ProjectAuthorizedDeployer>(
+        `${this.apiBaseUrl}/projects/${projectId}/authorized-deployers/${encodeURIComponent(walletAddress)}`,
+        request,
+        { context: this.walletSessionContext() }
+      )
+      .pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
-  removeAuthorizedDeployer(
-    projectId: string,
-    walletAddress: string,
-  ): Observable<void> {
-    return this.http.delete<void>(
-      `${this.apiBaseUrl}/projects/${projectId}/authorized-deployers/${encodeURIComponent(walletAddress)}`,
-      { context: this.walletSessionContext() }
-    ).pipe(tap(() => this.invalidateProjectCache(projectId)));
+  removeAuthorizedDeployer(projectId: string, walletAddress: string): Observable<void> {
+    return this.http
+      .delete<void>(
+        `${this.apiBaseUrl}/projects/${projectId}/authorized-deployers/${encodeURIComponent(walletAddress)}`,
+        { context: this.walletSessionContext() }
+      )
+      .pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
   uploadArtifact(
@@ -128,11 +164,12 @@ export class PusharooApiService {
     formData.append('files', nefFile, nefFile.name);
     formData.append('files', manifestFile, manifestFile.name);
 
-    return this.http.post<Artifact>(
-      `${this.apiBaseUrl}/projects/${projectId}/artifacts`,
-      formData,
-      { context: this.walletSessionContext(), headers: { 'Idempotency-Key': idempotencyKey } }
-    ).pipe(tap(() => this.invalidateProjectCache(projectId)));
+    return this.http
+      .post<Artifact>(`${this.apiBaseUrl}/projects/${projectId}/artifacts`, formData, {
+        context: this.walletSessionContext(),
+        headers: { 'Idempotency-Key': idempotencyKey }
+      })
+      .pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
   compareArtifacts(
@@ -144,33 +181,32 @@ export class PusharooApiService {
       this.http.get<ArtifactComparison>(
         `${this.apiBaseUrl}/projects/${projectId}/artifacts/compare`,
         { params: { from: fromVersion, to: toVersion } }
-      ));
+      )
+    );
   }
 
-  createDeployment(
+  createDeployment(projectId: string, request: CreateDeploymentRequest): Observable<Deployment> {
+    return this.http
+      .post<Deployment>(`${this.apiBaseUrl}/projects/${projectId}/deployments`, request)
+      .pipe(tap(() => this.invalidateProjectCache(projectId)));
+  }
+
+  recoverDeployment(projectId: string, request: RecoverDeploymentRequest): Observable<Deployment> {
+    return this.http
+      .post<Deployment>(`${this.apiBaseUrl}/projects/${projectId}/deployments/recover`, request, {
+        context: this.walletSessionContext()
+      })
+      .pipe(tap(() => this.invalidateProjectCache(projectId)));
+  }
+
+  startDeploymentAttempt(
     projectId: string,
-    request: CreateDeploymentRequest
+    request: StartDeploymentAttemptRequest
   ): Observable<Deployment> {
-    return this.http.post<Deployment>(
-      `${this.apiBaseUrl}/projects/${projectId}/deployments`,
-      request
-    ).pipe(tap(() => this.invalidateProjectCache(projectId)));
-  }
-
-  recoverDeployment(
-    projectId: string,
-    request: RecoverDeploymentRequest
-  ): Observable<Deployment> {
-    return this.http.post<Deployment>(
-      `${this.apiBaseUrl}/projects/${projectId}/deployments/recover`,
-      request,
-      { context: this.walletSessionContext() }
-    ).pipe(tap(() => this.invalidateProjectCache(projectId)));
-  }
-
-  startDeploymentAttempt(projectId: string, request: StartDeploymentAttemptRequest): Observable<Deployment> {
-    return this.http.post<Deployment>(`${this.apiBaseUrl}/projects/${projectId}/deployments/attempts`, request,
-      { context: this.walletSessionContext() })
+    return this.http
+      .post<Deployment>(`${this.apiBaseUrl}/projects/${projectId}/deployments/attempts`, request, {
+        context: this.walletSessionContext()
+      })
       .pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
@@ -187,25 +223,39 @@ export class PusharooApiService {
 
   resumeDeploymentAttempt(projectId: string, deploymentId: string): Observable<Deployment> {
     return this.http.post<Deployment>(
-      `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/resume`, {},
+      `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/resume`,
+      {},
       { context: this.walletSessionContext() }
     );
   }
 
-  markDeploymentSubmitted(projectId: string, deploymentId: string, transactionId: string, attemptCapability: string): Observable<Deployment> {
-    return this.http.post<Deployment>(
-      `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/submitted`,
-      { transactionId, attemptCapability },
-      { context: this.walletSessionContext() }
-    ).pipe(tap(() => this.invalidateProjectCache(projectId)));
+  markDeploymentSubmitted(
+    projectId: string,
+    deploymentId: string,
+    transactionId: string,
+    attemptCapability: string
+  ): Observable<Deployment> {
+    return this.http
+      .post<Deployment>(
+        `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/submitted`,
+        { transactionId, attemptCapability },
+        { context: this.walletSessionContext() }
+      )
+      .pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
-  confirmDeploymentAttempt(projectId: string, deploymentId: string, attemptCapability: string): Observable<Deployment> {
-    return this.http.post<Deployment>(
-      `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/confirm`,
-      { attemptCapability },
-      { context: this.walletSessionContext() }
-    ).pipe(tap(() => this.invalidateProjectCache(projectId)));
+  confirmDeploymentAttempt(
+    projectId: string,
+    deploymentId: string,
+    attemptCapability: string
+  ): Observable<Deployment> {
+    return this.http
+      .post<Deployment>(
+        `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/confirm`,
+        { attemptCapability },
+        { context: this.walletSessionContext() }
+      )
+      .pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
   markDeploymentFailed(
@@ -215,16 +265,19 @@ export class PusharooApiService {
     stage: 'preparing' | 'wallet' | 'confirmation' | 'record',
     reason: string
   ): Observable<Deployment> {
-    return this.http.post<Deployment>(
-      `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/failed`,
-      { attemptCapability, stage, reason },
-      { context: this.walletSessionContext() }
-    ).pipe(tap(() => this.invalidateProjectCache(projectId)));
+    return this.http
+      .post<Deployment>(
+        `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/failed`,
+        { attemptCapability, stage, reason },
+        { context: this.walletSessionContext() }
+      )
+      .pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
   getDeployments(projectId: string): Observable<Deployment[]> {
     return this.cachedGet(`project:${projectId}:deployments`, () =>
-      this.http.get<Deployment[]>(`${this.apiBaseUrl}/projects/${projectId}/deployments`));
+      this.http.get<Deployment[]>(`${this.apiBaseUrl}/projects/${projectId}/deployments`)
+    );
   }
 
   private walletSessionContext(): HttpContext {
@@ -233,7 +286,8 @@ export class PusharooApiService {
 
   private getArtifacts(projectId: string): Observable<Artifact[]> {
     return this.cachedGet(`project:${projectId}:artifacts`, () =>
-      this.http.get<Artifact[]>(`${this.apiBaseUrl}/projects/${projectId}/artifacts`));
+      this.http.get<Artifact[]>(`${this.apiBaseUrl}/projects/${projectId}/artifacts`)
+    );
   }
 
   private cachedGet<T>(key: string, request: () => Observable<T>): Observable<T> {
@@ -299,17 +353,16 @@ export class PusharooApiService {
     deployments: Deployment[] = []
   ): ProjectCardViewModel {
     const sortedArtifacts = [...artifacts].sort(
-      (left, right) =>
-        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+      (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
     );
     const sortedDeployments = [...deployments].sort(
-      (left, right) =>
-        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+      (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
     );
 
-    const confirmedDeployments = sortedDeployments.filter((deployment) =>
-      Boolean(deployment.contractHash)
-      && (!deployment.status || deployment.status === 'confirmed')
+    const confirmedDeployments = sortedDeployments.filter(
+      deployment =>
+        Boolean(deployment.contractHash) &&
+        (!deployment.status || deployment.status === 'confirmed')
     );
 
     return {
@@ -325,23 +378,17 @@ export class PusharooApiService {
   private compareLocalArtifacts(fromArtifact: Artifact, toArtifact: Artifact): ArtifactComparison {
     const fromMethods = this.toMethodMap(fromArtifact.manifest.abi.methods);
     const toMethods = this.toMethodMap(toArtifact.manifest.abi.methods);
-    const addedMethods = [...toMethods.keys()]
-      .filter((name) => !fromMethods.has(name))
-      .sort();
-    const removedMethods = [...fromMethods.keys()]
-      .filter((name) => !toMethods.has(name))
-      .sort();
+    const addedMethods = [...toMethods.keys()].filter(name => !fromMethods.has(name)).sort();
+    const removedMethods = [...fromMethods.keys()].filter(name => !toMethods.has(name)).sort();
     const changedMethods = [...fromMethods.keys()]
-      .filter((name) => toMethods.has(name))
-      .map((name) => this.getChangedMethod(name, fromMethods.get(name), toMethods.get(name)))
+      .filter(name => toMethods.has(name))
+      .map(name => this.getChangedMethod(name, fromMethods.get(name), toMethods.get(name)))
       .filter((change): change is ChangedMethod => change !== null)
       .sort((left, right) => left.name.localeCompare(right.name));
-    const fromEventNames = new Set(
-      fromArtifact.manifest.abi.events.map((event) => event.name)
-    );
+    const fromEventNames = new Set(fromArtifact.manifest.abi.events.map(event => event.name));
     const addedEvents = toArtifact.manifest.abi.events
-      .map((event) => event.name)
-      .filter((name) => !fromEventNames.has(name))
+      .map(event => event.name)
+      .filter(name => !fromEventNames.has(name))
       .sort();
     const permissionChanges = this.getPermissionChanges(
       fromArtifact.manifest.permissions,
@@ -358,7 +405,7 @@ export class PusharooApiService {
   }
 
   private toMethodMap(methods: NeoMethod[]): Map<string, NeoMethod> {
-    return new Map(methods.map((method) => [method.name, method]));
+    return new Map(methods.map(method => [method.name, method]));
   }
 
   private getChangedMethod(
@@ -402,7 +449,7 @@ export class PusharooApiService {
   }
 
   private getParameterSignature(parameters: NeoParameter[]): string {
-    return parameters.map((parameter) => `${parameter.name}:${parameter.type}`).join(',');
+    return parameters.map(parameter => `${parameter.name}:${parameter.type}`).join(',');
   }
 
   private methodReturnType(method: NeoMethod): string {
@@ -414,7 +461,7 @@ export class PusharooApiService {
       return '-';
     }
 
-    return parameters.map((parameter) => `${parameter.name}: ${parameter.type}`).join(', ');
+    return parameters.map(parameter => `${parameter.name}: ${parameter.type}`).join(', ');
   }
 
   private getPermissionChanges(
@@ -446,7 +493,7 @@ export class PusharooApiService {
 
   private toPermissionMap(permissions: NeoPermission[]): Map<string, NeoPermission> {
     return new Map(
-      permissions.map((permission) => [this.normalizePermission(permission), permission])
+      permissions.map(permission => [this.normalizePermission(permission), permission])
     );
   }
 
@@ -464,7 +511,7 @@ export class PusharooApiService {
     }
 
     if (Array.isArray(value)) {
-      return value.some((item) => this.hasWildcard(item));
+      return value.some(item => this.hasWildcard(item));
     }
 
     return false;
@@ -472,7 +519,7 @@ export class PusharooApiService {
 
   private normalizeValue(value: unknown): string {
     if (Array.isArray(value)) {
-      return `[${value.map((item) => this.normalizeValue(item)).join(',')}]`;
+      return `[${value.map(item => this.normalizeValue(item)).join(',')}]`;
     }
 
     if (value && typeof value === 'object') {
@@ -485,14 +532,10 @@ export class PusharooApiService {
   private findArtifactByVersion(artifacts: Artifact[], version: string): Artifact | undefined {
     const normalizedVersion = version.trim().replace(/^v/i, '');
 
-    return artifacts.find(
-      (artifact) => artifact.version.replace(/^v/i, '') === normalizedVersion
-    );
+    return artifacts.find(artifact => artifact.version.replace(/^v/i, '') === normalizedVersion);
   }
 
   private arrayBufferToHex(buffer: ArrayBuffer): string {
-    return [...new Uint8Array(buffer)]
-      .map((value) => value.toString(16).padStart(2, '0'))
-      .join('');
+    return [...new Uint8Array(buffer)].map(value => value.toString(16).padStart(2, '0')).join('');
   }
 }

@@ -250,7 +250,7 @@ public sealed class NeoDeploymentVerificationService(
         {
             "neo3:testnet" => "testnet",
             "neo3:mainnet" => "mainnet",
-            _ => null
+            _ => null,
         };
     }
 

@@ -106,11 +106,11 @@ public sealed class ProjectAuthorizedDeployerService(MongoDbContext db)
                             new BsonArray
                             {
                                 $"${ProjectDocument.AuthorizedDeployersStorageField}",
-                                new BsonArray()
+                                new BsonArray(),
                             }
                         )
                     ),
-                    ProjectAuthorizedDeployerInputValidator.MaxAuthorizedDeployers
+                    ProjectAuthorizedDeployerInputValidator.MaxAuthorizedDeployers,
                 }
             )
         );

@@ -30,7 +30,7 @@ export class ProjectWorkspaceComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.route.paramMap.subscribe((params) => {
+    this.route.paramMap.subscribe(params => {
       this.projectId = params.get('projectId') ?? '';
       this.loadProject();
     });
@@ -41,7 +41,10 @@ export class ProjectWorkspaceComponent implements OnInit {
   }
 
   get canManageProject(): boolean {
-    return this.ownership.canManage(this.workspace.overview?.project, this.wallet.account()?.address ?? '');
+    return this.ownership.canManage(
+      this.workspace.overview?.project,
+      this.wallet.account()?.address ?? ''
+    );
   }
 
   retryLoad(): void {
@@ -53,11 +56,11 @@ export class ProjectWorkspaceComponent implements OnInit {
     this.loadError = '';
     this.workspace.overview = null;
     this.api.getProjectOverview(this.projectId).subscribe({
-      next: (overview) => {
+      next: overview => {
         this.workspace.overview = overview;
         this.isLoading = false;
       },
-      error: (error) => {
+      error: error => {
         this.loadError = this.errors.format(error, 'Could not load this project.');
         this.isLoading = false;
       }

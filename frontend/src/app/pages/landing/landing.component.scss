@@ -23,7 +23,9 @@
 .landing::after {
   inset: 0;
   opacity: 0.22;
-  background-image: linear-gradient(rgba(95, 229, 255, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(95, 229, 255, 0.1) 1px, transparent 1px);
+  background-image:
+    linear-gradient(rgba(95, 229, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(95, 229, 255, 0.1) 1px, transparent 1px);
   background-size: 54px 54px;
   mask-image: linear-gradient(to bottom, transparent, black 20%, black 76%, transparent);
 }
@@ -360,5 +362,4 @@ h2 {
   .hero-actions a {
     width: 100%;
   }
-
 }

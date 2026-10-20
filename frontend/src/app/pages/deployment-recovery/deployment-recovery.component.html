@@ -1,8 +1,18 @@
 <app-page-shell
   [title]="pageTitle"
-  [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: overview?.project?.name ?? 'Project', link: overview ? ['/projects', projectId] : undefined }, { label: 'Deployments', link: overview ? ['/projects', projectId, 'deployments'] : undefined }, { label: pageTitle }]"
+  [breadcrumbs]="[
+    { label: 'Projects', link: '/projects' },
+    {
+      label: overview?.project?.name ?? 'Project',
+      link: overview ? ['/projects', projectId] : undefined
+    },
+    { label: 'Deployments', link: overview ? ['/projects', projectId, 'deployments'] : undefined },
+    { label: pageTitle }
+  ]"
 >
-  <a actions class="secondary-button" [routerLink]="['/projects', projectId, 'deployments']">Back to Deployments</a>
+  <a actions class="secondary-button" [routerLink]="['/projects', projectId, 'deployments']"
+    >Back to Deployments</a
+  >
 
   @if (isLoading) {
     <p class="missing" aria-live="polite">Loading project…</p>
@@ -12,27 +22,34 @@
       <button class="secondary-button" type="button" (click)="retryLoad()">Try again</button>
     </section>
   } @else if (overview) {
-  <app-project-release-nav [projectId]="projectId" />
+    <app-project-release-nav [projectId]="projectId" />
 
-      <section class="recovery-intro surface-panel surface-panel--prominent">
-        @if (hasConfirmedDeploymentOnConnectedNetwork) {
-          <h2>Deployment already recorded on {{ wallet.networkLabel(walletNetwork()) }}</h2>
-          <p>This project already has a confirmed deployment on this network. Switch your wallet to another network to recover a deployment there.</p>
-        } @else {
+    <section class="recovery-intro surface-panel surface-panel--prominent">
+      @if (hasConfirmedDeploymentOnConnectedNetwork) {
+        <h2>Deployment already recorded on {{ wallet.networkLabel(walletNetwork()) }}</h2>
+        <p
+          >This project already has a confirmed deployment on this network. Switch your wallet to
+          another network to recover a deployment there.</p
+        >
+      } @else {
         <h2>Record a contract that is already on-chain</h2>
         <p>
-          Already deployed a contract on Neo N3, with or without Pusharoo? Enter its deployment transaction hash to add it to this project.
-          You can also recover an existing Pusharoo update that was not confirmed. Your old NEF and manifest files are not required.
+          Already deployed a contract on Neo N3, with or without Pusharoo? Enter its deployment
+          transaction hash to add it to this project. You can also recover an existing Pusharoo
+          update that was not confirmed. Your old NEF and manifest files are not required.
         </p>
-        }
-      </section>
+      }
+    </section>
 
-      @if (!hasConfirmedDeploymentOnConnectedNetwork) {
+    @if (!hasConfirmedDeploymentOnConnectedNetwork) {
       <form class="recovery-form surface-panel" (ngSubmit)="recover()">
         <header class="recovery-form-header">
           <span>Deployment recovery</span>
           <h2>Verify an on-chain transaction</h2>
-          <p>Pusharoo checks the signed transaction and its Deploy or Update event on Neo, then records the contract hash. This form does not deploy a contract.</p>
+          <p
+            >Pusharoo checks the signed transaction and its Deploy or Update event on Neo, then
+            records the contract hash. This form does not deploy a contract.</p
+          >
         </header>
 
         <section class="recovery-form-section">
@@ -41,9 +58,18 @@
           <label [class.mainnet-network]="walletNetwork() === 'neo3:mainnet'">
             <span class="field-label">
               Network
-              <small>{{ walletNetwork() === 'neo3:mainnet' ? 'N3:Mainnet: the transaction must be on N3:Mainnet' : 'Selected by the connected wallet' }}</small>
+              <small>{{
+                walletNetwork() === 'neo3:mainnet'
+                  ? 'N3:Mainnet: the transaction must be on N3:Mainnet'
+                  : 'Selected by the connected wallet'
+              }}</small>
             </span>
-            <input type="text" name="network" [value]="walletNetwork() || 'Connect wallet first'" readonly />
+            <input
+              type="text"
+              name="network"
+              [value]="walletNetwork() || 'Connect wallet first'"
+              readonly
+            />
           </label>
 
           <label>
@@ -57,16 +83,27 @@
               spellcheck="false"
             />
           </label>
-          <p class="field-help">Use the transaction hash from your wallet or Neo explorer. The connected wallet must be the transaction signer. New external deployments also require current project access.</p>
+          <p class="field-help"
+            >Use the transaction hash from your wallet or Neo explorer. The connected wallet must be
+            the transaction signer. New external deployments also require current project access.</p
+          >
         </section>
 
         <section class="recovery-form-section">
           <h3>Confirm the wallet</h3>
           <label>
             <span>Deployment wallet</span>
-            <input type="text" name="deploymentWallet" [value]="walletAddress() || 'Connect wallet first'" readonly />
+            <input
+              type="text"
+              name="deploymentWallet"
+              [value]="walletAddress() || 'Connect wallet first'"
+              readonly
+            />
           </label>
-          <p class="field-help">Pusharoo checks your wallet login and the on-chain transaction signer. Recovery will not submit another transaction.</p>
+          <p class="field-help"
+            >Pusharoo checks your wallet login and the on-chain transaction signer. Recovery will
+            not submit another transaction.</p
+          >
         </section>
 
         @if (statusMessage) {
@@ -81,7 +118,7 @@
           {{ isRecovering ? 'Recovering...' : 'Recover Deployment' }}
         </button>
       </form>
-      }
+    }
   } @else {
     <p class="missing">Project not found.</p>
   }

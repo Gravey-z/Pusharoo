@@ -91,7 +91,7 @@ public sealed class DeploymentDataService(NeoWalletAddressValidator addressValid
             "Array" => NormalizeArray(input, depth, ref nodes),
             _ => throw new DeploymentDataValidationException(
                 $"Deployment data type '{input.Type}' is not supported."
-            )
+            ),
         };
     }
 

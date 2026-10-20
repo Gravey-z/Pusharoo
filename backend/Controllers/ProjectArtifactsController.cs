@@ -1,8 +1,8 @@
+using System.Text.Json;
 using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
-using System.Text.Json;
 
 namespace backend.Controllers;
 
@@ -124,7 +124,7 @@ public sealed class ProjectArtifactsController(
                     : Conflict(
                         new
                         {
-                            error = "Idempotency-Key was already used with different artifact data."
+                            error = "Idempotency-Key was already used with different artifact data.",
                         }
                     );
             }
@@ -173,7 +173,7 @@ public sealed class ProjectArtifactsController(
                         : Conflict(
                             new
                             {
-                                error = "Idempotency-Key was already used with different artifact data."
+                                error = "Idempotency-Key was already used with different artifact data.",
                             }
                         );
                 }
@@ -182,7 +182,7 @@ public sealed class ProjectArtifactsController(
             return Conflict(
                 new
                 {
-                    error = "An artifact with this project version or idempotency key already exists."
+                    error = "An artifact with this project version or idempotency key already exists.",
                 }
             );
         }

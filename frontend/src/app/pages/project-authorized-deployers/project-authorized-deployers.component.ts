@@ -49,11 +49,11 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    (this.route.parent ?? this.route).paramMap.subscribe((params) => {
+    (this.route.parent ?? this.route).paramMap.subscribe(params => {
       this.projectId = params.get('projectId') ?? '';
       void this.loadAuthorizedDeployers();
     });
-    this.route.queryParamMap.subscribe((params) => {
+    this.route.queryParamMap.subscribe(params => {
       this.deploymentAccessRequired = params.get('deploymentAccess') === 'required';
     });
   }
@@ -75,18 +75,30 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
   }
 
   get canAddDeployer(): boolean {
-    return this.isOwner && !this.isMutating && this.isN3Address(this.newWalletAddress)
-      && this.selectedNewNetworks.length > 0;
+    return (
+      this.isOwner &&
+      !this.isMutating &&
+      this.isN3Address(this.newWalletAddress) &&
+      this.selectedNewNetworks.length > 0
+    );
   }
 
   get canSaveEdit(): boolean {
-    return this.isOwner && Boolean(this.editingAuthorizedDeployer) && !this.isMutating
-      && this.selectedEditNetworks.length > 0;
+    return (
+      this.isOwner &&
+      Boolean(this.editingAuthorizedDeployer) &&
+      !this.isMutating &&
+      this.selectedEditNetworks.length > 0
+    );
   }
 
   get canRemoveAuthorizedDeployer(): boolean {
-    return this.isOwner && Boolean(this.removingAuthorizedDeployer) && !this.isMutating
-      && this.removalConfirmation.trim() === this.removingAuthorizedDeployer?.walletAddress;
+    return (
+      this.isOwner &&
+      Boolean(this.removingAuthorizedDeployer) &&
+      !this.isMutating &&
+      this.removalConfirmation.trim() === this.removingAuthorizedDeployer?.walletAddress
+    );
   }
 
   get effectiveAccessMessage(): string {
@@ -98,7 +110,9 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
       return 'Connected wallet owns this project and can deploy on both N3 networks.';
     }
 
-    const authorizedDeployer = this.authorizedDeployers.find((item) => item.walletAddress === walletAddress);
+    const authorizedDeployer = this.authorizedDeployers.find(
+      item => item.walletAddress === walletAddress
+    );
     if (!authorizedDeployer) {
       return 'Deployment access is managed by the project owner.';
     }
@@ -144,7 +158,8 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
     const walletAddress = this.newWalletAddress.trim();
     const allowedNetworks = this.selectedNewNetworks;
     if (!this.isN3Address(walletAddress)) {
-      this.actionError = 'Enter a valid N3 wallet address. Pusharoo will validate it again before saving.';
+      this.actionError =
+        'Enter a valid N3 wallet address. Pusharoo will validate it again before saving.';
       return;
     }
     if (!allowedNetworks.length) {
@@ -155,10 +170,12 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
     this.isMutating = true;
     try {
       await this.auth.ensureAuthenticated();
-      await firstValueFrom(this.api.addAuthorizedDeployer(this.projectId, {
-        walletAddress,
-        allowedNetworks
-      }));
+      await firstValueFrom(
+        this.api.addAuthorizedDeployer(this.projectId, {
+          walletAddress,
+          allowedNetworks
+        })
+      );
       this.newWalletAddress = '';
       this.newTestnet = true;
       this.newMainnet = false;
@@ -183,9 +200,11 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
     this.isMutating = true;
     try {
       await this.auth.ensureAuthenticated();
-      await firstValueFrom(this.api.updateAuthorizedDeployer(this.projectId, authorizedDeployer.walletAddress, {
-        allowedNetworks
-      }));
+      await firstValueFrom(
+        this.api.updateAuthorizedDeployer(this.projectId, authorizedDeployer.walletAddress, {
+          allowedNetworks
+        })
+      );
       this.editingAuthorizedDeployer = null;
       this.actionSuccess = 'Authorized deployer networks were updated.';
       await this.loadAuthorizedDeployers();
@@ -199,7 +218,10 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
   async removeAuthorizedDeployer(): Promise<void> {
     const authorizedDeployer = this.removingAuthorizedDeployer;
     this.clearActionMessages();
-    if (!authorizedDeployer || this.removalConfirmation.trim() !== authorizedDeployer.walletAddress) {
+    if (
+      !authorizedDeployer ||
+      this.removalConfirmation.trim() !== authorizedDeployer.walletAddress
+    ) {
       this.actionError = 'Type the exact wallet address to confirm removal.';
       return;
     }
@@ -207,7 +229,9 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
     this.isMutating = true;
     try {
       await this.auth.ensureAuthenticated();
-      await firstValueFrom(this.api.removeAuthorizedDeployer(this.projectId, authorizedDeployer.walletAddress));
+      await firstValueFrom(
+        this.api.removeAuthorizedDeployer(this.projectId, authorizedDeployer.walletAddress)
+      );
       this.removingAuthorizedDeployer = null;
       this.removalConfirmation = '';
       this.actionSuccess = 'Authorized deployer was removed.';
@@ -235,16 +259,20 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
     this.isLoading = true;
     this.loadError = '';
     try {
-      this.authorizedDeployers = await firstValueFrom(this.api.getAuthorizedDeployers(this.projectId));
+      this.authorizedDeployers = await firstValueFrom(
+        this.api.getAuthorizedDeployers(this.projectId)
+      );
       if (this.editingAuthorizedDeployer) {
-        this.editingAuthorizedDeployer = this.authorizedDeployers.find(
-          (item) => item.walletAddress === this.editingAuthorizedDeployer?.walletAddress
-        ) ?? null;
+        this.editingAuthorizedDeployer =
+          this.authorizedDeployers.find(
+            item => item.walletAddress === this.editingAuthorizedDeployer?.walletAddress
+          ) ?? null;
       }
       if (this.removingAuthorizedDeployer) {
-        this.removingAuthorizedDeployer = this.authorizedDeployers.find(
-          (item) => item.walletAddress === this.removingAuthorizedDeployer?.walletAddress
-        ) ?? null;
+        this.removingAuthorizedDeployer =
+          this.authorizedDeployers.find(
+            item => item.walletAddress === this.removingAuthorizedDeployer?.walletAddress
+          ) ?? null;
       }
     } catch (error) {
       this.loadError = this.errors.format(error, 'Could not load authorized deployers.');
@@ -256,7 +284,8 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
   private async showMutationError(error: unknown, fallback: string): Promise<void> {
     if (error instanceof HttpErrorResponse && error.status === 409) {
       await this.loadAuthorizedDeployers();
-      this.actionError = 'The authorized-deployer list changed before the request was saved. Review the latest list and try again.';
+      this.actionError =
+        'The authorized-deployer list changed before the request was saved. Review the latest list and try again.';
       return;
     }
     this.actionError = this.errors.format(error, fallback);
@@ -268,10 +297,7 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
   }
 
   private networksFromSelection(testnet: boolean, mainnet: boolean): string[] {
-    return [
-      ...(testnet ? ['neo3:testnet'] : []),
-      ...(mainnet ? ['neo3:mainnet'] : [])
-    ];
+    return [...(testnet ? ['neo3:testnet'] : []), ...(mainnet ? ['neo3:mainnet'] : [])];
   }
 
   private isN3Address(value: string): boolean {

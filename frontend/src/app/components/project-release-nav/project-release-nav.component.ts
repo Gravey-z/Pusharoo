@@ -26,20 +26,21 @@ export class ProjectReleaseNavComponent {
       return;
     }
 
-    const tabs = this.releaseTabs.toArray().map((tab) => tab.nativeElement);
+    const tabs = this.releaseTabs.toArray().map(tab => tab.nativeElement);
     const currentIndex = tabs.indexOf(event.currentTarget as HTMLAnchorElement);
     if (currentIndex === -1) {
       return;
     }
 
     event.preventDefault();
-    const nextIndex = event.key === 'ArrowLeft'
-      ? (currentIndex - 1 + tabs.length) % tabs.length
-      : event.key === 'ArrowRight'
-        ? (currentIndex + 1) % tabs.length
-        : event.key === 'Home'
-          ? 0
-          : tabs.length - 1;
+    const nextIndex =
+      event.key === 'ArrowLeft'
+        ? (currentIndex - 1 + tabs.length) % tabs.length
+        : event.key === 'ArrowRight'
+          ? (currentIndex + 1) % tabs.length
+          : event.key === 'Home'
+            ? 0
+            : tabs.length - 1;
     tabs[nextIndex]?.focus();
   }
 }

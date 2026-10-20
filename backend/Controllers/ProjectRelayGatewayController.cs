@@ -1,7 +1,7 @@
 using System.Text.Json;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 using backend.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace backend.Controllers;
 
@@ -27,12 +27,27 @@ public sealed class ProjectRelayGatewayController(
         Forward(projectId, network, HttpMethod.Post, "subscriptions/usage", null, ct);
 
     [HttpPost("subscriptions/transitions/query")]
-    public Task<IActionResult> SubscriptionTransitions(string projectId, string network, CancellationToken ct) =>
-        Forward(projectId, network, HttpMethod.Post, "subscriptions/transitions/query", null, ct);
+    public Task<IActionResult> SubscriptionTransitions(
+        string projectId,
+        string network,
+        CancellationToken ct
+    ) => Forward(projectId, network, HttpMethod.Post, "subscriptions/transitions/query", null, ct);
 
     [HttpPost("subscriptions/transitions/selection")]
-    public Task<IActionResult> SubscriptionTransitionSelection(string projectId, string network, [FromBody] JsonElement body, CancellationToken ct) =>
-        Forward(projectId, network, HttpMethod.Post, "subscriptions/transitions/selection", body, ct);
+    public Task<IActionResult> SubscriptionTransitionSelection(
+        string projectId,
+        string network,
+        [FromBody] JsonElement body,
+        CancellationToken ct
+    ) =>
+        Forward(
+            projectId,
+            network,
+            HttpMethod.Post,
+            "subscriptions/transitions/selection",
+            body,
+            ct
+        );
 
     [HttpPost("subscriptions")]
     public Task<IActionResult> CreateSubscription(
@@ -288,7 +303,7 @@ public sealed class ProjectRelayGatewayController(
         {
             StatusCode = result.StatusCode,
             Content = result.StatusCode == StatusCodes.Status204NoContent ? null : result.Content,
-            ContentType = "application/json"
+            ContentType = "application/json",
         };
     }
 }

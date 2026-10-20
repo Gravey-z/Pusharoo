@@ -5,7 +5,7 @@ public enum NeoRpcFailureKind
     Transient,
     UnavailableHistory,
     InvalidResponse,
-    NetworkMismatch
+    NetworkMismatch,
 }
 
 public sealed class NeoRpcException(

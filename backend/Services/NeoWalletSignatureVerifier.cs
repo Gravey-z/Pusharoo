@@ -211,7 +211,7 @@ public sealed class NeoWalletSignatureVerifier
                 parameters = new ECParameters
                 {
                     Curve = ECCurve.NamedCurves.nistP256,
-                    Q = new ECPoint { X = bytes[1..33], Y = bytes[33..65] }
+                    Q = new ECPoint { X = bytes[1..33], Y = bytes[33..65] },
                 };
 
                 return true;
@@ -229,7 +229,7 @@ public sealed class NeoWalletSignatureVerifier
             parameters = new ECParameters
             {
                 Curve = ECCurve.NamedCurves.nistP256,
-                Q = new ECPoint { X = ToFixedLengthBytes(x, 32), Y = ToFixedLengthBytes(y, 32) }
+                Q = new ECPoint { X = ToFixedLengthBytes(x, 32), Y = ToFixedLengthBytes(y, 32) },
             };
 
             return true;
@@ -501,7 +501,7 @@ public sealed class NeoWalletSignatureVerifier
             11,
             6,
             15,
-            13
+            13,
         ];
 
         private static readonly int[] RightMessageOrder =
@@ -585,7 +585,7 @@ public sealed class NeoWalletSignatureVerifier
             0,
             3,
             9,
-            11
+            11,
         ];
 
         private static readonly int[] LeftRotations =
@@ -669,7 +669,7 @@ public sealed class NeoWalletSignatureVerifier
             11,
             8,
             5,
-            6
+            6,
         ];
 
         private static readonly int[] RightRotations =
@@ -753,7 +753,7 @@ public sealed class NeoWalletSignatureVerifier
             15,
             13,
             11,
-            11
+            11,
         ];
 
         public static byte[] Hash(byte[] value)
@@ -879,7 +879,7 @@ public sealed class NeoWalletSignatureVerifier
                 < 32 => (x & y) | (~x & z),
                 < 48 => (x | ~y) ^ z,
                 < 64 => (x & z) | (y & ~z),
-                _ => x ^ (y | ~z)
+                _ => x ^ (y | ~z),
             };
         }
 
@@ -891,7 +891,7 @@ public sealed class NeoWalletSignatureVerifier
                 < 32 => 0x5a827999,
                 < 48 => 0x6ed9eba1,
                 < 64 => 0x8f1bbcdc,
-                _ => 0xa953fd4e
+                _ => 0xa953fd4e,
             };
         }
 
@@ -903,7 +903,7 @@ public sealed class NeoWalletSignatureVerifier
                 < 32 => 0x5c4dd124,
                 < 48 => 0x6d703ef3,
                 < 64 => 0x7a6d76e9,
-                _ => 0x00000000
+                _ => 0x00000000,
             };
         }
 

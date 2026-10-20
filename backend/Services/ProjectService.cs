@@ -28,7 +28,7 @@ public sealed class ProjectService(IProjectRepository projects, MongoDbContext d
             CreatorNetwork = request.CreatorNetwork,
             IdempotencyKey = idempotencyKey,
             IdempotencyPayloadHash = idempotencyPayloadHash,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
         };
 
         await projects.InsertAsync(project, cancellationToken);

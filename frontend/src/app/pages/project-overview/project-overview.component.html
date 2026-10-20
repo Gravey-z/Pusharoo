@@ -37,256 +37,345 @@
     } @else if (!canManageProject(overview) && hasAnyDeploymentAccess(overview)) {
       <aside class="read-only-notice" aria-label="Read-only access">
         <strong>Authorized deployer</strong>
-        <span>{{ deploymentAccessMessage(overview) }} Only the project owner can change this project or its authorized-deployer list.</span>
+        <span
+          >{{ deploymentAccessMessage(overview) }} Only the project owner can change this project or
+          its authorized-deployer list.</span
+        >
       </aside>
     }
 
     @if (releaseTab === 'overview') {
-    @let testnetDeployment = latestDeploymentForNetwork(overview, 'testnet');
-    @let mainnetDeployment = latestDeploymentForNetwork(overview, 'mainnet');
-    <section class="overview-layout">
-      <div class="project-summary surface-panel">
-        <span class="eyebrow">About this project</span>
-        <p>{{ overview.project.description || 'No project description has been added yet.' }}</p>
-      </div>
+      @let testnetDeployment = latestDeploymentForNetwork(overview, 'testnet');
+      @let mainnetDeployment = latestDeploymentForNetwork(overview, 'mainnet');
+      <section class="overview-layout">
+        <div class="project-summary surface-panel">
+          <span class="eyebrow">About this project</span>
+          <p>{{ overview.project.description || 'No project description has been added yet.' }}</p>
+        </div>
 
-      <dl class="metric-grid surface-panel surface-panel--flush">
-        <div>
-          <dt>Artifacts</dt>
-          <dd>{{ overview.artifacts.length }}</dd>
-        </div>
-        <div>
-          <dt>Deployments</dt>
-          <dd>{{ overview.deployments.length }}</dd>
-        </div>
-        <div>
-          <dt>Testnet</dt>
-          <dd>{{ testnetDeployment ? 'Live' : 'Not deployed' }}</dd>
-        </div>
-        <div>
-          <dt>Mainnet</dt>
-          <dd>{{ mainnetDeployment ? 'Live' : 'Not deployed' }}</dd>
-        </div>
-      </dl>
-    </section>
+        <dl class="metric-grid surface-panel surface-panel--flush">
+          <div>
+            <dt>Artifacts</dt>
+            <dd>{{ overview.artifacts.length }}</dd>
+          </div>
+          <div>
+            <dt>Deployments</dt>
+            <dd>{{ overview.deployments.length }}</dd>
+          </div>
+          <div>
+            <dt>Testnet</dt>
+            <dd>{{ testnetDeployment ? 'Live' : 'Not deployed' }}</dd>
+          </div>
+          <div>
+            <dt>Mainnet</dt>
+            <dd>{{ mainnetDeployment ? 'Live' : 'Not deployed' }}</dd>
+          </div>
+        </dl>
+      </section>
 
-    <section class="network-grid" aria-label="Network releases">
-      @for (network of ['testnet', 'mainnet']; track network) {
-        @let deployment = latestDeploymentForNetwork(overview, network);
-        <article
-          class="network-card surface-panel"
-          [class.deployed]="deployment"
-          [class.network-testnet]="network === 'testnet'"
-          [class.network-mainnet]="network === 'mainnet'"
-          [class.network-unavailable]="isNetworkUnavailable(network)"
-        >
-          <span class="eyebrow">{{ network === 'testnet' ? 'N3:Testnet' : 'N3:Mainnet' }}</span>
-          @if (deployment) {
-            <strong>{{ deployment.version }}</strong>
-            <span class="release-state status-badge status-badge--success">Deployed</span>
-            <p>{{ shortText(deployment.contractHash, 10, 4) }}</p>
-            <a [routerLink]="['/projects', overview.project.id, 'deployments']">View deployment</a>
-          } @else {
-            <strong>Not deployed</strong>
-            <span class="release-state pending status-badge status-badge--warning">Awaiting release</span>
-            <p>Deploy an artifact to establish this network release.</p>
-            @if (hasActiveAttempt(overview, network)) {
-              <span class="deploy-network-button disabled">Deployment attempt already active</span>
-            } @else if (isNetworkUnavailable(network)) {
-              <span class="deploy-network-button disabled" title="Switch your connected wallet to this network to deploy.">
-                Switch wallet to deploy
-              </span>
-            } @else if (canDeployToNetwork(overview, network)) {
-              <a
-                class="deploy-network-button"
-                [routerLink]="['/projects', overview.project.id, 'deployments', 'new']"
+      <section class="network-grid" aria-label="Network releases">
+        @for (network of ['testnet', 'mainnet']; track network) {
+          @let deployment = latestDeploymentForNetwork(overview, network);
+          <article
+            class="network-card surface-panel"
+            [class.deployed]="deployment"
+            [class.network-testnet]="network === 'testnet'"
+            [class.network-mainnet]="network === 'mainnet'"
+            [class.network-unavailable]="isNetworkUnavailable(network)"
+          >
+            <span class="eyebrow">{{ network === 'testnet' ? 'N3:Testnet' : 'N3:Mainnet' }}</span>
+            @if (deployment) {
+              <strong>{{ deployment.version }}</strong>
+              <span class="release-state status-badge status-badge--success">Deployed</span>
+              <p>{{ shortText(deployment.contractHash, 10, 4) }}</p>
+              <a [routerLink]="['/projects', overview.project.id, 'deployments']"
+                >View deployment</a
               >
-                Deploy contract
-              </a>
+            } @else {
+              <strong>Not deployed</strong>
+              <span class="release-state pending status-badge status-badge--warning"
+                >Awaiting release</span
+              >
+              <p>Deploy an artifact to establish this network release.</p>
+              @if (hasActiveAttempt(overview, network)) {
+                <span class="deploy-network-button disabled"
+                  >Deployment attempt already active</span
+                >
+              } @else if (isNetworkUnavailable(network)) {
+                <span
+                  class="deploy-network-button disabled"
+                  title="Switch your connected wallet to this network to deploy."
+                >
+                  Switch wallet to deploy
+                </span>
+              } @else if (canDeployToNetwork(overview, network)) {
+                <a
+                  class="deploy-network-button"
+                  [routerLink]="['/projects', overview.project.id, 'deployments', 'new']"
+                >
+                  Deploy contract
+                </a>
+              }
             }
-          }
-        </article>
-      }
-    </section>
+          </article>
+        }
+      </section>
     }
 
     @if (releaseTab !== 'deployments') {
-    <section class="artifact-list" aria-label="Artifacts">
-      <header class="artifact-list-header">
-        <h2>Artifacts</h2>
-        <div class="artifact-list-actions">
-        @if (overview.artifacts.length >= 2) {
-          <a class="secondary-button" [routerLink]="['/projects', overview.project.id, 'compare']">
-            Compare versions
-          </a>
-        }
-        @if (releaseTab === 'artifacts' && canManageProject(overview)) {
-          <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
-            Upload Artifact
-          </a>
-        }
+      <section class="artifact-list" aria-label="Artifacts">
+        <header class="artifact-list-header">
+          <h2>Artifacts</h2>
+          <div class="artifact-list-actions">
+            @if (overview.artifacts.length >= 2) {
+              <a
+                class="secondary-button"
+                [routerLink]="['/projects', overview.project.id, 'compare']"
+              >
+                Compare versions
+              </a>
+            }
+            @if (releaseTab === 'artifacts' && canManageProject(overview)) {
+              <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
+                Upload Artifact
+              </a>
+            }
+          </div>
+        </header>
+
+        <div class="list-columns artifact-columns" aria-hidden="true">
+          <span>Version</span>
+          <span>Contract</span>
+          <span>NEF file</span>
+          <span>Networks</span>
         </div>
-      </header>
 
-      <div class="list-columns artifact-columns" aria-hidden="true">
-        <span>Version</span>
-        <span>Contract</span>
-        <span>NEF file</span>
-        <span>Networks</span>
-      </div>
-
-      @let displayedArtifacts = releaseTab === 'overview' ? overviewArtifacts(overview) : overview.artifacts;
-      @if (displayedArtifacts.length) {
-        @for (artifact of displayedArtifacts; track artifact.id) {
-          <a
-            [class.deployed-artifact]="isArtifactDeployed(overview, artifact)"
-            [routerLink]="['/artifacts', artifact.id, 'manifest']"
-          >
-            <span data-label="Version">{{ artifact.version }}</span>
-            <span data-label="Contract">{{ artifact.contractName }}</span>
-            <span data-label="NEF file">{{ artifact.nefFileName }}</span>
-            <span class="artifact-deployment-state" data-label="Networks">
-              @if (artifactNetworks(overview, artifact).length) {
-                @for (network of artifactNetworks(overview, artifact); track network) {
-                  <span
-                    class="network-pill network-badge"
-                    [class.network-badge--mainnet]="network === 'neo3:mainnet'"
-                    [class.network-badge--testnet]="network === 'neo3:testnet'"
-                  >{{ wallet.networkLabel(network) }}</span>
+        @let displayedArtifacts =
+          releaseTab === 'overview' ? overviewArtifacts(overview) : overview.artifacts;
+        @if (displayedArtifacts.length) {
+          @for (artifact of displayedArtifacts; track artifact.id) {
+            <a
+              [class.deployed-artifact]="isArtifactDeployed(overview, artifact)"
+              [routerLink]="['/artifacts', artifact.id, 'manifest']"
+            >
+              <span data-label="Version">{{ artifact.version }}</span>
+              <span data-label="Contract">{{ artifact.contractName }}</span>
+              <span data-label="NEF file">{{ artifact.nefFileName }}</span>
+              <span class="artifact-deployment-state" data-label="Networks">
+                @if (artifactNetworks(overview, artifact).length) {
+                  @for (network of artifactNetworks(overview, artifact); track network) {
+                    <span
+                      class="network-pill network-badge"
+                      [class.network-badge--mainnet]="network === 'neo3:mainnet'"
+                      [class.network-badge--testnet]="network === 'neo3:testnet'"
+                      >{{ wallet.networkLabel(network) }}</span
+                    >
+                  }
                 }
-              }
-            </span>
-          </a>
+              </span>
+            </a>
+          }
+        } @else {
+          <div class="artifact-empty-state">
+            <strong>No artifacts uploaded</strong>
+            <p>Upload a NEF and manifest before creating a deployment.</p>
+          </div>
         }
-      } @else {
-        <div class="artifact-empty-state">
-          <strong>No artifacts uploaded</strong>
-          <p>Upload a NEF and manifest before creating a deployment.</p>
-        </div>
-      }
 
-      @if (releaseTab !== 'overview' && overview.artifacts.length && !overview.deployments.length) {
-        <p class="artifact-deployment-empty">No artifacts deployed yet. Choose an artifact and network to begin a release.</p>
-      }
-    </section>
+        @if (
+          releaseTab !== 'overview' && overview.artifacts.length && !overview.deployments.length
+        ) {
+          <p class="artifact-deployment-empty"
+            >No artifacts deployed yet. Choose an artifact and network to begin a release.</p
+          >
+        }
+      </section>
     }
 
     @if (releaseTab !== 'artifacts') {
-    <section class="deployment-list" aria-label="Deployments">
-      <header class="deployment-list-header">
-        <h2>Deployments</h2>
-        @if (releaseTab === 'deployments') {
-          <div class="deployment-list-actions">
-            @if (overview.artifacts.length && canStartDeploymentToNetwork(overview, wallet.session()?.network || '')) {
-              <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'new']">
-                Deploy Contract
-              </a>
-            }
-            @if (!hasConfirmedDeploymentOnConnectedNetwork(overview) || hasUnrecordedAttemptForConnectedWallet(overview)) {
-              <a class="secondary-button" [routerLink]="['/projects', overview.project.id, 'deployments', 'recovery']">Recover by transaction</a>
-            }
-          </div>
-        }
-      </header>
-      <div class="list-columns deployment-columns" aria-hidden="true">
-        <span>Version</span>
-        <span>Network</span>
-        <span>Status</span>
-        <span>Contract</span>
-        <span>Transaction</span>
-        <span>Deployer</span>
-        <span>Action</span>
-      </div>
-      @let displayedDeployments = releaseTab === 'overview' ? overviewDeployments(overview) : deploymentAttempts(overview);
-      @if (displayedDeployments.length) {
-        @for (deployment of displayedDeployments; track deployment.id) {
-          <div class="deployment-row" [class.has-failure]="!!deployment.failureReason">
-            <span data-label="Version">{{ deployment.version }}</span>
-            <span
-              class="network-pill network-badge"
-              data-label="Network"
-              [class.network-badge--mainnet]="deployment.network === 'neo3:mainnet'"
-              [class.network-badge--testnet]="deployment.network === 'neo3:testnet'"
-            >{{ wallet.networkLabel(deployment.network) }}</span>
-            <span
-              class="deployment-status status-badge"
-              data-label="Status"
-              [class.failed]="deployment.status === 'failed' || deployment.status === 'record_failed'"
-              [class.status-badge--success]="deploymentStatusTone(deployment.status) === 'success'"
-              [class.status-badge--warning]="deploymentStatusTone(deployment.status) === 'warning'"
-              [class.status-badge--danger]="deploymentStatusTone(deployment.status) === 'danger'"
-            >
-              {{ deploymentStatusLabel(deployment) }}
-            </span>
-            @if (deployment.contractHash) {
-              <span class="hash-actions" data-label="Contract">
-              <a class="explorer-chip" [href]="explorerUrl(deployment.network, 'contract', deployment.contractHash)" target="_blank" rel="noopener noreferrer" [title]="'View contract on Dora: ' + deployment.contractHash">
-                {{ shortText(deployment.contractHash, 10, 4) }} ↗
-              </a>
-              <button class="copy-button" type="button" (click)="copyValue(deployment.contractHash, $event)">
-                {{ copiedValue === deployment.contractHash ? 'Copied' : 'Copy' }}
-              </button>
-              </span>
-            } @else {
-              <span class="deployment-placeholder" data-label="Contract">No contract hash</span>
-            }
-            @if (deployment.transactionId) {
-              <span class="hash-actions" data-label="Transaction">
-              <a class="explorer-chip" [href]="explorerUrl(deployment.network, 'transaction', deployment.transactionId)" target="_blank" rel="noopener noreferrer" [title]="'View transaction on Dora: ' + deployment.transactionId">
-                {{ shortTransactionId(deployment.transactionId) }} ↗
-              </a>
-              <button class="copy-button" type="button" (click)="copyValue(deployment.transactionId, $event)">
-                {{ copiedValue === deployment.transactionId ? 'Copied' : 'Copy' }}
-              </button>
-              </span>
-            } @else {
-              <span class="deployment-placeholder" data-label="Transaction">No txid</span>
-            }
-            <span class="hash-actions" data-label="Deployer">
-            <a class="explorer-chip" [href]="explorerUrl(deployment.network, 'address', deployment.deployedBy)" target="_blank" rel="noopener noreferrer" [title]="'View wallet on Dora: ' + deployment.deployedBy">
-              {{ shortText(deployment.deployedBy) }} · {{ deployerLabel(overview, deployment.deployedBy) }} ↗
-            </a>
-            <button class="copy-button" type="button" (click)="copyValue(deployment.deployedBy, $event)">
-              {{ copiedValue === deployment.deployedBy ? 'Copied' : 'Copy' }}
-            </button>
-            </span>
-            @if (canResumeConfirmation(deployment)) {
-              <button
-                class="resume-button"
-                type="button"
-                [disabled]="confirmingDeploymentId === deployment.id"
-                (click)="resumeConfirmation(overview, deployment)"
-              >
-                {{ confirmingDeploymentId === deployment.id ? 'Confirming...' : deployment.status === 'failed' ? 'Retry Confirmation' : 'Resume Confirmation' }}
-              </button>
-            }
-            @if (canCancelAttempt(deployment)) {
-              <button class="resume-button" type="button" [disabled]="confirmingDeploymentId === deployment.id"
-                (click)="cancelAttempt(overview, deployment)">
-                {{ confirmingDeploymentId === deployment.id ? 'Canceling...' : 'Cancel Attempt' }}
-              </button>
-            }
-            @if (deployment.failureReason) {
-              <span class="deployment-failure" [title]="deployment.failureReason">{{ deployment.failureReason }}</span>
-            }
-            @if (confirmationErrorDeploymentId === deployment.id) {
-              <span class="deployment-failure" role="alert">{{ confirmationError }}</span>
-            }
-            @if (deployment.deploymentData && deployment.deploymentData.type !== 'Any') {
-              <details class="deployment-data-record">
-                <summary>Initialization data</summary>
-                <pre>{{ formatDeploymentData(deployment.deploymentData) }}</pre>
-                @if (deployment.deploymentDataSha256) { <small>SHA-256: {{ deployment.deploymentDataSha256 }}</small> }
-              </details>
-            }
-          </div>
-        }
-      } @else {
-        <div class="deployment-empty-state">
-          <p>No deployments recorded yet.</p>
+      <section class="deployment-list" aria-label="Deployments">
+        <header class="deployment-list-header">
+          <h2>Deployments</h2>
+          @if (releaseTab === 'deployments') {
+            <div class="deployment-list-actions">
+              @if (
+                overview.artifacts.length &&
+                canStartDeploymentToNetwork(overview, wallet.session()?.network || '')
+              ) {
+                <a
+                  class="primary-button"
+                  [routerLink]="['/projects', overview.project.id, 'deployments', 'new']"
+                >
+                  Deploy Contract
+                </a>
+              }
+              @if (
+                !hasConfirmedDeploymentOnConnectedNetwork(overview) ||
+                hasUnrecordedAttemptForConnectedWallet(overview)
+              ) {
+                <a
+                  class="secondary-button"
+                  [routerLink]="['/projects', overview.project.id, 'deployments', 'recovery']"
+                  >Recover by transaction</a
+                >
+              }
+            </div>
+          }
+        </header>
+        <div class="list-columns deployment-columns" aria-hidden="true">
+          <span>Version</span>
+          <span>Network</span>
+          <span>Status</span>
+          <span>Contract</span>
+          <span>Transaction</span>
+          <span>Deployer</span>
+          <span>Action</span>
         </div>
-      }
-    </section>
+        @let displayedDeployments =
+          releaseTab === 'overview' ? overviewDeployments(overview) : deploymentAttempts(overview);
+        @if (displayedDeployments.length) {
+          @for (deployment of displayedDeployments; track deployment.id) {
+            <div class="deployment-row" [class.has-failure]="!!deployment.failureReason">
+              <span data-label="Version">{{ deployment.version }}</span>
+              <span
+                class="network-pill network-badge"
+                data-label="Network"
+                [class.network-badge--mainnet]="deployment.network === 'neo3:mainnet'"
+                [class.network-badge--testnet]="deployment.network === 'neo3:testnet'"
+                >{{ wallet.networkLabel(deployment.network) }}</span
+              >
+              <span
+                class="deployment-status status-badge"
+                data-label="Status"
+                [class.failed]="
+                  deployment.status === 'failed' || deployment.status === 'record_failed'
+                "
+                [class.status-badge--success]="
+                  deploymentStatusTone(deployment.status) === 'success'
+                "
+                [class.status-badge--warning]="
+                  deploymentStatusTone(deployment.status) === 'warning'
+                "
+                [class.status-badge--danger]="deploymentStatusTone(deployment.status) === 'danger'"
+              >
+                {{ deploymentStatusLabel(deployment) }}
+              </span>
+              @if (deployment.contractHash) {
+                <span class="hash-actions" data-label="Contract">
+                  <a
+                    class="explorer-chip"
+                    [href]="explorerUrl(deployment.network, 'contract', deployment.contractHash)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    [title]="'View contract on Dora: ' + deployment.contractHash"
+                  >
+                    {{ shortText(deployment.contractHash, 10, 4) }} ↗
+                  </a>
+                  <button
+                    class="copy-button"
+                    type="button"
+                    (click)="copyValue(deployment.contractHash, $event)"
+                  >
+                    {{ copiedValue === deployment.contractHash ? 'Copied' : 'Copy' }}
+                  </button>
+                </span>
+              } @else {
+                <span class="deployment-placeholder" data-label="Contract">No contract hash</span>
+              }
+              @if (deployment.transactionId) {
+                <span class="hash-actions" data-label="Transaction">
+                  <a
+                    class="explorer-chip"
+                    [href]="
+                      explorerUrl(deployment.network, 'transaction', deployment.transactionId)
+                    "
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    [title]="'View transaction on Dora: ' + deployment.transactionId"
+                  >
+                    {{ shortTransactionId(deployment.transactionId) }} ↗
+                  </a>
+                  <button
+                    class="copy-button"
+                    type="button"
+                    (click)="copyValue(deployment.transactionId, $event)"
+                  >
+                    {{ copiedValue === deployment.transactionId ? 'Copied' : 'Copy' }}
+                  </button>
+                </span>
+              } @else {
+                <span class="deployment-placeholder" data-label="Transaction">No txid</span>
+              }
+              <span class="hash-actions" data-label="Deployer">
+                <a
+                  class="explorer-chip"
+                  [href]="explorerUrl(deployment.network, 'address', deployment.deployedBy)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  [title]="'View wallet on Dora: ' + deployment.deployedBy"
+                >
+                  {{ shortText(deployment.deployedBy) }} ·
+                  {{ deployerLabel(overview, deployment.deployedBy) }} ↗
+                </a>
+                <button
+                  class="copy-button"
+                  type="button"
+                  (click)="copyValue(deployment.deployedBy, $event)"
+                >
+                  {{ copiedValue === deployment.deployedBy ? 'Copied' : 'Copy' }}
+                </button>
+              </span>
+              @if (canResumeConfirmation(deployment)) {
+                <button
+                  class="resume-button"
+                  type="button"
+                  [disabled]="confirmingDeploymentId === deployment.id"
+                  (click)="resumeConfirmation(overview, deployment)"
+                >
+                  {{
+                    confirmingDeploymentId === deployment.id
+                      ? 'Confirming...'
+                      : deployment.status === 'failed'
+                        ? 'Retry Confirmation'
+                        : 'Resume Confirmation'
+                  }}
+                </button>
+              }
+              @if (canCancelAttempt(deployment)) {
+                <button
+                  class="resume-button"
+                  type="button"
+                  [disabled]="confirmingDeploymentId === deployment.id"
+                  (click)="cancelAttempt(overview, deployment)"
+                >
+                  {{ confirmingDeploymentId === deployment.id ? 'Canceling...' : 'Cancel Attempt' }}
+                </button>
+              }
+              @if (deployment.failureReason) {
+                <span class="deployment-failure" [title]="deployment.failureReason">{{
+                  deployment.failureReason
+                }}</span>
+              }
+              @if (confirmationErrorDeploymentId === deployment.id) {
+                <span class="deployment-failure" role="alert">{{ confirmationError }}</span>
+              }
+              @if (deployment.deploymentData && deployment.deploymentData.type !== 'Any') {
+                <details class="deployment-data-record">
+                  <summary>Initialization data</summary>
+                  <pre>{{ formatDeploymentData(deployment.deploymentData) }}</pre>
+                  @if (deployment.deploymentDataSha256) {
+                    <small>SHA-256: {{ deployment.deploymentDataSha256 }}</small>
+                  }
+                </details>
+              }
+            </div>
+          }
+        } @else {
+          <div class="deployment-empty-state">
+            <p>No deployments recorded yet.</p>
+          </div>
+        }
+      </section>
     }
 
     @if (releaseTab === 'overview') {
@@ -307,15 +396,31 @@
                   <strong>{{ event.title }}</strong>
                   <span>{{ event.detail }}</span>
                   @if (event.deployment?.transactionId && event.network) {
-                    <a [href]="explorerUrl(event.network, 'transaction', event.deployment?.transactionId ?? '')" target="_blank" rel="noopener noreferrer">View transaction on Dora ↗</a>
+                    <a
+                      [href]="
+                        explorerUrl(
+                          event.network,
+                          'transaction',
+                          event.deployment?.transactionId ?? ''
+                        )
+                      "
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >View transaction on Dora ↗</a
+                    >
                   }
                 </div>
-                <time [attr.datetime]="event.occurredAt">{{ formatTimelineDate(event.occurredAt) }}</time>
+                <time [attr.datetime]="event.occurredAt">{{
+                  formatTimelineDate(event.occurredAt)
+                }}</time>
               </li>
             }
           </ol>
         } @else {
-          <p class="timeline-empty">Release activity will appear here after you upload an artifact or begin a deployment.</p>
+          <p class="timeline-empty"
+            >Release activity will appear here after you upload an artifact or begin a
+            deployment.</p
+          >
         }
       </section>
     }

@@ -11,7 +11,11 @@ import type {
   WalletSession
 } from 'neo-n3-walletkit';
 import { defaultWalletConfig, isPusharooNetwork, PusharooNetwork } from '../config/wallet.config';
-import { DeploymentDataValue, WalletActionSignature, WalletLoginChallenge } from '../models/pusharoo.models';
+import {
+  DeploymentDataValue,
+  WalletActionSignature,
+  WalletLoginChallenge
+} from '../models/pusharoo.models';
 import { RuntimeConfigService } from './runtime-config.service';
 import { DeploymentDataService } from './deployment-data.service';
 import { NeoRpcService } from './neo-rpc.service';
@@ -146,13 +150,12 @@ export class WalletService {
     this.walletConnectQrCode.set('');
 
     try {
-      const walletKit = provider === 'walletconnect'
-        ? await this.startWalletConnectApproval(this.selectedNetwork())
-        : await this.initWalletKit(provider, this.selectedNetwork());
+      const walletKit =
+        provider === 'walletconnect'
+          ? await this.startWalletConnectApproval(this.selectedNetwork())
+          : await this.initWalletKit(provider, this.selectedNetwork());
 
-      const session = provider === 'walletconnect'
-        ? null
-        : await walletKit.connect();
+      const session = provider === 'walletconnect' ? null : await walletKit.connect();
       this.setWalletKit(walletKit);
 
       if (session) {
@@ -168,7 +171,7 @@ export class WalletService {
 
   async disconnect(): Promise<void> {
     this.errorMessage.set('');
-    this.disconnectEpoch.update((value) => value + 1);
+    this.disconnectEpoch.update(value => value + 1);
     this.account.set(null);
     this.session.set(null);
     const walletKit = this.walletKit;
@@ -214,7 +217,9 @@ export class WalletService {
     }
 
     if (session.network !== network) {
-      throw new Error(`Connected wallet is on ${session.network}. Select ${session.network} or reconnect on ${network}.`);
+      throw new Error(
+        `Connected wallet is on ${session.network}. Select ${session.network} or reconnect on ${network}.`
+      );
     }
 
     if (!isPusharooNetwork(network)) {
@@ -260,19 +265,15 @@ export class WalletService {
     }
 
     const contract = walletKit.contract(contractHash);
-    const nefValue = session.provider === 'onegate'
-      ? nefHex
-      : this.hexToBase64(nefHex);
+    const nefValue = session.provider === 'onegate' ? nefHex : this.hexToBase64(nefHex);
     const args: ContractArgs = [
       { type: 'ByteArray', value: nefValue },
       { type: 'String', value: manifestJson }
     ];
 
-    return await contract.invoke(
-      'update',
-      args,
-      { context: `Update ${contractName} with Pusharoo` }
-    );
+    return await contract.invoke('update', args, {
+      context: `Update ${contractName} with Pusharoo`
+    });
   }
 
   async estimateDeploymentFees(
@@ -295,7 +296,9 @@ export class WalletService {
     }
 
     if (!session.methods.includes('calculateFee')) {
-      throw new Error(`${session.provider} does not support fee estimation through the connected wallet. Review the final fee shown by your wallet before signing.`);
+      throw new Error(
+        `${session.provider} does not support fee estimation through the connected wallet. Review the final fee shown by your wallet before signing.`
+      );
     }
 
     const invocation = this.buildReleaseInvocation(
@@ -312,18 +315,23 @@ export class WalletService {
       systemFee?: unknown;
       networkFee?: unknown;
       total?: unknown;
-    }>('calculateFee', {
-      invocations: [invocation],
-      signers: [operation === 'deploy'
-        ? this.deploymentSigner(walletKit, network)
-        : walletKit.connectedSigner()]
-    }, `Estimate ${operation} fees with Pusharoo`);
+    }>(
+      'calculateFee',
+      {
+        invocations: [invocation],
+        signers: [
+          operation === 'deploy'
+            ? this.deploymentSigner(walletKit, network)
+            : walletKit.connectedSigner()
+        ]
+      },
+      `Estimate ${operation} fees with Pusharoo`
+    );
 
     const systemFee = this.formatFee(result.systemFee);
     const networkFee = this.formatFee(result.networkFee);
-    const total = result.total === undefined || result.total === null
-      ? null
-      : this.formatFee(result.total);
+    const total =
+      result.total === undefined || result.total === null ? null : this.formatFee(result.total);
 
     if (!systemFee || !networkFee) {
       throw new Error('The wallet returned an incomplete fee estimate.');
@@ -361,13 +369,22 @@ export class WalletService {
     );
     const signer = this.deploymentSigner(walletKit, network);
     const signerAccount = signer.account ?? this.account()?.scriptHash;
-    if (!signerAccount) throw new Error('The connected wallet did not provide a signer account for deployment simulation.');
+    if (!signerAccount)
+      throw new Error(
+        'The connected wallet did not provide a signer account for deployment simulation.'
+      );
     return this.neoRpc.invokeFunction(
       network,
       invocation.scriptHash,
       invocation.operation,
       invocation.args,
-      [{ account: `0x${signerAccount.replace(/^0x/i, '')}`, scopes: signer.scopes, rules: signer.rules }]
+      [
+        {
+          account: `0x${signerAccount.replace(/^0x/i, '')}`,
+          scopes: signer.scopes,
+          rules: signer.rules
+        }
+      ]
     );
   }
 
@@ -390,15 +407,21 @@ export class WalletService {
       systemFee?: unknown;
       networkFee?: unknown;
       total?: unknown;
-    }>('calculateFee', {
-      invocations: [{ scriptHash: contractHash, operation, args: args as ContractArgs }],
-      signers: [walletKit.connectedSigner()]
-    }, `Estimate ${operation} fee with Pusharoo`);
+    }>(
+      'calculateFee',
+      {
+        invocations: [{ scriptHash: contractHash, operation, args: args as ContractArgs }],
+        signers: [walletKit.connectedSigner()]
+      },
+      `Estimate ${operation} fee with Pusharoo`
+    );
 
     const systemFee = this.formatFee(result.systemFee);
     const networkFee = this.formatFee(result.networkFee);
-    const total = result.total === undefined || result.total === null ? null : this.formatFee(result.total);
-    if (!systemFee || !networkFee) throw new Error('The wallet returned an incomplete fee estimate.');
+    const total =
+      result.total === undefined || result.total === null ? null : this.formatFee(result.total);
+    if (!systemFee || !networkFee)
+      throw new Error('The wallet returned an incomplete fee estimate.');
     return { systemFee, networkFee, total: total ?? this.sumFees(systemFee, networkFee) };
   }
 
@@ -408,12 +431,23 @@ export class WalletService {
     if (!this.walletKit || !session || !account) {
       throw new Error('Connect a wallet before signing in to Pusharoo.');
     }
-    if (challenge.origin !== window.location.origin || challenge.audience !== this.runtimeConfig.value.walletSignatureAudience) {
+    if (
+      challenge.origin !== window.location.origin ||
+      challenge.audience !== this.runtimeConfig.value.walletSignatureAudience
+    ) {
       throw new Error('The login challenge is for a different Pusharoo application.');
     }
-    const signedMessage = await this.signMessage(session, account.address, challenge.message, 'Sign in to Pusharoo');
-    if (this.account()?.address !== account.address || this.account()?.scriptHash !== account.scriptHash
-      || this.session()?.network !== session.network) {
+    const signedMessage = await this.signMessage(
+      session,
+      account.address,
+      challenge.message,
+      'Sign in to Pusharoo'
+    );
+    if (
+      this.account()?.address !== account.address ||
+      this.account()?.scriptHash !== account.scriptHash ||
+      this.session()?.network !== session.network
+    ) {
       throw new Error('The wallet changed while signing in. Try again with the connected account.');
     }
     return this.toWalletActionSignature(account, session, challenge, signedMessage);
@@ -439,11 +473,9 @@ export class WalletService {
 
     const contract = walletKit.contract(contractHash);
 
-    return await contract.invoke(
-      methodName,
-      args as ContractArgs,
-      { context: `Call ${contractName}.${methodName} with Pusharoo` }
-    );
+    return await contract.invoke(methodName, args as ContractArgs, {
+      context: `Call ${contractName}.${methodName} with Pusharoo`
+    });
   }
 
   private buildReleaseInvocation(
@@ -456,9 +488,10 @@ export class WalletService {
     provider: ConnectableWalletProvider,
     byteArrayEncoding: 'provider' | 'hex' = 'provider'
   ): BuiltInvocation {
-    const nefValue = byteArrayEncoding === 'hex'
-      ? this.cleanHex(nefHex)
-      : this.encodeByteArrayForProvider(nefHex, provider);
+    const nefValue =
+      byteArrayEncoding === 'hex'
+        ? this.cleanHex(nefHex)
+        : this.encodeByteArrayForProvider(nefHex, provider);
     const codeAndManifest = [
       { type: 'ByteArray', value: nefValue },
       { type: 'String', value: manifestJson }
@@ -473,20 +506,25 @@ export class WalletService {
     return {
       scriptHash: this.runtimeConfig.value.wallet.contractManagement[network],
       operation: 'deploy',
-      args: [...codeAndManifest, this.toContractArgument(normalizedData, provider, byteArrayEncoding)]
+      args: [
+        ...codeAndManifest,
+        this.toContractArgument(normalizedData, provider, byteArrayEncoding)
+      ]
     };
   }
 
   private deploymentSigner(walletKit: WalletKit, network: PusharooNetwork): Signer {
     return {
       ...walletKit.connectedSigner(64),
-      rules: [{
-        action: 'Allow',
-        condition: {
-          type: 'CalledByContract',
-          hash: this.runtimeConfig.value.wallet.contractManagement[network]
+      rules: [
+        {
+          action: 'Allow',
+          condition: {
+            type: 'CalledByContract',
+            hash: this.runtimeConfig.value.wallet.contractManagement[network]
+          }
         }
-      }]
+      ]
     };
   }
 
@@ -496,24 +534,38 @@ export class WalletService {
     byteArrayEncoding: 'provider' | 'hex'
   ): ContractArgs[number] {
     switch (value.type) {
-      case 'Any': return { type: 'Any', value: null } as ContractArgs[number];
-      case 'String': return { type: 'String', value: value.value } as ContractArgs[number];
-      case 'Boolean': return { type: 'Boolean', value: value.value } as ContractArgs[number];
-      case 'Integer': return { type: 'Integer', value: value.value } as ContractArgs[number];
+      case 'Any':
+        return { type: 'Any', value: null } as ContractArgs[number];
+      case 'String':
+        return { type: 'String', value: value.value } as ContractArgs[number];
+      case 'Boolean':
+        return { type: 'Boolean', value: value.value } as ContractArgs[number];
+      case 'Integer':
+        return { type: 'Integer', value: value.value } as ContractArgs[number];
       case 'Hash160':
-        return { type: 'Hash160', value: `0x${value.value.replace(/^0x/i, '').toLowerCase()}` } as ContractArgs[number];
+        return {
+          type: 'Hash160',
+          value: `0x${value.value.replace(/^0x/i, '').toLowerCase()}`
+        } as ContractArgs[number];
       case 'ByteArray':
         return {
           type: 'ByteArray',
-          value: byteArrayEncoding === 'hex' ? this.cleanHex(value.value) : this.encodeByteArrayForProvider(value.value, provider)
+          value:
+            byteArrayEncoding === 'hex'
+              ? this.cleanHex(value.value)
+              : this.encodeByteArrayForProvider(value.value, provider)
         } as ContractArgs[number];
       case 'Array':
         return {
           type: 'Array',
-          value: value.value.map((child) => this.toContractArgument(child, provider, byteArrayEncoding))
+          value: value.value.map(child =>
+            this.toContractArgument(child, provider, byteArrayEncoding)
+          )
         } as ContractArgs[number];
       default:
-        throw new Error(`Deployment data type '${(value as { type: string }).type}' is not supported by this wallet.`);
+        throw new Error(
+          `Deployment data type '${(value as { type: string }).type}' is not supported by this wallet.`
+        );
     }
   }
 
@@ -580,9 +632,7 @@ export class WalletService {
       );
     }
 
-    return this.normalizeSignedMessage(
-      await provider.signMessage({ message, version: 3 })
-    );
+    return this.normalizeSignedMessage(await provider.signMessage({ message, version: 3 }));
   }
 
   private toWalletActionSignature(
@@ -629,16 +679,18 @@ export class WalletService {
   }
 
   private isMessageSigningProvider(provider: unknown): provider is MessageSigningProvider {
-    return !!provider
-      && typeof provider === 'object'
-      && 'signMessage' in provider
-      && typeof provider.signMessage === 'function';
+    return (
+      !!provider &&
+      typeof provider === 'object' &&
+      'signMessage' in provider &&
+      typeof provider.signMessage === 'function'
+    );
   }
 
   private setWalletKit(walletKit: WalletKit): void {
     this.unsubscribeSession?.();
     this.walletKit = walletKit;
-    this.unsubscribeSession = walletKit.onSessionChange((session) => {
+    this.unsubscribeSession = walletKit.onSessionChange(session => {
       this.session.set(session);
       this.account.set(walletKit.account);
       this.status.set(session ? 'connected' : 'idle');
@@ -696,7 +748,12 @@ export class WalletService {
       return await WalletKit.initOneGate({ network });
     }
 
-    const walletConnectMethods: Method[] = ['invokeFunction', 'testInvoke', 'calculateFee', 'signMessage'];
+    const walletConnectMethods: Method[] = [
+      'invokeFunction',
+      'testInvoke',
+      'calculateFee',
+      'signMessage'
+    ];
 
     return await WalletKit.init({
       projectId: this.getWalletConnectProjectId(),
@@ -725,17 +782,13 @@ export class WalletService {
   private saveProvider(provider: ConnectableWalletProvider): void {
     try {
       localStorage.setItem(this.providerStorageKey, provider);
-    } catch {
-      // Storage can be blocked in private or embedded browser contexts.
-    }
+    } catch {}
   }
 
   private clearSavedProvider(): void {
     try {
       localStorage.removeItem(this.providerStorageKey);
-    } catch {
-      // Storage can be blocked in private or embedded browser contexts.
-    }
+    } catch {}
   }
 
   private getSavedNetwork(): PusharooNetwork {
@@ -751,9 +804,7 @@ export class WalletService {
   private saveNetwork(network: PusharooNetwork): void {
     try {
       localStorage.setItem(this.networkStorageKey, network);
-    } catch {
-      // Storage can be blocked in private or embedded browser contexts.
-    }
+    } catch {}
   }
 
   private isConnectableProvider(provider: unknown): provider is ConnectableWalletProvider {
@@ -780,7 +831,9 @@ export class WalletService {
     const projectId = this.runtimeConfig.value.wallet.walletConnectProjectId.trim();
 
     if (!projectId) {
-      throw new Error('Add a WalletConnect project ID in frontend/src/app/config/wallet.config.ts to enable Neon Wallet.');
+      throw new Error(
+        'Add a WalletConnect project ID in frontend/src/app/config/wallet.config.ts to enable Neon Wallet.'
+      );
     }
 
     return projectId;
@@ -795,11 +848,13 @@ export class WalletService {
     }
 
     this.walletConnectUri.set(uri);
-    this.walletConnectQrCode.set(await toDataURL(uri, {
-      errorCorrectionLevel: 'M',
-      margin: 1,
-      width: 220
-    }));
+    this.walletConnectQrCode.set(
+      await toDataURL(uri, {
+        errorCorrectionLevel: 'M',
+        margin: 1,
+        width: 220
+      })
+    );
     void this.waitForWalletConnectApproval(walletKit, approval);
 
     return walletKit;

@@ -38,7 +38,14 @@ interface DeploymentOption {
 
 @Component({
   selector: 'app-event-webhooks',
-  imports: [RelayHealthPanelComponent, DatePipe, FormsModule, PageShellComponent, ProjectReleaseNavComponent, RouterLink],
+  imports: [
+    RelayHealthPanelComponent,
+    DatePipe,
+    FormsModule,
+    PageShellComponent,
+    ProjectReleaseNavComponent,
+    RouterLink
+  ],
   templateUrl: './event-webhooks.component.html',
   styleUrl: './event-webhooks.component.scss'
 })
@@ -53,28 +60,52 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   readonly recoveryMessages: Record<string, string> = {};
   readonly recoveryErrors: Record<string, string> = {};
 
-  get recoveryJobs(): RelayReplayJob[] { return this.recoveryJobsByNetwork[this.webhookNetwork] ?? []; }
-  get recoveryBusy(): boolean { return this.recoveryBusyByNetwork[this.webhookNetwork] ?? false; }
+  get recoveryJobs(): RelayReplayJob[] {
+    return this.recoveryJobsByNetwork[this.webhookNetwork] ?? [];
+  }
+  get recoveryBusy(): boolean {
+    return this.recoveryBusyByNetwork[this.webhookNetwork] ?? false;
+  }
   get recoveryEventOptions(): string[] {
-    const manifestNames = this.deploymentOptions.find(x => x.contractHash === this.recoveryContract)?.artifact.manifest.abi.events.map(x => x.name) ?? [];
-    const subscriptions = this.subscriptions.filter(x => x.isEnabled && x.network === this.webhookNetwork && x.contractHash === this.recoveryContract);
-    return [...new Set([...manifestNames, ...subscriptions.flatMap(x => x.eventName ? [x.eventName] : [])])]
-      .filter(name => subscriptions.some(x => !x.eventName || x.eventName === name)).sort();
+    const manifestNames =
+      this.deploymentOptions
+        .find(x => x.contractHash === this.recoveryContract)
+        ?.artifact.manifest.abi.events.map(x => x.name) ?? [];
+    const subscriptions = this.subscriptions.filter(
+      x =>
+        x.isEnabled && x.network === this.webhookNetwork && x.contractHash === this.recoveryContract
+    );
+    return [
+      ...new Set([
+        ...manifestNames,
+        ...subscriptions.flatMap(x => (x.eventName ? [x.eventName] : []))
+      ])
+    ]
+      .filter(name => subscriptions.some(x => !x.eventName || x.eventName === name))
+      .sort();
   }
   get recoveryRecipients(): WebhookSubscription[] {
     const names = this.recoveryEventOptions.filter(name => this.recoveryEvents[name]);
-    return this.subscriptions.filter(x => x.isEnabled && x.network === this.webhookNetwork && x.contractHash === this.recoveryContract &&
-      (!x.eventName ? names.length > 0 : names.includes(x.eventName)));
+    return this.subscriptions.filter(
+      x =>
+        x.isEnabled &&
+        x.network === this.webhookNetwork &&
+        x.contractHash === this.recoveryContract &&
+        (!x.eventName ? names.length > 0 : names.includes(x.eventName))
+    );
   }
 
-  selectRecoveryContract(): void { this.recoveryEvents = Object.create(null); }
+  selectRecoveryContract(): void {
+    this.recoveryEvents = Object.create(null);
+  }
   selectAllRecoveryEvents(): void {
     this.recoveryEvents = Object.fromEntries(this.recoveryEventOptions.map(name => [name, true]));
   }
   async toggleRecovery(): Promise<void> {
     this.recoveryOpen = !this.recoveryOpen;
     if (this.recoveryOpen) {
-      if (!this.recoveryContract) this.recoveryContract = this.deploymentOptions[0]?.contractHash ?? '';
+      if (!this.recoveryContract)
+        this.recoveryContract = this.deploymentOptions[0]?.contractHash ?? '';
       await this.refreshRecovery();
     }
   }
@@ -83,10 +114,15 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     if (this.recoveryBusyByNetwork[network]) return;
     this.recoveryBusyByNetwork[network] = true;
     try {
-      this.recoveryJobsByNetwork[network] = await this.executeWebhookRequest(() => this.api.getProjectReplayJobs(this.projectId, network));
+      this.recoveryJobsByNetwork[network] = await this.executeWebhookRequest(() =>
+        this.api.getProjectReplayJobs(this.projectId, network)
+      );
       this.recoveryErrors[network] = '';
-    } catch (error) { this.recoveryErrors[network] = this.errors.format(error, 'Could not load recovery progress.'); }
-    finally { this.recoveryBusyByNetwork[network] = false; }
+    } catch (error) {
+      this.recoveryErrors[network] = this.errors.format(error, 'Could not load recovery progress.');
+    } finally {
+      this.recoveryBusyByNetwork[network] = false;
+    }
   }
   async startRecovery(): Promise<void> {
     const network = this.webhookNetwork;
@@ -94,30 +130,55 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     this.recoveryErrors[network] = '';
     this.recoveryMessages[network] = '';
     const names = this.recoveryEventOptions.filter(name => this.recoveryEvents[name]);
-    const from = this.recoveryFrom, to = this.recoveryTo;
-    if (!this.recoveryContract || !names.length || !Number.isSafeInteger(from) || !Number.isSafeInteger(to) || from! < 0 || to! < from!) {
-      this.recoveryErrors[network] = 'Choose a contract, at least one event type, and an inclusive range of confirmed blocks.';
+    const from = this.recoveryFrom,
+      to = this.recoveryTo;
+    if (
+      !this.recoveryContract ||
+      !names.length ||
+      !Number.isSafeInteger(from) ||
+      !Number.isSafeInteger(to) ||
+      from! < 0 ||
+      to! < from!
+    ) {
+      this.recoveryErrors[network] =
+        'Choose a contract, at least one event type, and an inclusive range of confirmed blocks.';
       return;
     }
     this.recoveryBusyByNetwork[network] = true;
     const contract = this.recoveryContract;
     try {
-      const job = await this.executeWebhookRequest(() => this.api.createProjectReplayJob(this.projectId, network, contract, names, from!, to!));
-      this.recoveryJobsByNetwork[network] = [job, ...(this.recoveryJobsByNetwork[network] ?? []).filter(x => x.id !== job.id)];
-      this.recoveryMessages[network] = 'Recovery queued. The block range is scanned once for the selected events.';
-    } catch (error) { this.recoveryErrors[network] = this.errors.format(error, 'Could not start recovery.'); }
-    finally { this.recoveryBusyByNetwork[network] = false; }
+      const job = await this.executeWebhookRequest(() =>
+        this.api.createProjectReplayJob(this.projectId, network, contract, names, from!, to!)
+      );
+      this.recoveryJobsByNetwork[network] = [
+        job,
+        ...(this.recoveryJobsByNetwork[network] ?? []).filter(x => x.id !== job.id)
+      ];
+      this.recoveryMessages[network] =
+        'Recovery queued. The block range is scanned once for the selected events.';
+    } catch (error) {
+      this.recoveryErrors[network] = this.errors.format(error, 'Could not start recovery.');
+    } finally {
+      this.recoveryBusyByNetwork[network] = false;
+    }
   }
   async controlRecovery(job: RelayReplayJob, action: 'pause' | 'resume' | 'cancel'): Promise<void> {
     const network = job.network;
     if (this.recoveryBusyByNetwork[network]) return;
     this.recoveryBusyByNetwork[network] = true;
     try {
-      const updated = await this.executeWebhookRequest(() => this.api.projectReplayAction(this.projectId, network, job.id, action));
-      this.recoveryJobsByNetwork[network] = (this.recoveryJobsByNetwork[network] ?? []).map(x => x.id === job.id ? updated : x);
+      const updated = await this.executeWebhookRequest(() =>
+        this.api.projectReplayAction(this.projectId, network, job.id, action)
+      );
+      this.recoveryJobsByNetwork[network] = (this.recoveryJobsByNetwork[network] ?? []).map(x =>
+        x.id === job.id ? updated : x
+      );
       this.recoveryErrors[network] = '';
-    } catch (error) { this.recoveryErrors[network] = this.errors.format(error, 'Could not update recovery.'); }
-    finally { this.recoveryBusyByNetwork[network] = false; }
+    } catch (error) {
+      this.recoveryErrors[network] = this.errors.format(error, 'Could not update recovery.');
+    } finally {
+      this.recoveryBusyByNetwork[network] = false;
+    }
   }
   recoveryEventLabel(job: RelayReplayJob): string {
     return job.selectedEventNames?.join(', ') || job.eventName || 'All events';
@@ -157,39 +218,74 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   private deliveryRefreshTimer?: ReturnType<typeof setTimeout>;
   private readonly deliveryRefreshErrors: Record<string, string> = {};
 
-  get deliveryRefreshError(): string { return this.deliveryRefreshErrors[this.webhookNetwork] ?? ''; }
+  get deliveryRefreshError(): string {
+    return this.deliveryRefreshErrors[this.webhookNetwork] ?? '';
+  }
 
-  get isSaving(): boolean { return this.savingByNetwork[this.webhookNetwork] ?? false; }
-  set isSaving(value: boolean) { this.savingByNetwork[this.webhookNetwork] = value; }
+  get isSaving(): boolean {
+    return this.savingByNetwork[this.webhookNetwork] ?? false;
+  }
+  set isSaving(value: boolean) {
+    this.savingByNetwork[this.webhookNetwork] = value;
+  }
 
-  get deliveryHistory(): WebhookDelivery[] { return this.deliveryHistoryByNetwork[this.webhookNetwork] ?? []; }
-  set deliveryHistory(value: WebhookDelivery[]) { this.deliveryHistoryByNetwork[this.webhookNetwork] = value; }
+  get deliveryHistory(): WebhookDelivery[] {
+    return this.deliveryHistoryByNetwork[this.webhookNetwork] ?? [];
+  }
+  set deliveryHistory(value: WebhookDelivery[]) {
+    this.deliveryHistoryByNetwork[this.webhookNetwork] = value;
+  }
 
-  get deliveryHistoryFor(): string { return this.deliveryHistoryForByNetwork[this.webhookNetwork] ?? ''; }
-  set deliveryHistoryFor(value: string) { this.deliveryHistoryForByNetwork[this.webhookNetwork] = value; }
+  get deliveryHistoryFor(): string {
+    return this.deliveryHistoryForByNetwork[this.webhookNetwork] ?? '';
+  }
+  set deliveryHistoryFor(value: string) {
+    this.deliveryHistoryForByNetwork[this.webhookNetwork] = value;
+  }
 
-  get loadingDeliveryHistoryFor(): string { return this.loadingDeliveryHistoryForByNetwork[this.webhookNetwork] ?? ''; }
-  set loadingDeliveryHistoryFor(value: string) { this.loadingDeliveryHistoryForByNetwork[this.webhookNetwork] = value; }
+  get loadingDeliveryHistoryFor(): string {
+    return this.loadingDeliveryHistoryForByNetwork[this.webhookNetwork] ?? '';
+  }
+  set loadingDeliveryHistoryFor(value: string) {
+    this.loadingDeliveryHistoryForByNetwork[this.webhookNetwork] = value;
+  }
 
-  get sendingFor(): string { return this.sendingForByNetwork[this.webhookNetwork] ?? ''; }
-  set sendingFor(value: string) { this.sendingForByNetwork[this.webhookNetwork] = value; }
+  get sendingFor(): string {
+    return this.sendingForByNetwork[this.webhookNetwork] ?? '';
+  }
+  set sendingFor(value: string) {
+    this.sendingForByNetwork[this.webhookNetwork] = value;
+  }
 
-  get formStatus(): string { return this.formStatusByNetwork[this.webhookNetwork] ?? ''; }
-  set formStatus(value: string) { this.formStatusByNetwork[this.webhookNetwork] = value; }
+  get formStatus(): string {
+    return this.formStatusByNetwork[this.webhookNetwork] ?? '';
+  }
+  set formStatus(value: string) {
+    this.formStatusByNetwork[this.webhookNetwork] = value;
+  }
 
-  get errorMessage(): string { return this.errorMessageByNetwork[this.webhookNetwork] ?? ''; }
-  set errorMessage(value: string) { this.errorMessageByNetwork[this.webhookNetwork] = value; }
+  get errorMessage(): string {
+    return this.errorMessageByNetwork[this.webhookNetwork] ?? '';
+  }
+  set errorMessage(value: string) {
+    this.errorMessageByNetwork[this.webhookNetwork] = value;
+  }
 
   get pageTitle(): string {
     return 'Event Webhooks';
   }
 
   get selectedDeployment(): DeploymentOption | null {
-    return this.deploymentOptions.find((deployment) => deployment.contractHash === this.contractHash) ?? null;
+    return (
+      this.deploymentOptions.find(deployment => deployment.contractHash === this.contractHash) ??
+      null
+    );
   }
 
   get deploymentOptions(): DeploymentOption[] {
-    return this.allDeploymentOptions.filter((deployment) => deployment.network === this.webhookNetwork);
+    return this.allDeploymentOptions.filter(
+      deployment => deployment.network === this.webhookNetwork
+    );
   }
 
   get canManageProject(): boolean {
@@ -237,16 +333,29 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   }
 
   private async refreshDeliveryStatus(): Promise<void> {
-    if (this.destroyed || !this.isRelayConnected || !this.relayNetwork ||
-        (typeof document !== 'undefined' && document.hidden)) return;
+    if (
+      this.destroyed ||
+      !this.isRelayConnected ||
+      !this.relayNetwork ||
+      (typeof document !== 'undefined' && document.hidden)
+    )
+      return;
     const network = this.relayNetwork;
     const historyFor = this.deliveryHistoryForByNetwork[network];
     try {
-      // Background reads must never trigger a wallet sign-in prompt.
       const [subscriptions, history] = await Promise.all([
-        firstValueFrom(this.api.getWebhookSubscriptions(this.projectId, network).pipe(timeout(10000), takeUntil(this.destroy$))),
-        historyFor ? firstValueFrom(this.api.getWebhookDeliveries(this.projectId, network, historyFor)
-          .pipe(timeout(10000), takeUntil(this.destroy$))) : Promise.resolve(null)
+        firstValueFrom(
+          this.api
+            .getWebhookSubscriptions(this.projectId, network)
+            .pipe(timeout(10000), takeUntil(this.destroy$))
+        ),
+        historyFor
+          ? firstValueFrom(
+              this.api
+                .getWebhookDeliveries(this.projectId, network, historyFor)
+                .pipe(timeout(10000), takeUntil(this.destroy$))
+            )
+          : Promise.resolve(null)
       ]);
       if (this.destroyed || !this.isRelayConnected) return;
       this.subscriptionsByNetwork[network] = subscriptions;
@@ -257,7 +366,8 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       this.deliveryRefreshErrors[network] = '';
     } catch {
       if (!this.destroyed) {
-        this.deliveryRefreshErrors[network] = 'Could not refresh delivery status. Retrying automatically.';
+        this.deliveryRefreshErrors[network] =
+          'Could not refresh delivery status. Retrying automatically.';
       }
     }
   }
@@ -303,9 +413,14 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       };
       const network = this.selectedDeployment.network;
       if (this.editingSubscriptionId) {
-        await this.executeWebhookRequest(() => this.api.updateWebhookSubscription(
-          this.projectId, network, this.editingSubscriptionId, subscriptionRequest
-        ));
+        await this.executeWebhookRequest(() =>
+          this.api.updateWebhookSubscription(
+            this.projectId,
+            network,
+            this.editingSubscriptionId,
+            subscriptionRequest
+          )
+        );
       } else {
         await this.executeWebhookRequest(() =>
           this.api.createWebhookSubscription(this.projectId, network, subscriptionRequest)
@@ -323,7 +438,10 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   }
 
   latestDelivery(subscriptionId: string): WebhookDelivery | null {
-    return this.subscriptions.find((subscription) => subscription.id === subscriptionId)?.latestDelivery ?? null;
+    return (
+      this.subscriptions.find(subscription => subscription.id === subscriptionId)?.latestDelivery ??
+      null
+    );
   }
 
   edit(subscription: WebhookSubscription): void {
@@ -336,7 +454,8 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     this.selectDeployment();
     this.eventName = subscription.eventName ?? '';
     this.errorMessage = '';
-    this.formStatus = 'Editing webhook. Leave the signing secret empty to keep the existing secret.';
+    this.formStatus =
+      'Editing webhook. Leave the signing secret empty to keep the existing secret.';
   }
 
   cancelEdit(): void {
@@ -357,7 +476,8 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     this.errorMessage = '';
     try {
       await this.executeWebhookRequest(() =>
-        this.api.deleteWebhookSubscription(this.projectId, subscription.network, subscription.id));
+        this.api.deleteWebhookSubscription(this.projectId, subscription.network, subscription.id)
+      );
       this.formStatus = 'Webhook deleted.';
       if (this.editingSubscriptionId === subscription.id) {
         this.resetForm();
@@ -382,26 +502,32 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     this.loadingDeliveryHistoryForByNetwork[network] = subscription.id;
     try {
       const history = await this.executeWebhookRequest(() =>
-        this.api.getWebhookDeliveries(this.projectId, subscription.network, subscription.id));
+        this.api.getWebhookDeliveries(this.projectId, subscription.network, subscription.id)
+      );
       this.deliveryHistoryByNetwork[network] = history;
       this.deliveryHistoryForByNetwork[network] = subscription.id;
     } catch (error) {
       this.deliveryHistoryByNetwork[network] = [];
       this.deliveryHistoryForByNetwork[network] = '';
-      this.errorMessageByNetwork[network] = this.errors.format(error, 'Could not load webhook delivery history.');
+      this.errorMessageByNetwork[network] = this.errors.format(
+        error,
+        'Could not load webhook delivery history.'
+      );
     } finally {
       this.loadingDeliveryHistoryForByNetwork[network] = '';
     }
   }
 
   async sendTest(subscription: WebhookSubscription): Promise<void> {
-    await this.runDeliveryAction(subscription, undefined, 'Sending test event...',
-      () => this.api.sendWebhookTest(this.projectId, subscription.network, subscription.id));
+    await this.runDeliveryAction(subscription, undefined, 'Sending test event...', () =>
+      this.api.sendWebhookTest(this.projectId, subscription.network, subscription.id)
+    );
   }
 
   async redeliver(subscription: WebhookSubscription, delivery: WebhookDelivery): Promise<void> {
-    await this.runDeliveryAction(subscription, delivery.id, 'Redelivering event...',
-      () => this.api.redeliverWebhook(this.projectId, subscription.network, subscription.id, delivery.id));
+    await this.runDeliveryAction(subscription, delivery.id, 'Redelivering event...', () =>
+      this.api.redeliverWebhook(this.projectId, subscription.network, subscription.id, delivery.id)
+    );
   }
 
   async renewRelay(): Promise<void> {
@@ -421,7 +547,8 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       await this.auth.ensureAuthenticated();
       await firstValueFrom(this.api.createRelayPaymentIntent(this.projectId));
       await this.loadPaymentHistory();
-      this.formStatus = 'Payment intent created. Review the recipient and amount, then approve the GAS transfer in your wallet.';
+      this.formStatus =
+        'Payment intent created. Review the recipient and amount, then approve the GAS transfer in your wallet.';
     } catch (error) {
       this.errorMessage = this.errors.format(error, 'Could not create a Relay payment intent.');
     } finally {
@@ -452,7 +579,8 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   async payRelayIntent(intent: RelayPaymentIntent): Promise<void> {
     const account = this.wallet.account();
     if (!account || this.wallet.session()?.network !== 'neo3:mainnet') {
-      this.errorMessage = 'Connect the project owner wallet on N3:Mainnet before approving this payment.';
+      this.errorMessage =
+        'Connect the project owner wallet on N3:Mainnet before approving this payment.';
       return;
     }
     this.errorMessage = '';
@@ -472,10 +600,16 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
         'GAS'
       );
       const confirmation = await this.confirmPayment(intent.id, transactionId);
-      this.formStatus = confirmation.status === 'confirmed'
-        ? `Relay renewed until ${new Date(confirmation.entitlementEndsAt ?? '').toLocaleDateString('en-GB')}.`
-        : confirmation.message ?? 'Payment submitted. Relay access will renew once N3:Mainnet finality is reached.';
-      await Promise.all([this.loadUsage('neo3:testnet'), this.loadUsage('neo3:mainnet'), this.loadPaymentHistory()]);
+      this.formStatus =
+        confirmation.status === 'confirmed'
+          ? `Relay renewed until ${new Date(confirmation.entitlementEndsAt ?? '').toLocaleDateString('en-GB')}.`
+          : (confirmation.message ??
+            'Payment submitted. Relay access will renew once N3:Mainnet finality is reached.');
+      await Promise.all([
+        this.loadUsage('neo3:testnet'),
+        this.loadUsage('neo3:mainnet'),
+        this.loadPaymentHistory()
+      ]);
     } catch (error) {
       this.errorMessage = this.errors.format(error, 'Could not submit the Relay payment.');
     } finally {
@@ -489,12 +623,20 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     this.resumingIntentId = intent.id;
     try {
       const confirmation = await this.confirmPayment(intent.id, intent.submittedTransactionId);
-      this.formStatus = confirmation.status === 'confirmed'
-        ? `Relay renewed until ${new Date(confirmation.entitlementEndsAt ?? '').toLocaleDateString('en-GB')}.`
-        : confirmation.message ?? 'Payment is still waiting for N3:Mainnet finality.';
-      await Promise.all([this.loadUsage('neo3:testnet'), this.loadUsage('neo3:mainnet'), this.loadPaymentHistory()]);
+      this.formStatus =
+        confirmation.status === 'confirmed'
+          ? `Relay renewed until ${new Date(confirmation.entitlementEndsAt ?? '').toLocaleDateString('en-GB')}.`
+          : (confirmation.message ?? 'Payment is still waiting for N3:Mainnet finality.');
+      await Promise.all([
+        this.loadUsage('neo3:testnet'),
+        this.loadUsage('neo3:mainnet'),
+        this.loadPaymentHistory()
+      ]);
     } catch (error) {
-      this.errorMessage = this.errors.format(error, 'Could not confirm the submitted Relay payment.');
+      this.errorMessage = this.errors.format(
+        error,
+        'Could not confirm the submitted Relay payment.'
+      );
     } finally {
       this.resumingIntentId = '';
     }
@@ -530,14 +672,14 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   }
 
   private async load(): Promise<void> {
-    // Health indicators update independently of project and session loading.
     void this.loadRelayStatuses();
     const sessionReady = this.auth.restore();
     try {
       const cachedOverview = this.workspace?.getFreshOverview(this.projectId);
-      this.overview = cachedOverview?.project.id === this.projectId
-        ? cachedOverview
-        : await firstValueFrom(this.projectApi.getProjectOverview(this.projectId));
+      this.overview =
+        cachedOverview?.project.id === this.projectId
+          ? cachedOverview
+          : await firstValueFrom(this.projectApi.getProjectOverview(this.projectId));
       if (this.workspace && this.overview) {
         this.workspace.overview = this.overview;
       }
@@ -546,7 +688,6 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       this.selectDeployment();
       await sessionReady;
 
-      // Keep page loading read-only; sign in only after an explicit owner action.
       if (!this.deploymentOptions.length) {
         return;
       }
@@ -558,7 +699,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       const networks = [...new Set([this.relayNetwork, 'neo3:mainnet'])];
       await Promise.all([
         this.loadSubscriptions(),
-        ...networks.map((network) => this.loadUsage(network)),
+        ...networks.map(network => this.loadUsage(network)),
         this.loadPaymentHistory()
       ]);
     } catch (error) {
@@ -567,23 +708,26 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   }
 
   async loadRelayStatuses(): Promise<void> {
-    await Promise.all(['neo3:testnet', 'neo3:mainnet'].map(async (network) => {
-      try {
-        const detail = await firstValueFrom(this.api.getEventRelayStatus(network));
-        this.relayDetails[network] = detail;
-        this.relayStatuses[network] = detail.status === 'ok' ? 'ok' : 'degraded';
-      }
-      catch (error: unknown) {
-        const failure = error as { status?: number; error?: EventRelayStatus };
-        this.relayDetails[network] = failure.error?.network === network ? failure.error : undefined;
-        this.relayStatuses[network] = failure.status === 503 ? 'degraded' : 'offline';
-      }
-    }));
+    await Promise.all(
+      ['neo3:testnet', 'neo3:mainnet'].map(async network => {
+        try {
+          const detail = await firstValueFrom(this.api.getEventRelayStatus(network));
+          this.relayDetails[network] = detail;
+          this.relayStatuses[network] = detail.status === 'ok' ? 'ok' : 'degraded';
+        } catch (error: unknown) {
+          const failure = error as { status?: number; error?: EventRelayStatus };
+          this.relayDetails[network] =
+            failure.error?.network === network ? failure.error : undefined;
+          this.relayStatuses[network] = failure.status === 503 ? 'degraded' : 'offline';
+        }
+      })
+    );
   }
 
   private async loadSubscriptions(network = this.relayNetwork): Promise<void> {
     const subscriptions = await this.executeWebhookRequest(() =>
-      this.api.getWebhookSubscriptions(this.projectId, network));
+      this.api.getWebhookSubscriptions(this.projectId, network)
+    );
     this.subscriptionsByNetwork[network] = subscriptions;
     if (network === this.relayNetwork) {
       this.subscriptions = subscriptions;
@@ -591,11 +735,15 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   }
 
   private async loadUsage(network: string): Promise<void> {
-    this.relayUsageByNetwork[network] = await this.executeWebhookRequest(() => this.api.getRelayUsage(this.projectId, network));
+    this.relayUsageByNetwork[network] = await this.executeWebhookRequest(() =>
+      this.api.getRelayUsage(this.projectId, network)
+    );
   }
 
   private async loadPaymentHistory(): Promise<void> {
-    this.paymentHistory = await this.executeWebhookRequest(() => this.api.getRelayPaymentHistory(this.projectId));
+    this.paymentHistory = await this.executeWebhookRequest(() =>
+      this.api.getRelayPaymentHistory(this.projectId)
+    );
   }
 
   private async confirmPayment(intentId: string, transactionId: string) {
@@ -621,9 +769,14 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       ...changes
     };
     try {
-      await this.executeWebhookRequest(() => this.api.updateWebhookSubscription(
-        this.projectId, subscription.network, subscription.id, request
-      ));
+      await this.executeWebhookRequest(() =>
+        this.api.updateWebhookSubscription(
+          this.projectId,
+          subscription.network,
+          subscription.id,
+          request
+        )
+      );
       this.formStatus = request.isEnabled ? 'Webhook enabled.' : 'Webhook disabled.';
       await this.loadSubscriptions(subscription.network);
     } catch (error) {
@@ -653,7 +806,10 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       await this.loadSubscriptions(subscription.network);
       await this.showDeliveryHistory(subscription);
     } catch (error) {
-      this.errorMessage = this.errors.format(error, deliveryId ? 'Could not redeliver the event.' : 'Could not send a test event.');
+      this.errorMessage = this.errors.format(
+        error,
+        deliveryId ? 'Could not redeliver the event.' : 'Could not send a test event.'
+      );
     } finally {
       this.sendingFor = '';
     }
@@ -663,8 +819,8 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     if (this.selectedDeployment) {
       this.useRelay(this.selectedDeployment.network);
     }
-    this.eventOptions = this.selectedDeployment?.artifact.manifest.abi.events
-      .map((event) => event.name) ?? [];
+    this.eventOptions =
+      this.selectedDeployment?.artifact.manifest.abi.events.map(event => event.name) ?? [];
     this.eventName = this.eventOptions[0] ?? '';
   }
 
@@ -706,8 +862,8 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   private toDeploymentOptions(deployments: Deployment[]): DeploymentOption[] {
     return this.deploymentHistory
       .latestConfirmedByNetwork(deployments)
-      .map((deployment) => {
-        const artifact = this.overview?.artifacts.find((item) => item.id === deployment.artifactId);
+      .map(deployment => {
+        const artifact = this.overview?.artifacts.find(item => item.id === deployment.artifactId);
         return artifact
           ? {
               label: `${this.networkLabel(deployment.network)} - ${deployment.version}`,

@@ -230,7 +230,7 @@ public sealed class FaucetService(
         {
             IpAddress = ipAddress,
             ClaimId = requestId,
-            ExpiresAt = now.AddHours(24)
+            ExpiresAt = now.AddHours(24),
         };
 
         try
@@ -256,7 +256,6 @@ public sealed class FaucetService(
 
             try
             {
-                // The TTL monitor may have removed the expired record between the two writes.
                 await db.FaucetIpClaims.InsertOneAsync(
                     reservation,
                     cancellationToken: cancellationToken

@@ -71,7 +71,10 @@ export interface ContractInvokeResult {
 
 @Injectable({ providedIn: 'root' })
 export class NeoRpcService {
-  constructor(private readonly http: HttpClient, private readonly runtimeConfig: RuntimeConfigService) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly runtimeConfig: RuntimeConfigService
+  ) {}
 
   async invokeFunction(
     network: NetworkType,
@@ -86,14 +89,16 @@ export class NeoRpcService {
 
     const endpoint = this.runtimeConfig.value.wallet.rpc[network];
 
-    const response = await firstValueFrom(this.http.post<RpcResponse<ContractInvokeResult>>(endpoint, {
-      jsonrpc: '2.0',
-      method: 'invokefunction',
-      params: signers?.length
-        ? [contractHash, methodName, parameters, signers]
-        : [contractHash, methodName, parameters],
-      id: Date.now()
-    }));
+    const response = await firstValueFrom(
+      this.http.post<RpcResponse<ContractInvokeResult>>(endpoint, {
+        jsonrpc: '2.0',
+        method: 'invokefunction',
+        params: signers?.length
+          ? [contractHash, methodName, parameters, signers]
+          : [contractHash, methodName, parameters],
+        id: Date.now()
+      })
+    );
 
     if (response.error) {
       throw new Error(response.error.message);
@@ -117,9 +122,12 @@ export class NeoRpcService {
   }
 
   async getGasBalanceDatoshi(addressScriptHash: string): Promise<string> {
-    const result = await this.invokeFunction('neo3:testnet', '0xd2a4cff31913016155e38e474a2c06d08be276cf', 'balanceOf', [
-      { type: 'Hash160', value: addressScriptHash }
-    ]);
+    const result = await this.invokeFunction(
+      'neo3:testnet',
+      '0xd2a4cff31913016155e38e474a2c06d08be276cf',
+      'balanceOf',
+      [{ type: 'Hash160', value: addressScriptHash }]
+    );
     return this.stackInteger(result.stack?.[0]).toString();
   }
 
@@ -133,7 +141,9 @@ export class NeoRpcService {
     const execution = log.executions?.[0];
     const vmState = execution?.vmstate ?? execution?.state ?? '';
     if (vmState !== 'HALT') {
-      throw new Error(`Claim transaction finished with ${vmState || 'UNKNOWN'}${execution?.exception ? `: ${execution.exception}` : '.'}`);
+      throw new Error(
+        `Claim transaction finished with ${vmState || 'UNKNOWN'}${execution?.exception ? `: ${execution.exception}` : '.'}`
+      );
     }
 
     let claimedAmount: bigint | null = null;
@@ -141,17 +151,21 @@ export class NeoRpcService {
     for (const notification of execution?.notifications ?? []) {
       const state = notification.state?.value;
       if (!Array.isArray(state)) continue;
-      if (this.sameHash(notification.contract ?? '', faucetHash)
-        && notification.eventname === 'Claimed'
-        && state.length >= 2
-        && this.sameHash(this.stackHash(state[0]), recipientScriptHash)) {
+      if (
+        this.sameHash(notification.contract ?? '', faucetHash) &&
+        notification.eventname === 'Claimed' &&
+        state.length >= 2 &&
+        this.sameHash(this.stackHash(state[0]), recipientScriptHash)
+      ) {
         claimedAmount = this.stackInteger(state[1]);
       }
-      if (this.sameHash(notification.contract ?? '', '0xd2a4cff31913016155e38e474a2c06d08be276cf')
-        && notification.eventname === 'Transfer'
-        && state.length >= 3
-        && this.sameHash(this.stackHash(state[0]), faucetHash)
-        && this.sameHash(this.stackHash(state[1]), recipientScriptHash)) {
+      if (
+        this.sameHash(notification.contract ?? '', '0xd2a4cff31913016155e38e474a2c06d08be276cf') &&
+        notification.eventname === 'Transfer' &&
+        state.length >= 3 &&
+        this.sameHash(this.stackHash(state[0]), faucetHash) &&
+        this.sameHash(this.stackHash(state[1]), recipientScriptHash)
+      ) {
         transferredAmount = this.stackInteger(state[2]);
       }
     }
@@ -178,13 +192,17 @@ export class NeoRpcService {
     const vmState = execution?.vmstate ?? execution?.state ?? '';
 
     if (vmState !== 'HALT') {
-      throw new Error(`Deployment transaction finished with ${vmState || 'UNKNOWN'}${execution?.exception ? `: ${execution.exception}` : '.'}`);
+      throw new Error(
+        `Deployment transaction finished with ${vmState || 'UNKNOWN'}${execution?.exception ? `: ${execution.exception}` : '.'}`
+      );
     }
 
     const contractHash = this.findDeployContractHash(execution, contractManagementHash);
 
     if (!contractHash) {
-      throw new Error('Deployment transaction halted, but Pusharoo could not find the deployed contract hash in the application log.');
+      throw new Error(
+        'Deployment transaction halted, but Pusharoo could not find the deployed contract hash in the application log.'
+      );
     }
 
     return {
@@ -209,7 +227,9 @@ export class NeoRpcService {
     const vmState = execution?.vmstate ?? execution?.state ?? '';
 
     if (vmState !== 'HALT') {
-      throw new Error(`Update transaction finished with ${vmState || 'UNKNOWN'}${execution?.exception ? `: ${execution.exception}` : '.'}`);
+      throw new Error(
+        `Update transaction finished with ${vmState || 'UNKNOWN'}${execution?.exception ? `: ${execution.exception}` : '.'}`
+      );
     }
 
     return { transactionId, vmState };
@@ -222,12 +242,14 @@ export class NeoRpcService {
     const maxAttempts = 45;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      const response = await firstValueFrom(this.http.post<RpcResponse<ApplicationLog>>(endpoint, {
-        jsonrpc: '2.0',
-        method: 'getapplicationlog',
-        params: [transactionId],
-        id: attempt
-      }));
+      const response = await firstValueFrom(
+        this.http.post<RpcResponse<ApplicationLog>>(endpoint, {
+          jsonrpc: '2.0',
+          method: 'getapplicationlog',
+          params: [transactionId],
+          id: attempt
+        })
+      );
 
       if (response.result) {
         return response.result;
@@ -245,9 +267,14 @@ export class NeoRpcService {
 
   private async rpcRequest<T>(endpoint: string, method: string, params: unknown[]): Promise<T> {
     if (!endpoint) throw new Error('The Neo N3 testnet RPC endpoint is not configured.');
-    const response = await firstValueFrom(this.http.post<RpcResponse<T>>(endpoint, {
-      jsonrpc: '2.0', method, params, id: Date.now()
-    }));
+    const response = await firstValueFrom(
+      this.http.post<RpcResponse<T>>(endpoint, {
+        jsonrpc: '2.0',
+        method,
+        params,
+        id: Date.now()
+      })
+    );
     if (response.error) throw new Error(response.error.message);
     if (response.result === undefined) throw new Error(`Neo RPC returned no result for ${method}.`);
     return response.result;
@@ -258,16 +285,18 @@ export class NeoRpcService {
     if (typeof value === 'number' || typeof value === 'string') {
       const text = String(value);
       if (/^-?\d+$/.test(text)) return BigInt(text);
-      if (item?.type === 'ByteString' || item?.type === 'Buffer') return this.littleEndianInteger(text);
+      if (item?.type === 'ByteString' || item?.type === 'Buffer')
+        return this.littleEndianInteger(text);
     }
     throw new Error('Neo RPC returned an invalid integer value.');
   }
 
   private littleEndianInteger(base64: string): bigint {
-    const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+    const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
     let value = 0n;
-    for (let index = bytes.length - 1; index >= 0; index -= 1) value = (value << 8n) | BigInt(bytes[index]);
-    if (bytes.length && (bytes[bytes.length - 1] & 0x80)) value -= 1n << BigInt(bytes.length * 8);
+    for (let index = bytes.length - 1; index >= 0; index -= 1)
+      value = (value << 8n) | BigInt(bytes[index]);
+    if (bytes.length && bytes[bytes.length - 1] & 0x80) value -= 1n << BigInt(bytes.length * 8);
     return value;
   }
 
@@ -276,14 +305,17 @@ export class NeoRpcService {
     if (typeof value !== 'string') return '';
     if (/^(0x)?[0-9a-f]{40}$/i.test(value)) return this.normalizeHash(value);
     if (item.type === 'ByteString' || item.type === 'Buffer') {
-      const bytes = [...atob(value)].map((character) => character.charCodeAt(0)).reverse();
-      if (bytes.length === 20) return `0x${bytes.map((byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+      const bytes = [...atob(value)].map(character => character.charCodeAt(0)).reverse();
+      if (bytes.length === 20)
+        return `0x${bytes.map(byte => byte.toString(16).padStart(2, '0')).join('')}`;
     }
     return '';
   }
 
   private sameHash(left: string, right: string): boolean {
-    return this.normalizeHash(left).replace(/^0x/i, '') === this.normalizeHash(right).replace(/^0x/i, '');
+    return (
+      this.normalizeHash(left).replace(/^0x/i, '') === this.normalizeHash(right).replace(/^0x/i, '')
+    );
   }
 
   private findDeployContractHash(
@@ -291,13 +323,16 @@ export class NeoRpcService {
     contractManagementHash: string
   ): string | null {
     const normalizedManagementHash = this.normalizeHash(contractManagementHash);
-    const deployNotification = execution?.notifications?.find((notification) =>
-      notification.eventname === 'Deploy' &&
-      this.normalizeHash(notification.contract ?? '') === normalizedManagementHash
+    const deployNotification = execution?.notifications?.find(
+      notification =>
+        notification.eventname === 'Deploy' &&
+        this.normalizeHash(notification.contract ?? '') === normalizedManagementHash
     );
 
-    return this.findHashInStackItem(deployNotification?.state)
-      ?? this.findHashInStackItems(execution?.stack ?? []);
+    return (
+      this.findHashInStackItem(deployNotification?.state) ??
+      this.findHashInStackItems(execution?.stack ?? [])
+    );
   }
 
   private findHashInStackItems(items: RpcStackItem[]): string | null {
@@ -339,9 +374,12 @@ export class NeoRpcService {
       return null;
     }
 
-    const bytes = [...binary].map((character) => character.charCodeAt(0));
+    const bytes = [...binary].map(character => character.charCodeAt(0));
 
-    return `0x${bytes.reverse().map((byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+    return `0x${bytes
+      .reverse()
+      .map(byte => byte.toString(16).padStart(2, '0'))
+      .join('')}`;
   }
 
   private normalizeHash(value: string): string {
@@ -355,13 +393,15 @@ export class NeoRpcService {
   private isPendingLogError(message: string): boolean {
     const normalized = message.toLowerCase();
 
-    return normalized.includes('unknown transaction') ||
+    return (
+      normalized.includes('unknown transaction') ||
       normalized.includes('unknown script container') ||
       normalized.includes('not found') ||
-      normalized.includes('could not find');
+      normalized.includes('could not find')
+    );
   }
 
   private async delay(milliseconds: number): Promise<void> {
-    await new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+    await new Promise(resolve => window.setTimeout(resolve, milliseconds));
   }
 }

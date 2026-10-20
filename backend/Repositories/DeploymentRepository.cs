@@ -1,8 +1,8 @@
+using System.Text.RegularExpressions;
 using backend.Models;
 using backend.Services;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using System.Text.RegularExpressions;
 
 namespace backend.Repositories;
 
@@ -93,7 +93,7 @@ public sealed class DeploymentRepository(MongoDbContext db) : IDeploymentReposit
             update,
             new FindOneAndUpdateOptions<DeploymentDocument>
             {
-                ReturnDocument = ReturnDocument.After
+                ReturnDocument = ReturnDocument.After,
             },
             cancellationToken
         );

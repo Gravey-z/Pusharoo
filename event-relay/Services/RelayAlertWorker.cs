@@ -3,8 +3,6 @@ using Pusharoo.EventRelay.Options;
 
 namespace Pusharoo.EventRelay.Services;
 
-// Alerts are exported as status/Prometheus signals and logged; external notification is configured separately.
-
 public sealed class RelayAlertWorker(
     IServiceScopeFactory scopes,
     IOptions<EventRelayOptions> options,

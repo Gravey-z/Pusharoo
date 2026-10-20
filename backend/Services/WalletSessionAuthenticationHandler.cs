@@ -1,5 +1,5 @@
-using System.Security.Claims;
 using System.Globalization;
+using System.Security.Claims;
 using System.Text.Encodings.Web;
 using backend.Models;
 using Microsoft.AspNetCore.Authentication;
@@ -74,7 +74,7 @@ public sealed class WalletSessionAuthenticationHandler(
                 code,
                 error = status == 503 ? "Wallet authentication is temporarily unavailable."
                 : status == 401 ? "Sign in to Pusharoo."
-                : "This wallet is not permitted to perform this action."
+                : "This wallet is not permitted to perform this action.",
             }
         );
     }
@@ -88,7 +88,7 @@ public sealed class WalletSessionAuthenticationHandler(
             new Claim("wallet_script_hash", session.ScriptHash),
             new Claim("wallet_public_key", session.PublicKey),
             new Claim("wallet_session_hash", session.TokenHash),
-            new Claim("wallet_session_expires", session.ExpiresAtUtc.ToString("O"))
+            new Claim("wallet_session_expires", session.ExpiresAtUtc.ToString("O")),
         };
 
         return new ClaimsPrincipal(new ClaimsIdentity(claims, SchemeName));

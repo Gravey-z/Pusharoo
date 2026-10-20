@@ -135,7 +135,14 @@ export interface Deployment {
   notes?: string | null;
   createdAt: string;
   operation: 'deploy' | 'update';
-  status: 'preparing' | 'awaiting_wallet' | 'submitted' | 'confirming' | 'confirmed' | 'failed' | 'record_failed';
+  status:
+    | 'preparing'
+    | 'awaiting_wallet'
+    | 'submitted'
+    | 'confirming'
+    | 'confirmed'
+    | 'failed'
+    | 'record_failed';
   failureStage?: string | null;
   failureReason?: string | null;
   updatedAt: string;
@@ -247,7 +254,14 @@ export interface CreateWebhookSubscriptionRequest {
 }
 
 export interface WebhookDelivery {
-  status: 'pending' | 'waiting' | 'retrying' | 'delivering' | 'succeeded' | 'dead_letter' | 'cancelled';
+  status:
+    | 'pending'
+    | 'waiting'
+    | 'retrying'
+    | 'delivering'
+    | 'succeeded'
+    | 'dead_letter'
+    | 'cancelled';
   payloadVersion?: number;
   id: string;
   subscriptionId: string;
@@ -262,17 +276,49 @@ export interface WebhookDelivery {
 }
 
 export interface EventRelayStatus {
-  status: string; network: string;
-  scanner?: { networkTip: number | null; confirmedTip: number | null; nextBlock: number | null;
-    scannedHeight: number | null; lagBlocks: number | null; lastSuccessfulScanAt: string | null;
-    lastPollAt: string | null; blocksPerSecond: number | null;
-    error: { blockIndex: number | null; kind: string; message: string } | null };
-  queue?: { depth: number; pending: number; retrying: number; waiting: number; delivering: number; expiredClaims: number; deadLetters: number };
-  replays?: { running: number; paused: number; blocked: number; completedBlocks: number; totalBlocks: number };
+  status: string;
+  network: string;
+  scanner?: {
+    networkTip: number | null;
+    confirmedTip: number | null;
+    nextBlock: number | null;
+    scannedHeight: number | null;
+    lagBlocks: number | null;
+    lastSuccessfulScanAt: string | null;
+    lastPollAt: string | null;
+    blocksPerSecond: number | null;
+    error: { blockIndex: number | null; kind: string; message: string } | null;
+  };
+  queue?: {
+    depth: number;
+    pending: number;
+    retrying: number;
+    waiting: number;
+    delivering: number;
+    expiredClaims: number;
+    deadLetters: number;
+  };
+  replays?: {
+    running: number;
+    paused: number;
+    blocked: number;
+    completedBlocks: number;
+    totalBlocks: number;
+  };
   alerts?: { code: string; severity: string; message: string }[];
 }
 
-export interface RelayUsage { plan: string; status: string; periodEndsAt: string; graceEndsAt?: string | null; maxActiveSubscriptions: number; activeSubscriptions: number; maxEvents: number; eventsUsed: number; eventsRemaining: number; }
+export interface RelayUsage {
+  plan: string;
+  status: string;
+  periodEndsAt: string;
+  graceEndsAt?: string | null;
+  maxActiveSubscriptions: number;
+  activeSubscriptions: number;
+  maxEvents: number;
+  eventsUsed: number;
+  eventsRemaining: number;
+}
 
 export interface RelayPaymentIntent {
   id: string;
@@ -304,7 +350,11 @@ export interface RelayEntitlementHistory {
   graceEndsAt: string;
 }
 
-export interface RelayPaymentHistory { payments: RelayPayment[]; entitlements: RelayEntitlementHistory[]; pendingIntents: RelayPaymentIntent[]; }
+export interface RelayPaymentHistory {
+  payments: RelayPayment[];
+  entitlements: RelayEntitlementHistory[];
+  pendingIntents: RelayPaymentIntent[];
+}
 
 export interface ProjectCardViewModel {
   project: Project;
@@ -327,13 +377,25 @@ export interface ProjectOverviewViewModel extends ProjectCardViewModel {
 }
 
 export interface RelayReplayJob {
-  id: string; subscriptionId: string; network: string;
+  id: string;
+  subscriptionId: string;
+  network: string;
   contractHash: string;
   eventName?: string | null;
   selectedEventNames?: string[] | null;
   targets?: { subscriptionId: string; eventName: string | null }[] | null;
-  fromBlock: number; toBlock: number; nextBlock: number; completedBlocks: number; totalBlocks: number;
+  fromBlock: number;
+  toBlock: number;
+  nextBlock: number;
+  completedBlocks: number;
+  totalBlocks: number;
   status: 'running' | 'paused' | 'blocked' | 'completed' | 'cancelled';
   updatedAt: string;
-  error: { blockIndex: number | null; transactionHash: string | null; endpoint: string; kind: string; message: string } | null;
+  error: {
+    blockIndex: number | null;
+    transactionHash: string | null;
+    endpoint: string;
+    kind: string;
+    message: string;
+  } | null;
 }

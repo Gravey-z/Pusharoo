@@ -25,8 +25,6 @@ public sealed class ReplayAdmissionService(
         await reservations.EnsureAsync(job.Network, ct);
         await reservations.RecoverAsync(job.Network, ct);
 
-        // A revision-fenced network ledger reserves both quota and capacity atomically,
-        // even on standalone MongoDB. A lost race must re-read and re-evaluate policy.
         for (var attempt = 0; attempt < 50; attempt++)
         {
             var snapshot = await reservations.ReadAsync(job.Network, ct);
@@ -48,8 +46,6 @@ public sealed class ReplayAdmissionService(
                     snapshot.ServerNow.AddMinutes(1)
                 );
 
-            // The durable intent is committed before materialization. Interrupted inserts
-            // are recovered before admission and before the replay worker claims jobs.
             await reservations.MaterializeAsync(job, ct);
             return new(true);
         }

@@ -15,7 +15,7 @@ public sealed class RelayGatewayService(HttpClient client, IOptions<RelayGateway
         {
             "testnet" => options.Value.Testnet,
             "mainnet" => options.Value.Mainnet,
-            _ => null
+            _ => null,
         };
 
         if (target is null)
@@ -60,7 +60,7 @@ public sealed class RelayGatewayService(HttpClient client, IOptions<RelayGateway
         {
             "testnet" => options.Value.Testnet,
             "mainnet" => options.Value.Mainnet,
-            _ => null
+            _ => null,
         };
 
         if (target is null)

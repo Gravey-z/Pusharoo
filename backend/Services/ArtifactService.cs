@@ -1,7 +1,7 @@
+using System.Text.Json;
 using backend.Models;
 using backend.Repositories;
 using MongoDB.Bson;
-using System.Text.Json;
 
 namespace backend.Services;
 
@@ -10,7 +10,7 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true,
-        Converters = { new BsonValueJsonConverter(), new BsonDocumentJsonConverter() }
+        Converters = { new BsonValueJsonConverter(), new BsonDocumentJsonConverter() },
     };
 
     public async Task<ArtifactDocument> CreateAsync(
@@ -40,7 +40,7 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
             Warnings = [],
             IdempotencyKey = upload.IdempotencyKey,
             IdempotencyPayloadHash = upload.IdempotencyPayloadHash,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
         };
 
         await artifacts.InsertAsync(artifact, cancellationToken);
@@ -310,7 +310,7 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
         {
             BsonString bsonString => bsonString.Value == "*",
             BsonArray bsonArray => bsonArray.Any(IsWildcardValue),
-            _ => false
+            _ => false,
         };
     }
 
@@ -329,7 +329,7 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
             BsonArray array => "[" + string.Join(",", array.Select(NormalizeBsonValue)) + "]",
             BsonString bsonString => bsonString.Value,
             BsonNull => "null",
-            _ => value.ToString() ?? string.Empty
+            _ => value.ToString() ?? string.Empty,
         };
     }
 }

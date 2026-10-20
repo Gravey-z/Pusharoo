@@ -29,7 +29,7 @@ export class DeploymentDataEditorComponent {
   constructor(private readonly deploymentData: DeploymentDataService) {}
 
   arrayChildren(node: EditableDeploymentData): EditableDeploymentData[] {
-    return Array.isArray(node.value) ? node.value as EditableDeploymentData[] : [];
+    return Array.isArray(node.value) ? (node.value as EditableDeploymentData[]) : [];
   }
 
   addArrayItem(node: EditableDeploymentData): void {
@@ -79,14 +79,19 @@ export class DeploymentDataEditorComponent {
 
   private initialValue(type: string): unknown {
     switch (type) {
-      case 'Any': return null;
+      case 'Any':
+        return null;
       case 'String':
       case 'Integer':
       case 'Hash160':
-      case 'ByteArray': return '';
-      case 'Boolean': return false;
-      case 'Array': return [];
-      default: return null;
+      case 'ByteArray':
+        return '';
+      case 'Boolean':
+        return false;
+      case 'Array':
+        return [];
+      default:
+        return null;
     }
   }
 }

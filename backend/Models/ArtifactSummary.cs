@@ -23,7 +23,7 @@ public sealed class ArtifactSummary
             MethodCount = manifest.Abi.Methods.Count,
             EventCount = manifest.Abi.Events.Count,
             PermissionCount = manifest.Permissions.Count,
-            SupportedStandards = manifest.SupportedStandards
+            SupportedStandards = manifest.SupportedStandards,
         };
     }
 }

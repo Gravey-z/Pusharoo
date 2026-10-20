@@ -4,11 +4,6 @@ using MongoDB.Driver;
 
 namespace backend.Services;
 
-/// <summary>
-/// Performs the non-destructive Stage 2 migration. It establishes explicit empty
-/// authorized-deployer collections for existing valid projects and marks legacy projects
-/// whose creator cannot be verified as recovery-required/read-only.
-/// </summary>
 public sealed class ProjectOwnershipMigrationService(
     MongoDbContext db,
     ILogger<ProjectOwnershipMigrationService> logger

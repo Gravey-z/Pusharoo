@@ -11,7 +11,7 @@ public sealed class ProjectAuthorizedDeployerInputValidator(
     private static readonly HashSet<string> SupportedNetworks = new(StringComparer.Ordinal)
     {
         "neo3:mainnet",
-        "neo3:testnet"
+        "neo3:testnet",
     };
 
     public ProjectAuthorizedDeployerInputValidationResult ValidateAdd(

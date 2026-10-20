@@ -104,7 +104,7 @@ public sealed class WebhookDestinationValidator
                 169 when bytes[1] == 254 => false,
                 172 when bytes[1] is >= 16 and <= 31 => false,
                 192 when bytes[1] == 168 => false,
-                _ => true
+                _ => true,
             };
         }
 

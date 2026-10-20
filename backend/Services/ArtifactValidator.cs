@@ -23,7 +23,7 @@ public sealed class ArtifactValidator
         "Array",
         "Map",
         "InteropInterface",
-        "Void"
+        "Void",
     };
 
     public void Validate(byte[] nef, string manifestJson, NeoContractManifest manifest)
@@ -76,7 +76,7 @@ public sealed class ArtifactValidator
                 "abi",
                 "permissions",
                 "trusts",
-                "extra"
+                "extra",
             }
         )
         {

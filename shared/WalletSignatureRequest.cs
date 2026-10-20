@@ -13,4 +13,5 @@ public sealed record WalletSignatureRequest(
     string PublicKey,
     string Data,
     string? Salt,
-    string? MessageHex);
+    string? MessageHex
+);

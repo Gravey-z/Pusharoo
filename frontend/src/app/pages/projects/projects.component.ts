@@ -72,11 +72,18 @@ export class ProjectsComponent implements OnInit {
       await this.auth.ensureAuthenticated();
       const network = this.wallet.session()?.network;
       if (!network) throw new Error('Connect a wallet before creating a project.');
-      const payload = JSON.stringify([name, this.newProjectDescription.trim(), network, this.wallet.account()?.address]);
+      const payload = JSON.stringify([
+        name,
+        this.newProjectDescription.trim(),
+        network,
+        this.wallet.account()?.address
+      ]);
       if (this.createAttempt?.payload !== payload) {
         this.createAttempt = { payload, key: crypto.randomUUID() };
       }
-      await firstValueFrom(this.api.createProject(name, this.newProjectDescription, network, this.createAttempt.key));
+      await firstValueFrom(
+        this.api.createProject(name, this.newProjectDescription, network, this.createAttempt.key)
+      );
       this.cancelCreateProject();
       this.loadProjects();
     } catch (error) {
@@ -91,13 +98,22 @@ export class ProjectsComponent implements OnInit {
   }
 
   networkLabel(network: string): string {
-    return network === 'neo3:mainnet' ? 'N3:Mainnet' : network === 'neo3:testnet' ? 'N3:Testnet' : network;
+    return network === 'neo3:mainnet'
+      ? 'N3:Mainnet'
+      : network === 'neo3:testnet'
+        ? 'N3:Testnet'
+        : network;
   }
 
   visibleProjects(projects: ProjectListItem[]): ProjectListItem[] {
     const query = this.searchTerm.trim().toLowerCase();
-    const filtered = projects.filter((item) => !query || [item.project.name, item.project.description ?? '']
-      .some((value) => value.toLowerCase().includes(query)));
+    const filtered = projects.filter(
+      item =>
+        !query ||
+        [item.project.name, item.project.description ?? ''].some(value =>
+          value.toLowerCase().includes(query)
+        )
+    );
     const lastIndex = this.page * this.pageSize;
 
     return filtered.slice(lastIndex - this.pageSize, lastIndex);
@@ -105,8 +121,13 @@ export class ProjectsComponent implements OnInit {
 
   totalPages(projects: ProjectListItem[]): number {
     const query = this.searchTerm.trim().toLowerCase();
-    const count = projects.filter((item) => !query || [item.project.name, item.project.description ?? '']
-      .some((value) => value.toLowerCase().includes(query))).length;
+    const count = projects.filter(
+      item =>
+        !query ||
+        [item.project.name, item.project.description ?? ''].some(value =>
+          value.toLowerCase().includes(query)
+        )
+    ).length;
     return Math.max(1, Math.ceil(count / this.pageSize));
   }
 
@@ -128,11 +149,11 @@ export class ProjectsComponent implements OnInit {
     this.isLoading = true;
     this.loadError = '';
     this.api.getProjectCards().subscribe({
-      next: (projects) => {
+      next: projects => {
         this.projects = projects;
         this.isLoading = false;
       },
-      error: (error) => {
+      error: error => {
         this.projects = [];
         this.loadError = this.errors.format(error, 'Could not load projects.');
         this.isLoading = false;

@@ -141,7 +141,7 @@ public sealed class FaucetRelayerWorker(
             new FindOneAndUpdateOptions<FaucetClaimDocument>
             {
                 ReturnDocument = ReturnDocument.After,
-                Sort = Builders<FaucetClaimDocument>.Sort.Ascending(claim => claim.CreatedAt)
+                Sort = Builders<FaucetClaimDocument>.Sort.Ascending(claim => claim.CreatedAt),
             },
             cancellationToken
         );
@@ -192,7 +192,7 @@ public sealed class FaucetRelayerWorker(
             .MakeScript("claim", UInt160.Parse(claim.ScriptHash));
         var signers = new[]
         {
-            new Signer { Account = sender, Scopes = WitnessScope.CalledByEntry }
+            new Signer { Account = sender, Scopes = WitnessScope.CalledByEntry },
         };
         var protocol = ProtocolSettings.Load(
             configuration.GetSection("FaucetRelayer:ProtocolSettings")

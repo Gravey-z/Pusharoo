@@ -12,7 +12,11 @@
 } @else if (overview) {
   <app-page-shell
     title="Compare Versions"
-    [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: overview.project.name, link: ['/projects', projectId] }, { label: 'Compare Versions' }]"
+    [breadcrumbs]="[
+      { label: 'Projects', link: '/projects' },
+      { label: overview.project.name, link: ['/projects', projectId] },
+      { label: 'Compare Versions' }
+    ]"
   >
     <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
 
@@ -50,7 +54,9 @@
       @if (comparison) {
         <section class="comparison-context surface-panel">
           <span>Manifest comparison</span>
-          <strong><code>v{{ fromVersion }}</code> to <code>v{{ toVersion }}</code></strong>
+          <strong
+            ><code>v{{ fromVersion }}</code> to <code>v{{ toVersion }}</code></strong
+          >
           <p>Review the summary first, then inspect each method-level change below.</p>
         </section>
         <section class="diff-summary">
@@ -68,7 +74,9 @@
           </div>
           <div class="surface-panel summary-other">
             <span>Other updates</span>
-            <strong>{{ comparison.addedEvents.length + comparison.permissionChanges.length }}</strong>
+            <strong>{{
+              comparison.addedEvents.length + comparison.permissionChanges.length
+            }}</strong>
           </div>
         </section>
 
@@ -83,7 +91,10 @@
                       <div class="method-change">
                         <div class="method-change-header">
                           <strong>{{ detail.name }}</strong>
-                          <span>Return {{ detail.returnType }} · Safe {{ detail.safe ? 'Yes' : 'No' }}</span>
+                          <span
+                            >Return {{ detail.returnType }} · Safe
+                            {{ detail.safe ? 'Yes' : 'No' }}</span
+                          >
                         </div>
 
                         <section class="parameter-change">
@@ -118,7 +129,10 @@
                       <div class="method-change">
                         <div class="method-change-header">
                           <strong>{{ detail.name }}</strong>
-                          <span>Return {{ detail.returnType }} · Safe {{ detail.safe ? 'Yes' : 'No' }}</span>
+                          <span
+                            >Return {{ detail.returnType }} · Safe
+                            {{ detail.safe ? 'Yes' : 'No' }}</span
+                          >
                         </div>
 
                         <section class="parameter-change">
@@ -152,7 +166,11 @@
                     <div class="method-change">
                       <div class="method-change-header">
                         <strong>{{ method.name }}</strong>
-                        <span>{{ method.changes.length }} change{{ method.changes.length === 1 ? '' : 's' }}</span>
+                        <span
+                          >{{ method.changes.length }} change{{
+                            method.changes.length === 1 ? '' : 's'
+                          }}</span
+                        >
                       </div>
 
                       <div class="change-stack">
@@ -168,7 +186,9 @@
                                       <span class="column-label removed">Removed</span>
                                       <div class="chip-list">
                                         @for (parameter of diff.removed; track parameter.label) {
-                                          <span class="param-chip removed">{{ parameter.label }}</span>
+                                          <span class="param-chip removed">{{
+                                            parameter.label
+                                          }}</span>
                                         }
                                       </div>
                                     </div>
@@ -179,7 +199,9 @@
                                       <span class="column-label added">Added</span>
                                       <div class="chip-list">
                                         @for (parameter of diff.added; track parameter.label) {
-                                          <span class="param-chip added">{{ parameter.label }}</span>
+                                          <span class="param-chip added">{{
+                                            parameter.label
+                                          }}</span>
                                         }
                                       </div>
                                     </div>
@@ -205,7 +227,9 @@
                                       <span class="column-label unchanged">Unchanged</span>
                                       <div class="chip-list">
                                         @for (parameter of diff.unchanged; track parameter.label) {
-                                          <span class="param-chip unchanged">{{ parameter.label }}</span>
+                                          <span class="param-chip unchanged">{{
+                                            parameter.label
+                                          }}</span>
                                         }
                                       </div>
                                     </div>

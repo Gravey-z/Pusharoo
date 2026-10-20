@@ -3,7 +3,6 @@ using System.Security.Cryptography;
 
 namespace backend.Services;
 
-/// <summary>Validates a canonical Neo N3 address and derives its script hash.</summary>
 public sealed class NeoWalletAddressValidator
 {
     private const byte NeoN3AddressVersion = 0x35;

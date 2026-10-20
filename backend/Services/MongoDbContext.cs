@@ -60,7 +60,7 @@ public sealed class MongoDbContext
             ),
             new CreateIndexModel<FaucetClaimDocument>(
                 Builders<FaucetClaimDocument>.IndexKeys.Descending(claim => claim.CreatedAt)
-            )
+            ),
         ]);
         FaucetIpClaims.Indexes.CreateOne(
             new CreateIndexModel<FaucetIpClaimDocument>(
@@ -84,7 +84,7 @@ public sealed class MongoDbContext
             new CreateIndexModel<ArtifactDocument>(
                 Builders<ArtifactDocument>.IndexKeys.Ascending(artifact => artifact.IdempotencyKey),
                 new CreateIndexOptions { Unique = true, Sparse = true }
-            )
+            ),
         ]);
         Deployments.Indexes.CreateMany([
             new CreateIndexModel<DeploymentDocument>(
@@ -103,7 +103,7 @@ public sealed class MongoDbContext
                     deployment.ActiveAttemptKey
                 ),
                 new CreateIndexOptions { Unique = true, Sparse = true }
-            )
+            ),
         ]);
     }
 

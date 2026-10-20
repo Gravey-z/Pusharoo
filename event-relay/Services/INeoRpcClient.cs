@@ -1,5 +1,5 @@
-using Pusharoo.EventRelay.Models;
 using System.Text.Json;
+using Pusharoo.EventRelay.Models;
 
 namespace Pusharoo.EventRelay.Services;
 

@@ -12,7 +12,10 @@ namespace Pusharoo.EventRelay.Controllers;
 public sealed class RelayPackagesController(RelayPackageStore packages) : ControllerBase
 {
     [HttpPost("query")]
-    public async Task<ActionResult<RelayCatalogResponse>> Query(string projectId, CancellationToken ct)
+    public async Task<ActionResult<RelayCatalogResponse>> Query(
+        string projectId,
+        CancellationToken ct
+    )
     {
         Response.Headers.CacheControl = "no-store";
         return Ok(await packages.DescribeAsync(ct));

@@ -11,7 +11,10 @@ export class FaucetApiService {
     return this.runtimeConfig.value.apiBaseUrl.replace(/\/$/, '');
   }
 
-  constructor(private readonly http: HttpClient, private readonly runtimeConfig: RuntimeConfigService) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly runtimeConfig: RuntimeConfigService
+  ) {}
 
   getStatus(address?: string): Promise<FaucetStatus> {
     const query = address ? `?address=${encodeURIComponent(address)}` : '';
@@ -19,11 +22,18 @@ export class FaucetApiService {
   }
 
   submitClaim(request: FaucetClaimRequest): Promise<FaucetClaim> {
-    return firstValueFrom(this.http.post<FaucetClaim>(`${this.apiBaseUrl}/faucet/claims`, request,
-      { context: new HttpContext().set(REQUIRE_WALLET_SESSION, true) }));
+    return firstValueFrom(
+      this.http.post<FaucetClaim>(`${this.apiBaseUrl}/faucet/claims`, request, {
+        context: new HttpContext().set(REQUIRE_WALLET_SESSION, true)
+      })
+    );
   }
 
   getClaim(requestId: string): Promise<FaucetClaim> {
-    return firstValueFrom(this.http.get<FaucetClaim>(`${this.apiBaseUrl}/faucet/claims/${encodeURIComponent(requestId)}`));
+    return firstValueFrom(
+      this.http.get<FaucetClaim>(
+        `${this.apiBaseUrl}/faucet/claims/${encodeURIComponent(requestId)}`
+      )
+    );
   }
 }

@@ -17,7 +17,7 @@ public sealed class DeploymentAuthorizationService(
         JsonSerializerDefaults.Web
     )
     {
-        Converters = { new BsonValueJsonConverter(), new BsonDocumentJsonConverter() }
+        Converters = { new BsonValueJsonConverter(), new BsonDocumentJsonConverter() },
     };
 
     public DeploymentAuthorizationContext CreateContext(
@@ -167,7 +167,7 @@ public sealed class DeploymentAuthorizationService(
             Operation = context.Operation,
             DeploymentData = normalizedData.Value,
             DeploymentDataSha256 = normalizedData.Sha256,
-            DeploymentDataFormatVersion = normalizedData.FormatVersion
+            DeploymentDataFormatVersion = normalizedData.FormatVersion,
         };
 
         return new DeploymentAuthorizationValidationResult(

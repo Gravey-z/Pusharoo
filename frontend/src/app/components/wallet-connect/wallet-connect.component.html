@@ -22,7 +22,13 @@
   <p class="sr-only" aria-live="polite">{{ dialogAnnouncement }}</p>
 
   @if (isDialogOpen) {
-    <button type="button" class="dialog-backdrop" tabindex="-1" aria-label="Close wallet dialog" (click)="closeDialog()"></button>
+    <button
+      type="button"
+      class="dialog-backdrop"
+      tabindex="-1"
+      aria-label="Close wallet dialog"
+      (click)="closeDialog()"
+    ></button>
 
     <section
       #walletDialog
@@ -36,10 +42,18 @@
     >
       <div class="dialog-header">
         <h2 id="wallet-dialog-title">Wallet</h2>
-        <button type="button" class="icon-button" aria-label="Close wallet dialog" (click)="closeDialog()">&times;</button>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Close wallet dialog"
+          (click)="closeDialog()"
+          >&times;</button
+        >
       </div>
 
-      <p id="wallet-dialog-description" class="sr-only">Choose a wallet or manage the connected wallet.</p>
+      <p id="wallet-dialog-description" class="sr-only"
+        >Choose a wallet or manage the connected wallet.</p
+      >
 
       @if (wallet.account(); as account) {
         <div
@@ -52,26 +66,51 @@
             [class.network-badge--mainnet]="wallet.session()?.network === 'neo3:mainnet'"
             [class.network-badge--testnet]="wallet.session()?.network !== 'neo3:mainnet'"
           >
-            {{ wallet.session()?.network === 'neo3:mainnet' ? 'N3:Mainnet connected' : 'N3:Testnet connected' }}
+            {{
+              wallet.session()?.network === 'neo3:mainnet'
+                ? 'N3:Mainnet connected'
+                : 'N3:Testnet connected'
+            }}
           </span>
           <strong>{{ wallet.shortAddress() }}</strong>
         </div>
         <div #loginSection class="wallet-auth" tabindex="-1">
           <strong>Pusharoo login</strong>
           @if (auth.canUseSession()) {
-            <p>Signed in. Workspace actions can reuse this session until {{ auth.serverSession()?.expiresAtUtc | date:'shortTime' }}.</p>
-            <button type="button" class="wallet-option" (click)="signOut()">Sign out of Pusharoo</button>
+            <p
+              >Signed in. Workspace actions can reuse this session until
+              {{ auth.serverSession()?.expiresAtUtc | date: 'shortTime' }}.</p
+            >
+            <button type="button" class="wallet-option" (click)="signOut()"
+              >Sign out of Pusharoo</button
+            >
           } @else if (auth.state() === 'checking') {
             <p>Checking your login session...</p>
           } @else if (auth.state() === 'logout-pending') {
             <p>Sign-out is pending. Finish it before signing in again.</p>
             <button type="button" class="wallet-option" (click)="signOut()">Finish sign-out</button>
           } @else if (auth.serverSession()?.authenticated) {
-            <p>A different wallet is signed in to Pusharoo. Sign in with this wallet to continue.</p>
-            <button type="button" class="wallet-option" [disabled]="auth.state() === 'signing-in'" (click)="signIn()">Sign in to Pusharoo</button>
+            <p
+              >A different wallet is signed in to Pusharoo. Sign in with this wallet to continue.</p
+            >
+            <button
+              type="button"
+              class="wallet-option"
+              [disabled]="auth.state() === 'signing-in'"
+              (click)="signIn()"
+              >Sign in to Pusharoo</button
+            >
           } @else {
-            <p>Sign once to use protected workspace actions. Wallet transactions still need approval.</p>
-            <button type="button" class="wallet-option" [disabled]="auth.state() === 'signing-in'" (click)="signIn()">
+            <p
+              >Sign once to use protected workspace actions. Wallet transactions still need
+              approval.</p
+            >
+            <button
+              type="button"
+              class="wallet-option"
+              [disabled]="auth.state() === 'signing-in'"
+              (click)="signIn()"
+            >
               {{ auth.state() === 'signing-in' ? 'Waiting for wallet...' : 'Sign in to Pusharoo' }}
             </button>
           }
@@ -79,7 +118,9 @@
             <p class="wallet-auth-error" role="alert">{{ auth.errorMessage() }}</p>
           }
         </div>
-        <button type="button" class="wallet-option danger" (click)="disconnect()">Disconnect</button>
+        <button type="button" class="wallet-option danger" (click)="disconnect()"
+          >Disconnect</button
+        >
       } @else if (dialogView === 'options') {
         <div class="network-choice" role="group" aria-label="Wallet network">
           <span>Network</span>
@@ -98,11 +139,10 @@
             N3:Mainnet
           </button>
         </div>
-        <p class="network-guidance">
-          Select the same network in your wallet before connecting.
-        </p>
+        <p class="network-guidance"> Select the same network in your wallet before connecting. </p>
         <p class="key-safety">
-          Pusharoo never asks for a private key, WIF, seed phrase, or wallet password. Approve actions only inside your wallet.
+          Pusharoo never asks for a private key, WIF, seed phrase, or wallet password. Approve
+          actions only inside your wallet.
         </p>
         <div class="wallet-options">
           <button type="button" class="wallet-option" (click)="connectNeoLine()">
@@ -133,12 +173,9 @@
             </a>
             <label>
               <span>WalletConnect URI</span>
-              <textarea
-                readonly
-                rows="4"
-                title="Click to copy"
-                (click)="copyWalletConnectUri()"
-              >{{ wallet.walletConnectUri() }}</textarea>
+              <textarea readonly rows="4" title="Click to copy" (click)="copyWalletConnectUri()">{{
+                wallet.walletConnectUri()
+              }}</textarea>
             </label>
             @if (copiedMessage) {
               <p class="copy-toast">{{ copiedMessage }}</p>

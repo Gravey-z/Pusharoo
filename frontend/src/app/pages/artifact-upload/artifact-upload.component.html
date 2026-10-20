@@ -1,6 +1,13 @@
 <app-page-shell
   title="Upload Artifact"
-  [breadcrumbs]="[{ label: 'Projects', link: '/projects' }, { label: overview?.project?.name ?? 'Project', link: overview ? ['/projects', projectId] : undefined }, { label: 'Upload Artifact' }]"
+  [breadcrumbs]="[
+    { label: 'Projects', link: '/projects' },
+    {
+      label: overview?.project?.name ?? 'Project',
+      link: overview ? ['/projects', projectId] : undefined
+    },
+    { label: 'Upload Artifact' }
+  ]"
 >
   <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
 
@@ -12,55 +19,60 @@
       <button class="secondary-button" type="button" (click)="retryLoad()">Try again</button>
     </section>
   } @else if (overview) {
-  <app-project-release-nav [projectId]="projectId" />
+    <app-project-release-nav [projectId]="projectId" />
 
-  <form class="upload-form surface-panel" (ngSubmit)="upload()">
-    <label>
-      <span>Version</span>
-      <input type="text" name="version" [(ngModel)]="version" />
-      @if (latestVersion) {
-        <small class="version-hint">
-          Latest: {{ latestVersion }} · Suggested: {{ suggestedVersion }}
-        </small>
+    <form class="upload-form surface-panel" (ngSubmit)="upload()">
+      <label>
+        <span>Version</span>
+        <input type="text" name="version" [(ngModel)]="version" />
+        @if (latestVersion) {
+          <small class="version-hint">
+            Latest: {{ latestVersion }} · Suggested: {{ suggestedVersion }}
+          </small>
+        }
+        @if (versionAlreadyExists) {
+          <small class="version-warning">
+            Version {{ version }} already exists for this project.
+          </small>
+        }
+      </label>
+
+      <label>
+        <span>NEF file</span>
+        <input type="file" name="nefFile" accept=".nef" (change)="onNefSelected($event)" />
+      </label>
+
+      <label>
+        <span>Manifest file</span>
+        <input
+          type="file"
+          name="manifestFile"
+          accept=".json,.manifest.json"
+          (change)="onManifestSelected($event)"
+        />
+        @if (manifestWarning) {
+          <small class="manifest-warning">{{ manifestWarning }}</small>
+        }
+      </label>
+
+      <label>
+        <span>Notes</span>
+        <textarea name="notes" rows="4" [(ngModel)]="notes"></textarea>
+      </label>
+
+      @if (errorMessage) {
+        <p class="form-error">{{ errorMessage }}</p>
       }
-      @if (versionAlreadyExists) {
-        <small class="version-warning">
-          Version {{ version }} already exists for this project.
-        </small>
-      }
-    </label>
 
-    <label>
-      <span>NEF file</span>
-      <input type="file" name="nefFile" accept=".nef" (change)="onNefSelected($event)" />
-    </label>
-
-    <label>
-      <span>Manifest file</span>
-      <input
-        type="file"
-        name="manifestFile"
-        accept=".json,.manifest.json"
-        (change)="onManifestSelected($event)"
-      />
-      @if (manifestWarning) {
-        <small class="manifest-warning">{{ manifestWarning }}</small>
-      }
-    </label>
-
-    <label>
-      <span>Notes</span>
-      <textarea name="notes" rows="4" [(ngModel)]="notes"></textarea>
-    </label>
-
-    @if (errorMessage) {
-      <p class="form-error">{{ errorMessage }}</p>
-    }
-
-    <button class="primary-button" type="submit" [disabled]="isUploading || versionAlreadyExists || !canManageProject" title="Only the project owner can upload artifacts">
-      Upload
-    </button>
-  </form>
+      <button
+        class="primary-button"
+        type="submit"
+        [disabled]="isUploading || versionAlreadyExists || !canManageProject"
+        title="Only the project owner can upload artifacts"
+      >
+        Upload
+      </button>
+    </form>
   } @else {
     <p class="form-error" role="alert">Project not found.</p>
   }

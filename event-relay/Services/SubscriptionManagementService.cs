@@ -108,8 +108,14 @@ public sealed class SubscriptionManagementService(
                     : null,
         };
 
-        var admissionError = await entitlements.Lifecycle.MutateSubscriptionAsync(subscription, true, false, cancellationToken);
-        if (admissionError is not null) return SubscriptionManagementResult<SubscriptionResponse>.Invalid(admissionError);
+        var admissionError = await entitlements.Lifecycle.MutateSubscriptionAsync(
+            subscription,
+            true,
+            false,
+            cancellationToken
+        );
+        if (admissionError is not null)
+            return SubscriptionManagementResult<SubscriptionResponse>.Invalid(admissionError);
 
         return SubscriptionManagementResult<SubscriptionResponse>.Success(
             ToResponse(subscription, null)
@@ -146,9 +152,15 @@ public sealed class SubscriptionManagementService(
             RelayPackageCompatibility.PackageId(entitlement),
             entitlement.PurchasedPeriodId,
             entitlement.PackageTerms,
-            RelayPackageCompatibility.NeedsReconciliation(entitlement, clock.GetUtcNow().UtcDateTime),
-            packageStore is null ? [] : (await packageStore.PeriodsAsync(projectId, cancellationToken))
-                .Where(x => x.StartsAt > clock.GetUtcNow().UtcDateTime).ToArray(),
+            RelayPackageCompatibility.NeedsReconciliation(
+                entitlement,
+                clock.GetUtcNow().UtcDateTime
+            ),
+            packageStore is null
+                ? []
+                : (await packageStore.PeriodsAsync(projectId, cancellationToken))
+                    .Where(x => x.StartsAt > clock.GetUtcNow().UtcDateTime)
+                    .ToArray(),
             await entitlements.Lifecycle.TransitionsAsync(projectId, cancellationToken)
         );
     }
@@ -244,8 +256,14 @@ public sealed class SubscriptionManagementService(
             AdmissionRevision = existing.AdmissionRevision,
         };
 
-        var admissionError = await entitlements.Lifecycle.MutateSubscriptionAsync(updated, false, false, cancellationToken);
-        if (admissionError is not null) return SubscriptionManagementResult<SubscriptionResponse>.Conflict(admissionError);
+        var admissionError = await entitlements.Lifecycle.MutateSubscriptionAsync(
+            updated,
+            false,
+            false,
+            cancellationToken
+        );
+        if (admissionError is not null)
+            return SubscriptionManagementResult<SubscriptionResponse>.Conflict(admissionError);
 
         return SubscriptionManagementResult<SubscriptionResponse>.Success(
             ToResponse(
@@ -272,8 +290,14 @@ public sealed class SubscriptionManagementService(
             return SubscriptionManagementResult<bool>.NotFound();
         }
 
-        var admissionError = await entitlements.Lifecycle.MutateSubscriptionAsync(existing, false, true, cancellationToken);
-        if (admissionError is not null) return SubscriptionManagementResult<bool>.Conflict(admissionError);
+        var admissionError = await entitlements.Lifecycle.MutateSubscriptionAsync(
+            existing,
+            false,
+            true,
+            cancellationToken
+        );
+        if (admissionError is not null)
+            return SubscriptionManagementResult<bool>.Conflict(admissionError);
         await deliveries.DeleteBySubscriptionIdsAsync([subscriptionId], cancellationToken);
 
         return SubscriptionManagementResult<bool>.Success(true);
@@ -415,6 +439,9 @@ public sealed class SubscriptionManagementService(
     public Task<RelayTransitionResponse> TransitionsAsync(string projectId, CancellationToken ct) =>
         entitlements.Lifecycle.TransitionsAsync(projectId, ct);
 
-    public Task SetDowngradeSelectionAsync(string projectId, SetRelayDowngradeSelectionRequest request, CancellationToken ct) =>
-        entitlements.Lifecycle.SetDowngradeSelectionAsync(projectId, request, ct);
+    public Task SetDowngradeSelectionAsync(
+        string projectId,
+        SetRelayDowngradeSelectionRequest request,
+        CancellationToken ct
+    ) => entitlements.Lifecycle.SetDowngradeSelectionAsync(projectId, request, ct);
 }

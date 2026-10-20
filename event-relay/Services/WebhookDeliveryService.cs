@@ -96,10 +96,17 @@ public sealed class WebhookDeliveryService(
 
         if (entitlements is not null && subscription.ProjectId is not null)
         {
-            subscription = await entitlements.Lifecycle.EffectiveSubscriptionAsync(subscription, cancellationToken);
+            subscription = await entitlements.Lifecycle.EffectiveSubscriptionAsync(
+                subscription,
+                cancellationToken
+            );
             if (subscription is null)
             {
-                await deliveries.DeferAsync(delivery, "Webhook changed; waiting for reconciliation.", cancellationToken);
+                await deliveries.DeferAsync(
+                    delivery,
+                    "Webhook changed; waiting for reconciliation.",
+                    cancellationToken
+                );
                 return true;
             }
         }
@@ -117,7 +124,15 @@ public sealed class WebhookDeliveryService(
 
         if (delivery.Network != subscription.Network)
         {
-            await CompleteAsync(delivery, false, false, null, "Subscription network changed after this event was queued.", 0, cancellationToken);
+            await CompleteAsync(
+                delivery,
+                false,
+                false,
+                null,
+                "Subscription network changed after this event was queued.",
+                0,
+                cancellationToken
+            );
             return true;
         }
 
@@ -154,7 +169,6 @@ public sealed class WebhookDeliveryService(
                     subscription.Network,
                     cancellationToken
                 );
-                // A new period is published only after closing the previous ledger. Recheck its final receipt first.
 
                 if (
                     delivery.AllowancePeriodId is not null
@@ -175,9 +189,8 @@ public sealed class WebhookDeliveryService(
                 {
                     delivery = delivery with
                     {
-                        AllowancePeriodId = RelayEntitlementService.PeriodId(entitlement)
+                        AllowancePeriodId = RelayEntitlementService.PeriodId(entitlement),
                     };
-                    // Persist the selected period before charging: a crash can recover the receipt even after renewal.
 
                     if (!await deliveries.SaveAllowanceAsync(delivery, cancellationToken))
                         return true;
@@ -208,17 +221,27 @@ public sealed class WebhookDeliveryService(
                 return true;
         }
 
-        if (entitlements is not null && subscription.ProjectId is { } projectId
-            && !await entitlements.Lifecycle.AdmitAttemptAsync(projectId, subscription.Id, subscription.Network, cancellationToken))
+        if (
+            entitlements is not null
+            && subscription.ProjectId is { } projectId
+            && !await entitlements.Lifecycle.AdmitAttemptAsync(
+                projectId,
+                subscription.Id,
+                subscription.Network,
+                cancellationToken
+            )
+        )
         {
-            await deliveries.DeferAsync(delivery, "Subscription admission changed; waiting for resume.", cancellationToken);
+            await deliveries.DeferAsync(
+                delivery,
+                "Subscription admission changed; waiting for resume.",
+                cancellationToken
+            );
             return true;
         }
 
         var started = System.Diagnostics.Stopwatch.StartNew();
         var outcome = await DeliverAsync(subscription, delivery, cancellationToken);
-
-        // Database failures here propagate to the worker; they are never reclassified as HTTP failures.
 
         await CompleteAsync(
             delivery,
@@ -299,7 +322,7 @@ public sealed class WebhookDeliveryService(
                 succeeded ? "succeeded"
                 : dead ? "dead_letter"
                 : "retrying",
-            NextAttemptAt = next
+            NextAttemptAt = next,
         };
         var record = new WebhookDeliveryAttemptDocument
         {

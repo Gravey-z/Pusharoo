@@ -78,7 +78,7 @@ public sealed class ProjectsController(
                     : Conflict(
                         new
                         {
-                            error = "Idempotency-Key was already used with a different project request."
+                            error = "Idempotency-Key was already used with a different project request.",
                         }
                     );
             }
@@ -111,7 +111,7 @@ public sealed class ProjectsController(
                 : Conflict(
                     new
                     {
-                        error = "Idempotency-Key was already used with a different project request."
+                        error = "Idempotency-Key was already used with a different project request.",
                     }
                 );
         }

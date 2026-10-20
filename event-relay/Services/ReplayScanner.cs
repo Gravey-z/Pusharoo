@@ -22,7 +22,6 @@ public sealed class ReplayScanner(
 
     public async Task<bool> PollOnceAsync(CancellationToken ct)
     {
-        // Historical recovery yields while the delivery queue is saturated.
         if (await deliveries.CountOutstandingAsync(ct) >= options.Value.MaxQueueDepth)
             return false;
 

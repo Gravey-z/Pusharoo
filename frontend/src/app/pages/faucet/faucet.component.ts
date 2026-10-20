@@ -77,11 +77,19 @@ export class FaucetComponent implements OnDestroy {
   }
 
   get claimAvailable(): boolean {
-    return this.isTestnetWallet && this.status?.sponsoredAvailable === true && this.status.sponsoredEligible === true;
+    return (
+      this.isTestnetWallet &&
+      this.status?.sponsoredAvailable === true &&
+      this.status.sponsoredEligible === true
+    );
   }
 
   get isTestnetWallet(): boolean {
-    return this.wallet.selectedNetwork() === 'neo3:testnet' && this.wallet.session()?.network === 'neo3:testnet' && Boolean(this.wallet.account());
+    return (
+      this.wallet.selectedNetwork() === 'neo3:testnet' &&
+      this.wallet.session()?.network === 'neo3:testnet' &&
+      Boolean(this.wallet.account())
+    );
   }
 
   get walletConnected(): boolean {
@@ -91,13 +99,17 @@ export class FaucetComponent implements OnDestroy {
   get walletStatusText(): string {
     if (this.onMainnet) return 'The faucet only works on N3:Testnet.';
     if (!this.walletConnected) return 'Connect an N3:Testnet wallet to check claim eligibility.';
-    if (this.wallet.selectedNetwork() !== 'neo3:testnet' || this.wallet.session()?.network !== 'neo3:testnet') {
+    if (
+      this.wallet.selectedNetwork() !== 'neo3:testnet' ||
+      this.wallet.session()?.network !== 'neo3:testnet'
+    ) {
       return 'Select N3:Testnet in Pusharoo and your wallet.';
     }
     if (this.statusLoading) return 'Checking the faucet on testnet…';
     if (this.statusError) return this.statusError;
     if (this.claimAvailable) return 'You can claim test GAS now.';
-    if (this.status?.sponsoredAvailable === false) return this.status.sponsoredReason || 'Sponsored claiming is unavailable.';
+    if (this.status?.sponsoredAvailable === false)
+      return this.status.sponsoredReason || 'Sponsored claiming is unavailable.';
     if (this.status?.sponsoredEligible === false)
       return this.reasonText(this.status.sponsoredIneligibleReason);
     return 'Wallet claim status is not available.';
@@ -132,8 +144,10 @@ export class FaucetComponent implements OnDestroy {
     try {
       await this.refreshStatus(context, this.contextVersion, true);
       this.assertSameContext(context);
-      if (!this.status?.sponsoredAvailable) throw new Error(this.status?.sponsoredReason || 'Sponsored claims are unavailable.');
-      if (!this.status.sponsoredEligible) throw new Error(this.reasonText(this.status?.sponsoredIneligibleReason));
+      if (!this.status?.sponsoredAvailable)
+        throw new Error(this.status?.sponsoredReason || 'Sponsored claims are unavailable.');
+      if (!this.status.sponsoredEligible)
+        throw new Error(this.reasonText(this.status?.sponsoredIneligibleReason));
 
       this.activityMessage = 'Signing in to Pusharoo if needed. Pusharoo pays the transaction fee.';
       await this.auth.ensureAuthenticated();
@@ -157,20 +171,29 @@ export class FaucetComponent implements OnDestroy {
         try {
           claim = await this.api.getClaim(requestId);
         } catch (lookupError) {
-          if (lookupError instanceof HttpErrorResponse && lookupError.status === 404
-            && submitError instanceof HttpErrorResponse && submitError.status > 0) {
+          if (
+            lookupError instanceof HttpErrorResponse &&
+            lookupError.status === 404 &&
+            submitError instanceof HttpErrorResponse &&
+            submitError.status > 0
+          ) {
             this.removePending(pending);
             if (this.isCurrentWallet(pending)) this.pendingClaim = null;
             throw submitError;
           }
           if (this.isCurrentWallet(pending)) {
-            this.activityMessage = 'The claim response is uncertain. Pusharoo will keep checking this request; refresh the page to resume.';
+            this.activityMessage =
+              'The claim response is uncertain. Pusharoo will keep checking this request; refresh the page to resume.';
           }
           void this.trackSponsoredClaim(pending);
           return;
         }
       }
-      const updated = { ...pending, requestId: claim.requestId, transactionHash: claim.transactionHash ?? undefined };
+      const updated = {
+        ...pending,
+        requestId: claim.requestId,
+        transactionHash: claim.transactionHash ?? undefined
+      };
       if (updated.requestId !== pending.requestId) this.removePending(pending);
       this.savePending(updated);
       if (this.isCurrentWallet(pending)) {
@@ -188,15 +211,24 @@ export class FaucetComponent implements OnDestroy {
 
   reasonText(reason: string | null | undefined): string {
     switch (reason) {
-      case 'firstSponsoredClaim': return 'Use the faucet button to claim with this wallet.';
-      case 'cooldown': return `This wallet can claim again at ${this.nextClaimDate}.`;
-      case 'dailyCapReached': return `The faucet's daily allocation is used up. It resets at ${this.dailyResetDate}.`;
-      case 'insufficientBalance': return 'The faucet does not have enough GAS to pay a claim right now.';
-      case 'paused': return 'Claims are temporarily paused.';
-      case 'invalidRecipient': return 'This wallet cannot receive faucet claims.';
-      case 'contractRecipientUnsupported': return 'Contract wallets cannot claim from this faucet.';
-      case 'eligible': return 'This wallet can claim now.';
-      default: return reason || 'Claim availability could not be determined.';
+      case 'firstSponsoredClaim':
+        return 'Use the faucet button to claim with this wallet.';
+      case 'cooldown':
+        return `This wallet can claim again at ${this.nextClaimDate}.`;
+      case 'dailyCapReached':
+        return `The faucet's daily allocation is used up. It resets at ${this.dailyResetDate}.`;
+      case 'insufficientBalance':
+        return 'The faucet does not have enough GAS to pay a claim right now.';
+      case 'paused':
+        return 'Claims are temporarily paused.';
+      case 'invalidRecipient':
+        return 'This wallet cannot receive faucet claims.';
+      case 'contractRecipientUnsupported':
+        return 'Contract wallets cannot claim from this faucet.';
+      case 'eligible':
+        return 'This wallet can claim now.';
+      default:
+        return reason || 'Claim availability could not be determined.';
     }
   }
 
@@ -214,11 +246,15 @@ export class FaucetComponent implements OnDestroy {
     if (!value || !/^\d+$/.test(value)) return '—';
     const timestamp = Number(value);
     if (!Number.isFinite(timestamp)) return '—';
-    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(timestamp));
+    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
+      new Date(timestamp)
+    );
   }
 
   explorerUrl(transactionHash: string | null | undefined): string | null {
-    return transactionHash ? `https://dora.coz.io/transaction/neo3/testnet/${encodeURIComponent(transactionHash)}` : null;
+    return transactionHash
+      ? `https://dora.coz.io/transaction/neo3/testnet/${encodeURIComponent(transactionHash)}`
+      : null;
   }
 
   private async onWalletContextChanged(context: WalletContext, version: number): Promise<void> {
@@ -235,15 +271,20 @@ export class FaucetComponent implements OnDestroy {
     const pending = this.findPending(context);
     this.pendingClaim = pending;
     if (pending) {
-      this.activityMessage = pending.route === 'direct'
-        ? 'A direct claim is still being tracked for this wallet.'
-        : 'A sponsored claim is still being tracked for this wallet.';
+      this.activityMessage =
+        pending.route === 'direct'
+          ? 'A direct claim is still being tracked for this wallet.'
+          : 'A sponsored claim is still being tracked for this wallet.';
       if (pending.route === 'direct') void this.trackDirectClaim(pending);
       else void this.trackSponsoredClaim(pending);
     }
   }
 
-  private async refreshStatus(context: WalletContext, version: number, showLoading = false): Promise<void> {
+  private async refreshStatus(
+    context: WalletContext,
+    version: number,
+    showLoading = false
+  ): Promise<void> {
     if (context.sessionNetwork === 'neo3:mainnet' || context.selectedNetwork === 'neo3:mainnet') {
       this.statusLoading = false;
       return;
@@ -266,17 +307,32 @@ export class FaucetComponent implements OnDestroy {
       }
 
       try {
-        if (!this.testnetContractHash) throw new Error(apiStatus?.reason || apiError || 'The testnet faucet contract is not configured.');
+        if (!this.testnetContractHash)
+          throw new Error(
+            apiStatus?.reason || apiError || 'The testnet faucet contract is not configured.'
+          );
         await this.neoRpc.verifyTestnetContract(this.testnetContractHash);
-        const globalResult = await this.neoRpc.invokeFunction('neo3:testnet', this.testnetContractHash, 'getStatus', []);
+        const globalResult = await this.neoRpc.invokeFunction(
+          'neo3:testnet',
+          this.testnetContractHash,
+          'getStatus',
+          []
+        );
         const global = this.toStack(globalResult);
         const walletResult = context.scriptHash
-          ? await this.neoRpc.invokeFunction('neo3:testnet', this.testnetContractHash, 'getClaimStatus', [
-            { type: 'Hash160', value: context.scriptHash }
-          ])
+          ? await this.neoRpc.invokeFunction(
+              'neo3:testnet',
+              this.testnetContractHash,
+              'getClaimStatus',
+              [{ type: 'Hash160', value: context.scriptHash }]
+            )
           : null;
         const claim = walletResult ? this.toStack(walletResult) : [];
-        const reason = apiStatus?.sponsoredReason || apiStatus?.reason || apiError || 'Sponsored claims are unavailable.';
+        const reason =
+          apiStatus?.sponsoredReason ||
+          apiStatus?.reason ||
+          apiError ||
+          'Sponsored claims are unavailable.';
         this.status = {
           available: true,
           reason: null,
@@ -298,7 +354,10 @@ export class FaucetComponent implements OnDestroy {
         return;
       } catch (fallbackError) {
         this.status = null;
-        this.statusError = this.errorText(fallbackError, apiError || 'Could not read the faucet from testnet.');
+        this.statusError = this.errorText(
+          fallbackError,
+          apiError || 'Could not read the faucet from testnet.'
+        );
       }
     } finally {
       if (version === this.contextVersion && !this.destroyed) this.statusLoading = false;
@@ -309,7 +368,9 @@ export class FaucetComponent implements OnDestroy {
     if (!pending.transactionHash) return;
     try {
       const confirmed = await this.neoRpc.waitForFaucetClaim(
-        pending.transactionHash, this.testnetContractHash, pending.scriptHash
+        pending.transactionHash,
+        this.testnetContractHash,
+        pending.scriptHash
       );
       this.removePending(pending);
       if (this.isCurrentWallet(pending)) {
@@ -333,7 +394,8 @@ export class FaucetComponent implements OnDestroy {
       }
       if (this.isCurrentWallet(pending)) {
         this.pendingClaim = pending;
-        this.activityMessage = 'The transaction has not been confirmed yet. Pusharoo will keep tracking it; refresh the page to resume later.';
+        this.activityMessage =
+          'The transaction has not been confirmed yet. Pusharoo will keep tracking it; refresh the page to resume later.';
       }
     }
   }
@@ -346,7 +408,10 @@ export class FaucetComponent implements OnDestroy {
       try {
         const claim = await this.api.getClaim(pending.requestId);
         notFoundCount = 0;
-        const updated: PendingFaucetClaim = { ...pending, transactionHash: claim.transactionHash ?? pending.transactionHash };
+        const updated: PendingFaucetClaim = {
+          ...pending,
+          transactionHash: claim.transactionHash ?? pending.transactionHash
+        };
         this.savePending(updated);
         if (this.isCurrentWallet(pending)) {
           this.pendingClaim = updated;
@@ -356,11 +421,13 @@ export class FaucetComponent implements OnDestroy {
           let amount = '';
           if (updated.transactionHash) {
             try {
-              const confirmed = await this.neoRpc.waitForFaucetClaim(updated.transactionHash, this.testnetContractHash, pending.scriptHash);
+              const confirmed = await this.neoRpc.waitForFaucetClaim(
+                updated.transactionHash,
+                this.testnetContractHash,
+                pending.scriptHash
+              );
               amount = this.formatDatoshi(confirmed.amountDatoshi);
-            } catch {
-              // The relayer only reports Confirmed after validating the matching on-chain events.
-            }
+            } catch {}
           }
           this.removePending(pending);
           if (this.isCurrentWallet(pending)) {
@@ -378,7 +445,9 @@ export class FaucetComponent implements OnDestroy {
           this.removePending(pending);
           if (this.isCurrentWallet(pending)) {
             this.pendingClaim = null;
-            this.operationError = claim.error || 'The sponsored claim did not complete. The relayer may still have paid a transaction fee.';
+            this.operationError =
+              claim.error ||
+              'The sponsored claim did not complete. The relayer may still have paid a transaction fee.';
             this.activityMessage = '';
             await this.refresh();
           }
@@ -395,23 +464,31 @@ export class FaucetComponent implements OnDestroy {
           }
           return;
         }
-        // Keep the request locally so polling can resume after a refresh or API recovery.
       }
       await this.delay(3000);
     }
-    if (this.isCurrentWallet(pending)) this.activityMessage = 'The sponsored claim is still pending. It will resume tracking when you return.';
+    if (this.isCurrentWallet(pending))
+      this.activityMessage =
+        'The sponsored claim is still pending. It will resume tracking when you return.';
   }
 
   private sponsoredStateText(state: string): string {
     switch (state.toLowerCase()) {
-      case 'queued': return 'Your sponsored claim is queued.';
+      case 'queued':
+        return 'Your sponsored claim is queued.';
       case 'processing':
-      case 'broadcasting': return 'Pusharoo is preparing the sponsored claim transaction.';
-      case 'submitted': return 'Transaction submitted. Waiting for testnet confirmation.';
-      case 'needsreview': return 'The claim needs operator review. Keep this page or return later to check its status.';
-      case 'confirmed': return 'Sponsored claim confirmed.';
-      case 'failed': return 'The sponsored claim failed.';
-      default: return `Sponsored claim status: ${state}.`;
+      case 'broadcasting':
+        return 'Pusharoo is preparing the sponsored claim transaction.';
+      case 'submitted':
+        return 'Transaction submitted. Waiting for testnet confirmation.';
+      case 'needsreview':
+        return 'The claim needs operator review. Keep this page or return later to check its status.';
+      case 'confirmed':
+        return 'Sponsored claim confirmed.';
+      case 'failed':
+        return 'The sponsored claim failed.';
+      default:
+        return `Sponsored claim status: ${state}.`;
     }
   }
 
@@ -427,8 +504,14 @@ export class FaucetComponent implements OnDestroy {
   }
 
   private requireTestnetContext(context: WalletContext): boolean {
-    if (context.selectedNetwork !== 'neo3:testnet' || context.sessionNetwork !== 'neo3:testnet' || !context.address || !context.scriptHash) {
-      this.operationError = 'Connect a wallet with both Pusharoo and the wallet session on N3:Testnet.';
+    if (
+      context.selectedNetwork !== 'neo3:testnet' ||
+      context.sessionNetwork !== 'neo3:testnet' ||
+      !context.address ||
+      !context.scriptHash
+    ) {
+      this.operationError =
+        'Connect a wallet with both Pusharoo and the wallet session on N3:Testnet.';
       return false;
     }
     return true;
@@ -436,38 +519,62 @@ export class FaucetComponent implements OnDestroy {
 
   private assertSameContext(expected: WalletContext): void {
     const current = this.readWalletContext();
-    if (current.key !== expected.key || current.selectedNetwork !== 'neo3:testnet' || current.sessionNetwork !== 'neo3:testnet') {
-      throw new Error('Wallet account or network changed. Reconnect on N3:Testnet and start the claim again.');
+    if (
+      current.key !== expected.key ||
+      current.selectedNetwork !== 'neo3:testnet' ||
+      current.sessionNetwork !== 'neo3:testnet'
+    ) {
+      throw new Error(
+        'Wallet account or network changed. Reconnect on N3:Testnet and start the claim again.'
+      );
     }
   }
 
   private isCurrentWallet(pending: PendingFaucetClaim): boolean {
     const context = this.readWalletContext();
-    return context.sessionNetwork === pending.network && this.sameHash(context.scriptHash ?? '', pending.scriptHash);
+    return (
+      context.sessionNetwork === pending.network &&
+      this.sameHash(context.scriptHash ?? '', pending.scriptHash)
+    );
   }
 
   private findPending(context: WalletContext): PendingFaucetClaim | null {
     if (!context.scriptHash || context.sessionNetwork !== 'neo3:testnet') return null;
-    return this.readPending().find((item) => item.network === 'neo3:testnet' && this.sameHash(item.scriptHash, context.scriptHash!)) ?? null;
+    return (
+      this.readPending().find(
+        item =>
+          item.network === 'neo3:testnet' && this.sameHash(item.scriptHash, context.scriptHash!)
+      ) ?? null
+    );
   }
 
   private savePending(pending: PendingFaucetClaim): void {
-    const all = this.readPending().filter((item) => {
+    const all = this.readPending().filter(item => {
       if (item.route !== pending.route) return true;
       if (pending.requestId) return item.requestId !== pending.requestId;
       if (pending.transactionHash) return item.transactionHash !== pending.transactionHash;
       return true;
     });
     all.push(pending);
-    try { localStorage.setItem(this.pendingStorageKey, JSON.stringify(all.slice(-10))); } catch { }
+    try {
+      localStorage.setItem(this.pendingStorageKey, JSON.stringify(all.slice(-10)));
+    } catch {}
   }
 
   private removePending(pending: PendingFaucetClaim): void {
-    const all = this.readPending().filter((item) =>
-      !(item.network === pending.network && this.sameHash(item.scriptHash, pending.scriptHash)
-        && (pending.requestId ? item.requestId === pending.requestId : item.transactionHash === pending.transactionHash))
+    const all = this.readPending().filter(
+      item =>
+        !(
+          item.network === pending.network &&
+          this.sameHash(item.scriptHash, pending.scriptHash) &&
+          (pending.requestId
+            ? item.requestId === pending.requestId
+            : item.transactionHash === pending.transactionHash)
+        )
     );
-    try { localStorage.setItem(this.pendingStorageKey, JSON.stringify(all)); } catch { }
+    try {
+      localStorage.setItem(this.pendingStorageKey, JSON.stringify(all));
+    } catch {}
   }
 
   private readPending(): PendingFaucetClaim[] {
@@ -475,7 +582,7 @@ export class FaucetComponent implements OnDestroy {
       const value = localStorage.getItem(this.pendingStorageKey);
       if (!value) return [];
       const parsed = JSON.parse(value) as unknown;
-      return Array.isArray(parsed) ? parsed as PendingFaucetClaim[] : [];
+      return Array.isArray(parsed) ? (parsed as PendingFaucetClaim[]) : [];
     } catch {
       return [];
     }
@@ -483,7 +590,8 @@ export class FaucetComponent implements OnDestroy {
 
   private toStack(result: ContractInvokeResult): RpcStackValue[] {
     const top = result.stack?.[0];
-    if (!top || !Array.isArray(top.value)) throw new Error('The faucet contract returned an invalid status response.');
+    if (!top || !Array.isArray(top.value))
+      throw new Error('The faucet contract returned an invalid status response.');
     return top.value as RpcStackValue[];
   }
 
@@ -502,10 +610,11 @@ export class FaucetComponent implements OnDestroy {
     const value = this.stackText(item);
     if (/^-?\d+$/.test(value)) return value;
     if ((item?.type === 'ByteString' || item?.type === 'Buffer') && value) {
-      const bytes = [...atob(value)].map((character) => character.charCodeAt(0));
+      const bytes = [...atob(value)].map(character => character.charCodeAt(0));
       let result = 0n;
-      for (let index = bytes.length - 1; index >= 0; index -= 1) result = (result << 8n) | BigInt(bytes[index]);
-      if (bytes.length && (bytes[bytes.length - 1] & 0x80)) result -= 1n << BigInt(bytes.length * 8);
+      for (let index = bytes.length - 1; index >= 0; index -= 1)
+        result = (result << 8n) | BigInt(bytes[index]);
+      if (bytes.length && bytes[bytes.length - 1] & 0x80) result -= 1n << BigInt(bytes.length * 8);
       return result.toString();
     }
     throw new Error('The faucet contract returned an invalid number.');
@@ -515,14 +624,16 @@ export class FaucetComponent implements OnDestroy {
     if (error && typeof error === 'object' && 'error' in error) {
       const body = (error as { error?: unknown }).error;
       if (body && typeof body === 'object') {
-        const apiMessage = (body as { error?: unknown; message?: unknown }).error
-          ?? (body as { message?: unknown }).message;
+        const apiMessage =
+          (body as { error?: unknown; message?: unknown }).error ??
+          (body as { message?: unknown }).message;
         if (typeof apiMessage === 'string' && apiMessage) return apiMessage;
       }
     }
     if (error instanceof Error && error.message) {
       const message = error.message.toLowerCase();
-      if (message.includes('reject') || message.includes('cancel')) return 'Wallet request cancelled.';
+      if (message.includes('reject') || message.includes('cancel'))
+        return 'Wallet request cancelled.';
       return error.message;
     }
     return fallback;
@@ -533,6 +644,6 @@ export class FaucetComponent implements OnDestroy {
   }
 
   private delay(milliseconds: number): Promise<void> {
-    return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+    return new Promise(resolve => window.setTimeout(resolve, milliseconds));
   }
 }

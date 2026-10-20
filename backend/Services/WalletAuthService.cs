@@ -99,7 +99,7 @@ public sealed class WalletAuthService(
             Nonce = nonce,
             Message = message,
             IssuedAtUtc = issuedAt,
-            ExpiresAtUtc = expiresAt
+            ExpiresAtUtc = expiresAt,
         };
         await db.WalletLoginChallenges.InsertOneAsync(
             challenge,
@@ -235,7 +235,7 @@ public sealed class WalletAuthService(
             Builders<WalletLoginChallengeDocument>.Update.Set(x => x.ConsumedAtUtc, now),
             new FindOneAndUpdateOptions<WalletLoginChallengeDocument>
             {
-                ReturnDocument = ReturnDocument.After
+                ReturnDocument = ReturnDocument.After,
             },
             cancellationToken
         );
@@ -260,7 +260,7 @@ public sealed class WalletAuthService(
             Provider = signature.Provider,
             NetworkAtLogin = signature.Network,
             CreatedAtUtc = now,
-            ExpiresAtUtc = now.AddHours(Math.Clamp(options.SessionLifetimeHours, 1, 168))
+            ExpiresAtUtc = now.AddHours(Math.Clamp(options.SessionLifetimeHours, 1, 168)),
         };
         await db.WalletLoginSessions.InsertOneAsync(session, cancellationToken: cancellationToken);
 

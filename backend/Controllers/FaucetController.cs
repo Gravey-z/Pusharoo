@@ -1,7 +1,7 @@
+using System.Text.Json;
 using backend.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using System.Text.Json;
 
 namespace backend.Controllers;
 

@@ -7,8 +7,6 @@ public sealed class EventCheckpointDocument
     [BsonId]
     public string Id { get; init; } = string.Empty;
 
-    // Null is a new checkpoint that has not yet chosen its starting height. Existing numeric checkpoints remain valid.
-
     [BsonElement("nextBlock")]
     public uint? NextBlock { get; init; }
 

@@ -28,7 +28,7 @@ public sealed class WalletAuthController(
                 new
                 {
                     code = "auth_unavailable",
-                    error = "Wallet authentication is temporarily unavailable."
+                    error = "Wallet authentication is temporarily unavailable.",
                 }
             );
 
@@ -213,7 +213,7 @@ public sealed class WalletAuthController(
             new
             {
                 code = "antiforgery_failed",
-                error = "Security token expired. Refresh the session and try again."
+                error = "Security token expired. Refresh the session and try again.",
             }
         );
 
@@ -226,7 +226,7 @@ public sealed class WalletAuthController(
             new
             {
                 code = "auth_unavailable",
-                error = "Wallet authentication is temporarily unavailable."
+                error = "Wallet authentication is temporarily unavailable.",
             }
         );
 }

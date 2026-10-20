@@ -13,8 +13,6 @@ public sealed class ReplayAdmissionPolicy
             ? new(false, 400, "Replay range exceeds the configured limit.")
             : null;
 
-    // Admission uses MongoDB's reservation time across replicas. Supplying it explicitly
-    // keeps cooldown and quota boundaries testable without replacing the server clock.
     public ReplayAdmissionResult Evaluate(
         ReplayJobDocument job,
         EventRelayOptions settings,

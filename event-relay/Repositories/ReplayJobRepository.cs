@@ -71,13 +71,13 @@ public sealed class ReplayJobRepository(MongoDbContext db, TimeProvider? timePro
                                     new BsonArray
                                     {
                                         "$leaseUntil",
-                                        new BsonDateTime(DateTime.UnixEpoch)
+                                        new BsonDateTime(DateTime.UnixEpoch),
                                     }
                                 ),
-                                "$$NOW"
+                                "$$NOW",
                             }
                         ),
-                        new BsonDocument("$lte", new BsonArray { "$nextAttemptAt", "$$NOW" })
+                        new BsonDocument("$lte", new BsonArray { "$nextAttemptAt", "$$NOW" }),
                     }
                 )
             },
@@ -90,9 +90,9 @@ public sealed class ReplayJobRepository(MongoDbContext db, TimeProvider? timePro
                 new BsonDocument
                 {
                     { "owner", Guid.NewGuid().ToString("N") },
-                    { "leaseUntil", new BsonDocument("$add", new BsonArray { "$$NOW", 60000 }) }
+                    { "leaseUntil", new BsonDocument("$add", new BsonArray { "$$NOW", 60000 }) },
                 }
-            )
+            ),
         };
 
         return await Jobs.FindOneAndUpdateAsync(
@@ -101,7 +101,7 @@ public sealed class ReplayJobRepository(MongoDbContext db, TimeProvider? timePro
             new FindOneAndUpdateOptions<ReplayJobDocument>
             {
                 ReturnDocument = ReturnDocument.After,
-                Sort = Builders<ReplayJobDocument>.Sort.Ascending(x => x.NextAttemptAt)
+                Sort = Builders<ReplayJobDocument>.Sort.Ascending(x => x.NextAttemptAt),
             },
             ct
         );
@@ -117,7 +117,7 @@ public sealed class ReplayJobRepository(MongoDbContext db, TimeProvider? timePro
                     "leaseUntil",
                     new BsonDocument("$add", new BsonArray { "$$NOW", 60000 })
                 )
-            )
+            ),
         };
 
         return (
@@ -182,7 +182,7 @@ public sealed class ReplayJobRepository(MongoDbContext db, TimeProvider? timePro
             "pause" => new[] { "running" },
             "resume" => new[] { "paused", "blocked" },
             "cancel" => new[] { "running", "paused", "blocked" },
-            _ => Array.Empty<string>()
+            _ => Array.Empty<string>(),
         };
 
         var status =

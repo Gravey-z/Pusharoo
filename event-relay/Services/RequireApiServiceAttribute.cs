@@ -29,7 +29,7 @@ public sealed class RequireApiServiceAttribute : Attribute, IAuthorizationFilter
                 new { error = "Relay API authentication is not configured." }
             )
             {
-                StatusCode = StatusCodes.Status503ServiceUnavailable
+                StatusCode = StatusCodes.Status503ServiceUnavailable,
             };
 
             return;

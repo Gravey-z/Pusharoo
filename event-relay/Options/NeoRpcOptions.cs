@@ -37,7 +37,7 @@ public sealed class NeoRpcOptions
         {
             "neo3:mainnet" => 860833102,
             "neo3:testnet" => 894710606,
-            _ => throw new InvalidOperationException($"Unsupported Neo RPC network: {Network}")
+            _ => throw new InvalidOperationException($"Unsupported Neo RPC network: {Network}"),
         };
 
     public bool StartAtLatest { get; init; }
