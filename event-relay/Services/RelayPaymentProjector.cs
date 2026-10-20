@@ -11,7 +11,8 @@ public interface IRelayPaymentProjector
 public sealed class RelayPaymentProjectionConflictException(string message) : Exception(message);
 
 // Scheduled purchases extend paid coverage without activating their allowance.
-// Automatic activation and admission fences at future boundaries remain Phase 4.
+// RelayLifecycleService coordinates automatic activation and admission fences;
+// these financial projections retain payment markers and immutable history.
 public sealed class RelayPaymentProjector(MongoDbContext db, RelayEntitlementService entitlements,
     IWebhookSubscriptionRepository subscriptions, TimeProvider? timeProvider = null) : IRelayPaymentProjector
 {

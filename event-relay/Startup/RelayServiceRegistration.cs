@@ -41,6 +41,8 @@ public static class RelayServiceRegistration
         services.AddSingleton<RelayHealthCache>();
         services.AddHostedService<RelayAlertWorker>();
         services.AddScoped<RelayEntitlementService>();
+        services.AddScoped<RelayLifecycleService>();
+        services.AddHostedService<RelayLifecycleWorker>();
         services.AddScoped<RelayPaymentVerifier>();
         services.AddScoped<RelayPaymentService>();
         services.AddScoped<IRelayPaymentProjector, RelayPaymentProjector>();

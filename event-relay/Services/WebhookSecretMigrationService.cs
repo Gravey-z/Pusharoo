@@ -26,19 +26,9 @@ public sealed class WebhookSecretMigrationService(
                 continue;
             }
 
-            var migrated = new Models.WebhookSubscriptionDocument
+            var migrated = subscription with
             {
-                Id = subscription.Id,
-                ProjectId = subscription.ProjectId,
-                Name = subscription.Name,
-                ContractHash = subscription.ContractHash,
-                Network = subscription.Network,
-                EventName = subscription.EventName,
-                WebhookUrl = subscription.WebhookUrl,
                 Secret = secretProtector.Protect(subscription.Secret),
-                Headers = subscription.Headers,
-                IsEnabled = subscription.IsEnabled,
-                CreatedAt = subscription.CreatedAt,
                 UpdatedAt = DateTime.UtcNow
             };
 

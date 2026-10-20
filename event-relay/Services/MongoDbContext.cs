@@ -14,6 +14,15 @@ public sealed class MongoDbContext
         var client = new MongoClient(mongoOptions.ConnectionString);
         var database = client.GetDatabase(mongoOptions.DatabaseName);
 
+        ProjectAdmissions = database.GetCollection<RelayProjectAdmissionDocument>("relayProjectAdmissions")
+            .WithWriteConcern(WriteConcern.WMajority.With(journal: true));
+        ProjectAdmissions.Indexes.CreateOne(new CreateIndexModel<RelayProjectAdmissionDocument>(
+            Builders<RelayProjectAdmissionDocument>.IndexKeys.Ascending(x => x.NextCheckAt)));
+        ProjectAdmissions.Indexes.CreateOne(new CreateIndexModel<RelayProjectAdmissionDocument>(
+            Builders<RelayProjectAdmissionDocument>.IndexKeys.Ascending("mainnet.periodId")));
+        ProjectAdmissions.Indexes.CreateOne(new CreateIndexModel<RelayProjectAdmissionDocument>(
+            Builders<RelayProjectAdmissionDocument>.IndexKeys.Ascending("testnet.periodId")));
+
         PurchasedPeriods = database.GetCollection<RelayPurchasedPeriodDocument>("relayPurchasedPeriods").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
         PeriodUpgrades = database.GetCollection<RelayPeriodUpgradeDocument>("relayPeriodUpgrades").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
         BillingDecisions = database.GetCollection<RelayBillingDecisionDocument>("relayBillingDecisions").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
@@ -209,6 +218,7 @@ public sealed class MongoDbContext
     public IMongoCollection<BsonDocument> PaymentTransactions { get; }
 
     public IMongoCollection<RelayAllowancePeriodDocument> AllowancePeriods { get; }
+    public IMongoCollection<RelayProjectAdmissionDocument> ProjectAdmissions { get; }
 
     public IMongoCollection<ReplayJobDocument> ReplayJobs { get; }
 

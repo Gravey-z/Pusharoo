@@ -2,7 +2,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Pusharoo.EventRelay.Models;
 
-public sealed class WebhookSubscriptionDocument
+public sealed record WebhookSubscriptionDocument
 {
     [BsonId]
     [BsonElement("_id")]
@@ -46,4 +46,13 @@ public sealed class WebhookSubscriptionDocument
 
     [BsonElement("expiresAt")]
     public DateTime? ExpiresAt { get; init; }
+
+    [BsonElement("admissionRevision")]
+    public long AdmissionRevision { get; init; }
+
+    [BsonElement("deleted")]
+    public bool Deleted { get; init; }
+
+    [BsonElement("pauseReason")]
+    public string? PauseReason { get; init; }
 }

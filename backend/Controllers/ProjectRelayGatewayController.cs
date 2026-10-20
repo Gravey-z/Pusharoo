@@ -26,6 +26,14 @@ public sealed class ProjectRelayGatewayController(
     public Task<IActionResult> Usage(string projectId, string network, CancellationToken ct) =>
         Forward(projectId, network, HttpMethod.Post, "subscriptions/usage", null, ct);
 
+    [HttpPost("subscriptions/transitions/query")]
+    public Task<IActionResult> SubscriptionTransitions(string projectId, string network, CancellationToken ct) =>
+        Forward(projectId, network, HttpMethod.Post, "subscriptions/transitions/query", null, ct);
+
+    [HttpPost("subscriptions/transitions/selection")]
+    public Task<IActionResult> SubscriptionTransitionSelection(string projectId, string network, [FromBody] JsonElement body, CancellationToken ct) =>
+        Forward(projectId, network, HttpMethod.Post, "subscriptions/transitions/selection", body, ct);
+
     [HttpPost("subscriptions")]
     public Task<IActionResult> CreateSubscription(
         string projectId,

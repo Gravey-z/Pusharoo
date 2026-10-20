@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Options;
-using MongoDB.Bson;
 using MongoDB.Driver;
 using Pusharoo.EventRelay.Models;
 using Pusharoo.EventRelay.Options;
@@ -7,432 +6,88 @@ using Pusharoo.EventRelay.Repositories;
 
 namespace Pusharoo.EventRelay.Services;
 
-public sealed class RelayEntitlementService(
-    MongoDbContext db,
-    IWebhookSubscriptionRepository subscriptions,
-    IOptions<EventRelayOptions> options,
-    TimeProvider? timeProvider = null
-)
+public sealed class RelayEntitlementService(MongoDbContext db, IWebhookSubscriptionRepository subscriptions,
+    IOptions<EventRelayOptions> options, TimeProvider? timeProvider = null)
 {
     private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
-
-    private readonly EventRelayOptions settings = options.Value;
-
-    private static FilterDefinition<RelayEntitlementDocument> VersionFilter(long version) =>
-        version == 0
-            ? Builders<RelayEntitlementDocument>.Filter.Eq(x => x.Version, 0)
-                | Builders<RelayEntitlementDocument>.Filter.Exists("version", false)
-            : Builders<RelayEntitlementDocument>.Filter.Eq(x => x.Version, version);
-
-    public async Task<RelayEntitlementDocument> GetAsync(
-        string projectId,
-        string network,
-        CancellationToken ct
-    )
-    {
-        var now = clock.GetUtcNow().UtcDateTime;
-        var existing = await db
-            .Entitlements.Find(x => x.ProjectId == projectId && x.Network == network)
-            .FirstOrDefaultAsync(ct);
-
-        if (existing is not null)
-        {
-            existing = await ApplyFreeTestnetAllowanceAsync(existing, now, ct);
-            existing = await db.Entitlements.Find(x => x.Id == existing.Id).FirstAsync(ct);
-
-            return await WithUsageAsync(await UpdateStatusAsync(existing, now, ct), ct);
-        }
-
-        var free = new RelayEntitlementDocument
-        {
-            Id = $"{projectId}:{network}",
-            ProjectId = projectId,
-            Network = network,
-            PeriodStart = now,
-            PeriodEndsAt = now.AddDays(settings.FreeBetaPeriodDays),
-            MaxActiveSubscriptions =
-                network == "neo3:testnet" ? settings.FreeTestnetMaxActiveSubscriptions : 0,
-            MaxEvents = network == "neo3:testnet" ? settings.FreeTestnetMaxEvents : 0,
-            Status = network == "neo3:testnet" ? "active" : "expired",
-            UpdatedAt = now,
-        };
-
-        try
-        {
-            await db.Entitlements.InsertOneAsync(free, cancellationToken: ct);
-
-            return await WithUsageAsync(free, ct);
-        }
-        catch (MongoWriteException ex)
-            when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
-        {
-            return await GetAsync(projectId, network, ct);
-        }
-    }
-
-    public async Task<IReadOnlyList<RelayEntitlementDocument>> GrantPaidAccessAsync(
-        string projectId,
-        string paymentId,
-        CancellationToken ct,
-        RelayPurchaseTerms? purchaseTerms = null
-    )
-    {
-        return await Task.WhenAll(
-            new[] { "neo3:mainnet", "neo3:testnet" }.Select(network =>
-                GrantPaidAccessForNetworkAsync(projectId, network, paymentId, ct, purchaseTerms)
-            )
-        );
-    }
-
+    public RelayLifecycleService Lifecycle => new(db, options, clock);
+    public Task<RelayEntitlementDocument> GetAsync(string projectId, string network, CancellationToken ct) =>
+        Lifecycle.GetEntitlementAsync(projectId, network, ct);
     public static string PeriodId(RelayEntitlementDocument entitlement) =>
         $"{entitlement.Id}:{new DateTimeOffset(entitlement.PeriodStart.ToUniversalTime()).ToUnixTimeMilliseconds()}:{entitlement.LastPaymentId ?? "free"}";
+    public Task<bool> WasChargedAsync(string periodId, string deliveryId, CancellationToken ct) =>
+        Lifecycle.WasChargedAsync(periodId, deliveryId, ct);
+    public Task<bool> TryConsumeEventAsync(RelayEntitlementDocument entitlement, string deliveryId,
+        CancellationToken ct, string? subscriptionId = null) => Lifecycle.TryConsumeAsync(entitlement, deliveryId, ct, subscriptionId);
 
-    private async Task<RelayEntitlementDocument> WithUsageAsync(
-        RelayEntitlementDocument entitlement,
-        CancellationToken ct
-    )
+    // Compatibility/recovery callers also append; live payments use the frozen
+    // payment application coordinator. An early grant never resets today's usage.
+    public async Task<IReadOnlyList<RelayEntitlementDocument>> GrantPaidAccessAsync(string projectId, string paymentId,
+        CancellationToken ct, RelayPurchaseTerms? purchaseTerms = null)
     {
-        var ledger = await db
-            .AllowancePeriods.Find(x => x.Id == PeriodId(entitlement))
-            .FirstOrDefaultAsync(ct);
-
-        return entitlement with
+        var now = DateTimeOffset.FromUnixTimeMilliseconds(clock.GetUtcNow().ToUnixTimeMilliseconds()).UtcDateTime;
+        var terms = purchaseTerms ?? new RelayPurchaseTerms { Package = RelayPackageCatalog.LegacyTerms(options.Value),
+            RequiredGasDatoshis = options.Value.PaidPlanGasDatoshis, QuotedAt = now, Source = "legacy_grant" };
+        var id = $"{projectId}:{paymentId}";
+        var period = await db.PurchasedPeriods.Find(x => x.Id == id).FirstOrDefaultAsync(ct);
+        if (period is null)
         {
-            EventsUsed = ledger?.EventsUsed ?? entitlement.EventsUsed
-        };
-    }
-
-    public async Task<bool> WasChargedAsync(
-        string periodId,
-        string deliveryId,
-        CancellationToken ct
-    ) =>
-        await db
-            .AllowancePeriods.WithReadConcern(ReadConcern.Majority)
-            .Find(x => x.Id == periodId && x.ChargedDeliveries.Contains(deliveryId))
-            .AnyAsync(ct);
-
-    public async Task<bool> TryConsumeEventAsync(
-        RelayEntitlementDocument entitlement,
-        string deliveryId,
-        CancellationToken ct
-    )
-    {
-        var periodId = PeriodId(entitlement);
-
-        if (await WasChargedAsync(periodId, deliveryId, ct))
-            return true;
-
-        if (
-            entitlement.Status != "active"
-            || entitlement.PeriodEndsAt <= clock.GetUtcNow().UtcDateTime
-        )
-            return false;
-        // The receipt and counter update are atomic. Period receipts survive resets, grants and history pruning.
-
-        await db
-            .AllowancePeriods.WithWriteConcern(WriteConcern.WMajority.With(journal: true))
-            .UpdateOneAsync(
-                x => x.Id == periodId,
-                Builders<RelayAllowancePeriodDocument>
-                    .Update.SetOnInsert(x => x.EventsUsed, entitlement.EventsUsed)
-                    .SetOnInsert(x => x.ChargedDeliveries, new List<string>())
-                    .SetOnInsert(x => x.Closed, false)
-                    .SetOnInsert(x => x.PeriodEndsAt, entitlement.PeriodEndsAt),
-                new UpdateOptions { IsUpsert = true },
-                ct
-            );
-        var result = await db
-            .AllowancePeriods.WithWriteConcern(WriteConcern.WMajority.With(journal: true))
-            .UpdateOneAsync(
-                Builders<RelayAllowancePeriodDocument>.Filter.Eq(x => x.Id, periodId)
-                    & Builders<RelayAllowancePeriodDocument>.Filter.Eq(x => x.Closed, false)
-                    & Builders<RelayAllowancePeriodDocument>.Filter.Not(
-                        Builders<RelayAllowancePeriodDocument>.Filter.AnyEq(
-                            x => x.ChargedDeliveries,
-                            deliveryId
-                        )
-                    )
-                    & Builders<RelayAllowancePeriodDocument>.Filter.Lt(
-                        x => x.EventsUsed,
-                        entitlement.MaxEvents
-                    )
-                    & new BsonDocument(
-                        "$expr",
-                        new BsonDocument("$gt", new BsonArray { "$periodEndsAt", "$$NOW" })
-                    ),
-                Builders<RelayAllowancePeriodDocument>
-                    .Update.Inc(x => x.EventsUsed, 1)
-                    .AddToSet(x => x.ChargedDeliveries, deliveryId),
-                cancellationToken: ct
-            );
-
-        return result.ModifiedCount == 1 || await WasChargedAsync(periodId, deliveryId, ct);
+            var current = await GetAsync(projectId, "neo3:mainnet", ct);
+            var other = await GetAsync(projectId, "neo3:testnet", ct);
+            var old = current.PaymentGrants.Concat(other.PaymentGrants).FirstOrDefault(x => x.PaymentId == paymentId);
+            var tail = new[] { current.PaidUntil, other.PaidUntil }.Max();
+            var start = old?.PeriodStart ?? (tail > now ? tail.Value : now);
+            var end = old?.PeriodEndsAt ?? start.AddDays(terms.Package.Days);
+            string Ledger(string network) => $"{projectId}:{network}:{new DateTimeOffset(start).ToUnixTimeMilliseconds()}:{paymentId}";
+            var candidate = new RelayPurchasedPeriodDocument { Id = id, ProjectId = projectId, PurchaseId = paymentId,
+                StartsAt = start, EndsAt = end, OriginalTerms = terms.Package, EffectiveTerms = terms.Package,
+                MainnetLedgerId = Ledger("neo3:mainnet"), TestnetLedgerId = Ledger("neo3:testnet"), Source = terms.Source };
+            try { await db.PurchasedPeriods.InsertOneAsync(candidate, cancellationToken: ct); }
+            catch (MongoWriteException e) when (e.WriteError.Category == ServerErrorCategory.DuplicateKey) { }
+            period = await db.PurchasedPeriods.Find(x => x.Id == id).SingleAsync(ct);
+        }
+        foreach (var network in new[] { "neo3:mainnet", "neo3:testnet" })
+        {
+            var grant = new RelayEntitlementPaymentGrant { PaymentId = paymentId, PeriodId = period.Id, Terms = terms,
+                PeriodStart = period.StartsAt, PeriodEndsAt = period.EndsAt,
+                GraceEndsAt = period.EndsAt.AddDays(period.OriginalTerms.GraceDays) };
+            await db.Entitlements.UpdateOneAsync(x => x.ProjectId == projectId && x.Network == network
+                && !x.PaymentGrants.Any(g => g.PaymentId == paymentId),
+                Builders<RelayEntitlementDocument>.Update.Push(x => x.PaymentGrants, grant).Inc(x => x.Version, 1), cancellationToken: ct);
+            try { await db.EntitlementHistory.UpdateOneAsync(x => x.PaymentId == paymentId && x.Network == network && x.AllocationId == null,
+                Builders<RelayEntitlementHistoryDocument>.Update.SetOnInsert(x => x.Id, $"{paymentId}:{network}")
+                    .SetOnInsert(x => x.PaymentId, paymentId).SetOnInsert(x => x.ProjectId, projectId).SetOnInsert(x => x.Network, network)
+                    .SetOnInsert(x => x.Terms, terms).SetOnInsert(x => x.PeriodId, period.Id).SetOnInsert(x => x.PeriodStart, period.StartsAt)
+                    .SetOnInsert(x => x.PeriodEndsAt, period.EndsAt).SetOnInsert(x => x.GraceEndsAt, grant.GraceEndsAt)
+                    .SetOnInsert(x => x.CreatedAt, now), new UpdateOptions { IsUpsert = true }, ct); }
+            catch (MongoWriteException e) when (e.WriteError.Category == ServerErrorCategory.DuplicateKey)
+            {
+                if (!await db.EntitlementHistory.Find(x => x.PaymentId == paymentId && x.Network == network && x.ProjectId == projectId).AnyAsync(ct)) throw;
+            }
+        }
+        var result = new[] { await GetAsync(projectId, "neo3:mainnet", ct), await GetAsync(projectId, "neo3:testnet", ct) };
+        await subscriptions.ClearTestnetSubscriptionExpiryAsync(projectId, ct);
+        return result;
     }
 
     internal async Task ClosePeriodAsync(RelayEntitlementDocument entitlement, CancellationToken ct)
     {
-        await db
-            .AllowancePeriods.WithWriteConcern(WriteConcern.WMajority.With(journal: true))
-            .UpdateOneAsync(
-                x => x.Id == PeriodId(entitlement),
-                Builders<RelayAllowancePeriodDocument>
-                    .Update.Set(x => x.Closed, true)
-                    .SetOnInsert(x => x.EventsUsed, entitlement.EventsUsed)
-                    .SetOnInsert(x => x.ChargedDeliveries, new List<string>())
-                    .SetOnInsert(x => x.PeriodEndsAt, entitlement.PeriodEndsAt),
-                new UpdateOptions { IsUpsert = true },
-                ct
-            );
+        await db.AllowancePeriods.UpdateOneAsync(x => x.Id == PeriodId(entitlement),
+            Builders<RelayAllowancePeriodDocument>.Update.Set(x => x.Closed, true)
+                .SetOnInsert(x => x.EventsUsed, entitlement.EventsUsed).SetOnInsert(x => x.ChargedDeliveries, [])
+                .SetOnInsert(x => x.PeriodEndsAt, entitlement.PeriodEndsAt), new UpdateOptions { IsUpsert = true }, ct);
     }
 
-    public async Task<IReadOnlyList<RelayEntitlementDocument>> ReconcileFreeTestnetTrialsAsync(
-        CancellationToken ct
-    )
+    public async Task<IReadOnlyList<RelayEntitlementDocument>> ReconcileFreeTestnetTrialsAsync(CancellationToken ct)
     {
-        var trials = await db
-            .Entitlements.Find(item => item.Network == "neo3:testnet" && item.Plan == "free_beta")
-            .Project(item => item.ProjectId)
-            .ToListAsync(ct);
-        var entitlements = await Task.WhenAll(
-            trials
-                .Distinct(StringComparer.Ordinal)
-                .Select(projectId => GetAsync(projectId, "neo3:testnet", ct))
-        );
-
-        return entitlements.Where(item => item.Plan == "free_beta").ToArray();
-    }
-
-    private async Task<RelayEntitlementDocument> UpdateStatusAsync(
-        RelayEntitlementDocument entitlement,
-        DateTime now,
-        CancellationToken ct
-    )
-    {
-        var status = entitlement.Status;
-
-        if (entitlement.PeriodEndsAt <= now)
-            status =
-                entitlement.GraceEndsAt is { } graceEndsAt && graceEndsAt > now
-                    ? "grace"
-                    : "expired";
-
-        if (status == entitlement.Status)
-            return entitlement;
-
-        var update = Builders<RelayEntitlementDocument>
-            .Update.Set(x => x.Status, status)
-            .Set(x => x.UpdatedAt, now);
-        await db.Entitlements.UpdateOneAsync(
-            Builders<RelayEntitlementDocument>.Filter.Eq(x => x.Id, entitlement.Id)
-                & VersionFilter(entitlement.Version)
-                & Builders<RelayEntitlementDocument>.Filter.Eq(
-                    x => x.PeriodStart,
-                    entitlement.PeriodStart
-                ),
-            update.Inc(x => x.Version, 1),
-            cancellationToken: ct
-        );
-
-        return entitlement with
+        var projects = await db.Entitlements.Find(x => x.Network == "neo3:testnet" && x.Plan == "free_beta")
+            .Project(x => x.ProjectId).ToListAsync(ct);
+        var results = new List<RelayEntitlementDocument>();
+        foreach (var projectId in projects.Distinct(StringComparer.Ordinal))
         {
-            Status = status,
-            UpdatedAt = now
-        };
-    }
-
-    private async Task<RelayEntitlementDocument> ApplyFreeTestnetAllowanceAsync(
-        RelayEntitlementDocument entitlement,
-        DateTime now,
-        CancellationToken ct
-    )
-    {
-        if (entitlement.Network != "neo3:testnet" || entitlement.Plan != "free_beta")
-            return entitlement;
-
-        var resetAllowance = entitlement.PeriodEndsAt <= now;
-        var periodStart = resetAllowance ? now : entitlement.PeriodStart;
-        var periodEndsAt = periodStart.AddDays(settings.FreeBetaPeriodDays);
-        var eventsUsed = resetAllowance ? 0 : entitlement.EventsUsed;
-
-        if (
-            !resetAllowance
-            && entitlement.Status == "active"
-            && entitlement.PeriodEndsAt == periodEndsAt
-            && entitlement.MaxActiveSubscriptions == settings.FreeTestnetMaxActiveSubscriptions
-            && entitlement.MaxEvents == settings.FreeTestnetMaxEvents
-        )
-            return entitlement;
-
-        if (resetAllowance)
-            await ClosePeriodAsync(entitlement, ct);
-
-        await db
-            .Entitlements.WithWriteConcern(WriteConcern.WMajority.With(journal: true))
-            .UpdateOneAsync(
-                Builders<RelayEntitlementDocument>.Filter.Eq(x => x.Id, entitlement.Id)
-                    & Builders<RelayEntitlementDocument>.Filter.Eq(x => x.Plan, "free_beta")
-                    & VersionFilter(entitlement.Version)
-                    & Builders<RelayEntitlementDocument>.Filter.Eq(
-                        x => x.PeriodStart,
-                        entitlement.PeriodStart
-                    ),
-                Builders<RelayEntitlementDocument>
-                    .Update.Set(item => item.PeriodEndsAt, periodEndsAt)
-                    .Set(item => item.PeriodStart, periodStart)
-                    .Set(
-                        item => item.MaxActiveSubscriptions,
-                        settings.FreeTestnetMaxActiveSubscriptions
-                    )
-                    .Set(item => item.MaxEvents, settings.FreeTestnetMaxEvents)
-                    .Set(item => item.EventsUsed, resetAllowance ? 0 : entitlement.EventsUsed)
-                    .Inc(item => item.Version, 1)
-                    .Set(item => item.Status, "active")
-                    .Set(item => item.UpdatedAt, clock.GetUtcNow().UtcDateTime),
-                cancellationToken: ct
-            );
-
-        return new RelayEntitlementDocument
-        {
-            Id = entitlement.Id,
-            ProjectId = entitlement.ProjectId,
-            Network = entitlement.Network,
-            Plan = entitlement.Plan,
-            Status = "active",
-            PeriodStart = periodStart,
-            PeriodEndsAt = periodEndsAt,
-            MaxActiveSubscriptions = settings.FreeTestnetMaxActiveSubscriptions,
-            MaxEvents = settings.FreeTestnetMaxEvents,
-            EventsUsed = eventsUsed,
-            PaidUntil = entitlement.PaidUntil,
-            GraceEndsAt = entitlement.GraceEndsAt,
-            LastPaymentId = entitlement.LastPaymentId,
-            UpdatedAt = clock.GetUtcNow().UtcDateTime,
-            Version = entitlement.Version,
-            PaymentGrants = entitlement.PaymentGrants
-        };
-    }
-
-    private async Task<RelayEntitlementDocument> GrantPaidAccessForNetworkAsync(
-        string projectId,
-        string network,
-        string paymentId,
-        CancellationToken ct,
-        RelayPurchaseTerms? purchaseTerms
-    )
-    {
-        while (true)
-        {
-            var current = await GetAsync(projectId, network, ct);
-            var existingGrant = current.PaymentGrants.FirstOrDefault(grant =>
-                string.Equals(grant.PaymentId, paymentId, StringComparison.Ordinal)
-            );
-
-            if (existingGrant is not null)
-            {
-                if (network == "neo3:testnet")
-                    await subscriptions.ClearTestnetSubscriptionExpiryAsync(projectId, ct);
-
-                await RecordHistoryAsync(projectId, network, paymentId, existingGrant, ct);
-
-                return current;
-            }
-
-            var now = clock.GetUtcNow().UtcDateTime;
-            var terms = purchaseTerms ?? new RelayPurchaseTerms
-            {
-                Package = RelayPackageCatalog.LegacyTerms(settings),
-                RequiredGasDatoshis = settings.PaidPlanGasDatoshis,
-                QuotedAt = now,
-                Source = "legacy_grant"
-            };
-            var start = current.PaidUntil is { } paidUntil && paidUntil > now ? paidUntil : now;
-            var grant = new RelayEntitlementPaymentGrant
-            {
-                PaymentId = paymentId,
-                Terms = terms,
-                PeriodId = $"{projectId}:{paymentId}",
-                PeriodStart = start,
-                PeriodEndsAt = start.AddDays(terms.Package.Days),
-                GraceEndsAt = start.AddDays(terms.Package.Days + terms.Package.GraceDays)
-            };
-            var updated = new RelayEntitlementDocument
-            {
-                Id = current.Id,
-                ProjectId = current.ProjectId,
-                Network = current.Network,
-                Plan = "paid",
-                PackageId = terms.Package.PackageId,
-                PackageTerms = terms.Package,
-                PurchasedPeriodId = grant.PeriodId,
-                Status = "active",
-                PeriodStart = grant.PeriodStart,
-                PeriodEndsAt = grant.PeriodEndsAt,
-                PaidUntil = grant.PeriodEndsAt,
-                GraceEndsAt = grant.GraceEndsAt,
-                MaxActiveSubscriptions = terms.Package.MaxActiveSubscriptions,
-                MaxEvents = terms.Package.MaxEvents,
-                EventsUsed = 0,
-                LastPaymentId = paymentId,
-                UpdatedAt = now,
-                Version = current.Version + 1,
-                PaymentGrants = [.. current.PaymentGrants, grant]
-            };
-            var versionFilter = VersionFilter(current.Version);
-            await ClosePeriodAsync(current, ct);
-            var result = await db
-                .Entitlements.WithWriteConcern(WriteConcern.WMajority.With(journal: true))
-                .ReplaceOneAsync(
-                    Builders<RelayEntitlementDocument>.Filter.And(
-                        Builders<RelayEntitlementDocument>.Filter.Eq(item => item.Id, current.Id),
-                        versionFilter
-                    ),
-                    updated,
-                    cancellationToken: ct
-                );
-
-            if (result.ModifiedCount != 1)
-                continue;
-
-            if (network == "neo3:testnet")
-                await subscriptions.ClearTestnetSubscriptionExpiryAsync(projectId, ct);
-
-            await RecordHistoryAsync(projectId, network, paymentId, grant, ct);
-
-            return updated;
+            var value = await GetAsync(projectId, "neo3:testnet", ct);
+            if (value.Plan == "free_beta") results.Add(value);
         }
-    }
-
-    private async Task RecordHistoryAsync(
-        string projectId,
-        string network,
-        string paymentId,
-        RelayEntitlementPaymentGrant grant,
-        CancellationToken ct
-    )
-    {
-        var filter = Builders<RelayEntitlementHistoryDocument>.Filter.And(
-            Builders<RelayEntitlementHistoryDocument>.Filter.Eq(item => item.PaymentId, paymentId),
-            Builders<RelayEntitlementHistoryDocument>.Filter.Eq(item => item.Network, network)
-        );
-        var history = new RelayEntitlementHistoryDocument
-        {
-            Id = $"{paymentId}:{network}",
-            PaymentId = paymentId,
-            Terms = grant.Terms,
-            PeriodId = grant.PeriodId,
-            ProjectId = projectId,
-            Network = network,
-            PeriodStart = grant.PeriodStart,
-            PeriodEndsAt = grant.PeriodEndsAt,
-            GraceEndsAt = grant.GraceEndsAt,
-            CreatedAt = clock.GetUtcNow().UtcDateTime,
-        };
-        await db.EntitlementHistory.ReplaceOneAsync(
-            filter,
-            history,
-            new ReplaceOptions { IsUpsert = true },
-            ct
-        );
+        return results;
     }
 }

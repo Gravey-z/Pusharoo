@@ -45,7 +45,8 @@ public sealed record SubscriptionResponse(
     DateTime CreatedAt,
     DateTime UpdatedAt,
     WebhookDeliveryDocument? LatestDelivery,
-    int PayloadVersion
+    int PayloadVersion,
+    string? PauseReason = null
 );
 
 public sealed record ConfirmPaymentRequest(string IntentId, string TransactionId);
@@ -112,5 +113,6 @@ public sealed record SubscriptionUsageResponse(
     string? PurchasedPeriodId = null,
     RelayPackageTerms? PackageTerms = null,
     bool NeedsReconciliation = false,
-    IReadOnlyList<RelayPeriodResponse>? ScheduledPeriods = null
+    IReadOnlyList<RelayPeriodResponse>? ScheduledPeriods = null,
+    RelayTransitionResponse? Transitions = null
 );

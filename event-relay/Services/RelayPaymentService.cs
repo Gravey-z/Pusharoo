@@ -29,7 +29,7 @@ public sealed partial class RelayPaymentService(
     private RelayPackageStore Store => packageStore ?? new(db, Catalog, relayOptions);
     private RelayBillingAdmissionService Admission => new(db, clock);
     private RelayPaymentApplicationService Applications => new(db, Store, paymentProjector
-        ?? new RelayPaymentProjector(db, entitlements, new WebhookSubscriptionRepository(db), clock));
+        ?? new RelayPaymentProjector(db, entitlements, new WebhookSubscriptionRepository(db), clock), entitlements.Lifecycle);
     public bool IsMainNet => neoRpcOptions.Value.Network == "neo3:mainnet";
     private DateTime Now() => DateTimeOffset.FromUnixTimeMilliseconds(clock.GetUtcNow().ToUnixTimeMilliseconds()).UtcDateTime;
 

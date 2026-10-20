@@ -94,6 +94,16 @@ public sealed class WebhookDeliveryService(
 
         delivery = delivery with { Network = subscription.Network };
 
+        if (entitlements is not null && subscription.ProjectId is not null)
+        {
+            subscription = await entitlements.Lifecycle.EffectiveSubscriptionAsync(subscription, cancellationToken);
+            if (subscription is null)
+            {
+                await deliveries.DeferAsync(delivery, "Webhook changed; waiting for reconciliation.", cancellationToken);
+                return true;
+            }
+        }
+
         if (!subscription.IsEnabled)
         {
             await deliveries.DeferAsync(
@@ -105,11 +115,17 @@ public sealed class WebhookDeliveryService(
             return true;
         }
 
+        if (delivery.Network != subscription.Network)
+        {
+            await CompleteAsync(delivery, false, false, null, "Subscription network changed after this event was queued.", 0, cancellationToken);
+            return true;
+        }
+
         if (delivery.Trigger != "test" && !delivery.AllowanceCharged)
         {
             if (
                 delivery.AllowancePeriodId is not null
-                && await entitlements.WasChargedAsync(
+                && await entitlements!.WasChargedAsync(
                     delivery.AllowancePeriodId,
                     delivery.Id,
                     cancellationToken
@@ -133,7 +149,7 @@ public sealed class WebhookDeliveryService(
                     return true;
                 }
 
-                var entitlement = await entitlements.GetAsync(
+                var entitlement = await entitlements!.GetAsync(
                     subscription.ProjectId,
                     subscription.Network,
                     cancellationToken
@@ -170,7 +186,8 @@ public sealed class WebhookDeliveryService(
                         !await entitlements.TryConsumeEventAsync(
                             entitlement,
                             delivery.Id,
-                            cancellationToken
+                            cancellationToken,
+                            subscription.Id
                         )
                     )
                     {
@@ -189,6 +206,13 @@ public sealed class WebhookDeliveryService(
 
             if (!await deliveries.SaveAllowanceAsync(delivery, cancellationToken))
                 return true;
+        }
+
+        if (entitlements is not null && subscription.ProjectId is { } projectId
+            && !await entitlements.Lifecycle.AdmitAttemptAsync(projectId, subscription.Id, subscription.Network, cancellationToken))
+        {
+            await deliveries.DeferAsync(delivery, "Subscription admission changed; waiting for resume.", cancellationToken);
+            return true;
         }
 
         var started = System.Diagnostics.Stopwatch.StartNew();

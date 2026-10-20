@@ -61,6 +61,9 @@ public sealed record RelayEntitlementDocument
     [BsonElement("version")]
     public long Version { get; init; }
 
+    [BsonElement("lifecycleRevision")]
+    public long LifecycleRevision { get; init; }
+
     [BsonElement("paymentGrants")]
     public List<RelayEntitlementPaymentGrant> PaymentGrants { get; init; } = [];
 }

@@ -36,6 +36,17 @@ public sealed class SubscriptionsController(SubscriptionManagementService manage
     public async Task<IActionResult> Usage(string projectId, CancellationToken cancellationToken) =>
         Ok(await management.UsageAsync(projectId, cancellationToken));
 
+    [HttpPost("transitions/query")]
+    public async Task<IActionResult> Transitions(string projectId, CancellationToken ct) =>
+        Ok(await management.TransitionsAsync(projectId, ct));
+
+    [HttpPost("transitions/selection")]
+    public async Task<IActionResult> Selection(string projectId, SetRelayDowngradeSelectionRequest request, CancellationToken ct)
+    {
+        try { await management.SetDowngradeSelectionAsync(projectId, request, ct); return Ok(await management.TransitionsAsync(projectId, ct)); }
+        catch (PaymentValidationException e) { return StatusCode(e.StatusCode, new { error = e.Message }); }
+    }
+
     [HttpPut("{subscriptionId}")]
     public async Task<ActionResult<SubscriptionResponse>> Update(
         string projectId,

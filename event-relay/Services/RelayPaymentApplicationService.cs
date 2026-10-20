@@ -7,7 +7,8 @@ namespace Pusharoo.EventRelay.Services;
 public sealed record RelayPaymentApplicationOutcome(RelayBillingDecisionDocument Decision,
     IReadOnlyList<RelayGrantProgressDocument> Progress, long UnappliedGasDatoshis, bool Complete, bool Conflict, string? Message);
 
-public sealed class RelayPaymentApplicationService(MongoDbContext db, RelayPackageStore store, IRelayPaymentProjector projector)
+public sealed class RelayPaymentApplicationService(MongoDbContext db, RelayPackageStore store, IRelayPaymentProjector projector,
+    RelayLifecycleService? lifecycle = null)
 {
     private static readonly string[] Networks = ["neo3:mainnet", "neo3:testnet"];
 
@@ -31,7 +32,8 @@ public sealed class RelayPaymentApplicationService(MongoDbContext db, RelayPacka
         {
             foreach (var allocation in decision.Allocations.Where(x => x.Status == "accepted"))
             {
-                await PreparePeriodAsync(decision, allocation, ct);
+                if (lifecycle is null) await PreparePeriodAsync(db, store, decision, allocation, ct);
+                else await lifecycle.PublishPeriodAsync(decision, allocation, ct);
                 foreach (var network in Networks)
                 {
                     var progressId = RelayPackageStore.ProgressId(decision.Id, allocation.Id);
@@ -103,7 +105,8 @@ public sealed class RelayPaymentApplicationService(MongoDbContext db, RelayPacka
             Status = eligible ? "accepted" : "ineligible", Reason = eligible ? null : intent.LateSubmission ? "late_submission" : "target_expired_or_changed" };
     }
 
-    private async Task PreparePeriodAsync(RelayBillingDecisionDocument decision, RelayGrantAllocation allocation, CancellationToken ct)
+    internal static async Task PreparePeriodAsync(MongoDbContext db, RelayPackageStore store,
+        RelayBillingDecisionDocument decision, RelayGrantAllocation allocation, CancellationToken ct)
     {
         if (allocation.Kind == "purchase")
         {
