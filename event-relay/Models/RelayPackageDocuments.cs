@@ -28,6 +28,8 @@ public sealed record RelayPurchaseTerms
     [BsonElement("source")] public string Source { get; init; } = "catalog";
     [BsonElement("targets")] public RelayPeriodTarget[] Targets { get; init; } = [];
     [BsonElement("bonus")] public RelayBonusTerms? Bonus { get; init; }
+    [BsonElement("scheduleTail")] public DateTime? ScheduleTail { get; init; }
+    [BsonElement("effectiveRule")] public string EffectiveRule { get; init; } = "append_after_paid_schedule";
 }
 
 [BsonIgnoreExtraElements]
@@ -63,6 +65,7 @@ public sealed record RelayPurchasedPeriodDocument
     [BsonElement("mainnetLedgerId")] public string? MainnetLedgerId { get; init; }
     [BsonElement("testnetLedgerId")] public string? TestnetLedgerId { get; init; }
     [BsonElement("source")] public string Source { get; init; } = "purchase";
+    [BsonElement("lastUpgradeId")] public string? LastUpgradeId { get; init; }
 }
 
 [BsonIgnoreExtraElements]
@@ -99,6 +102,7 @@ public sealed record RelayGrantAllocation
     [BsonElement("terms")] public RelayPackageTerms Terms { get; init; } = new();
     [BsonElement("startsAt")] public DateTime StartsAt { get; init; }
     [BsonElement("endsAt")] public DateTime EndsAt { get; init; }
+    [BsonElement("target")] public RelayPeriodTarget? Target { get; init; }
 }
 
 [BsonIgnoreExtraElements]
@@ -118,3 +122,35 @@ public sealed record RelayPackageMetadata(RelayPackageTerms Terms, bool Purchase
 public sealed record RelayCatalogResponse(string Revision, string Fingerprint, string WebhookScope,
     string EventScope, IReadOnlyList<RelayPackageMetadata> Packages, bool BillingReady, string? BillingBlocker,
     string BonusPolicyVersion);
+
+[BsonIgnoreExtraElements]
+public sealed record RelayBillingLedgerDocument
+{
+    [BsonId] public string Id { get; init; } = "";
+    [BsonElement("version")] public long Version { get; init; }
+    [BsonElement("openIntent")] public RelayPaymentIntentDocument? OpenIntent { get; init; }
+}
+
+[BsonIgnoreExtraElements]
+public sealed record RelayPaymentResolutionDocument
+{
+    [BsonIgnore] public string Outcome { get; init; } = "not_applied";
+    [BsonIgnore] public long? ActualRefundGasDatoshis { get; init; }
+    [BsonIgnore] public long? ResolvedGasDatoshis { get; init; }
+    [BsonId] public string Id { get; init; } = "";
+    [BsonElement("projectId")] public string ProjectId { get; init; } = "";
+    [BsonElement("intentId")] public string IntentId { get; init; } = "";
+    [BsonElement("action")] public string Action { get; init; } = "";
+    [BsonElement("ownerApproval")] public string OwnerApproval { get; init; } = "";
+    [BsonElement("operatorReference")] public string OperatorReference { get; init; } = "";
+    [BsonElement("amountDatoshis")] public long AmountDatoshis { get; init; }
+    [BsonElement("refundTransactionId")] public string? RefundTransactionId { get; init; }
+    [BsonElement("replacementDecisionId")] public string? ReplacementDecisionId { get; init; }
+    [BsonElement("replacementQuote")] public RelayPaymentIntentDocument? ReplacementQuote { get; init; }
+    [BsonElement("requestFingerprint")] public string RequestFingerprint { get; init; } = "";
+    [BsonElement("createdAt")] public DateTime CreatedAt { get; init; }
+}
+
+public sealed record RelayPaymentResolutionRequest(string Id, string ProjectId, string IntentId, string Action,
+    string OwnerApproval, string OperatorReference, string? RefundTransactionId = null,
+    CreateRelayPaymentIntentRequest? Replacement = null);

@@ -25,6 +25,9 @@ public sealed record RelayEntitlementDocument
     [BsonElement("purchasedPeriodId")]
     public string? PurchasedPeriodId { get; init; }
 
+    [BsonElement("appliedPaymentAllocations")]
+    public List<string> AppliedPaymentAllocations { get; init; } = [];
+
     [BsonElement("status")]
     public string Status { get; init; } = "active";
 

@@ -20,6 +20,14 @@ public sealed class MongoDbContext
         GrantProgress = database.GetCollection<RelayGrantProgressDocument>("relayGrantProgress").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
         BillingSchema = database.GetCollection<BsonDocument>("relayBillingSchema").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
         LegacyBillingSnapshots = database.GetCollection<BsonDocument>("relayLegacyBillingSnapshots").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
+        BillingLedgers = database.GetCollection<RelayBillingLedgerDocument>("relayBillingLedgers").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
+        PaymentResolutions = database.GetCollection<RelayPaymentResolutionDocument>("relayPaymentResolutions").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
+        PaymentTransactions = database.GetCollection<BsonDocument>("relayPaymentTransactions").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
+        PaymentTransactions.Indexes.CreateOne(new CreateIndexModel<BsonDocument>(
+            new BsonDocument("intentId", 1), new CreateIndexOptions<BsonDocument> { Name = "one_incoming_transaction_per_intent", Unique = true,
+                PartialFilterExpression = new BsonDocument("kind", "payment") }));
+        PaymentTransactions.Indexes.CreateOne(new CreateIndexModel<BsonDocument>(
+            new BsonDocument { { "kind", 1 }, { "bindingComplete", 1 }, { "claimedAt", 1 } }, new CreateIndexOptions { Name = "payment_binding_recovery" }));
         PurchasedPeriods.Indexes.CreateOne(new CreateIndexModel<RelayPurchasedPeriodDocument>(
             Builders<RelayPurchasedPeriodDocument>.IndexKeys.Ascending(x => x.ProjectId).Ascending(x => x.PurchaseId),
             new CreateIndexOptions { Name = "period_purchase_unique", Unique = true }));
@@ -66,7 +74,7 @@ public sealed class MongoDbContext
                 }
             )
         );
-        Entitlements = database.GetCollection<RelayEntitlementDocument>("relayEntitlements");
+        Entitlements = database.GetCollection<RelayEntitlementDocument>("relayEntitlements").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
         Entitlements.Indexes.CreateOne(
             new CreateIndexModel<RelayEntitlementDocument>(
                 Builders<RelayEntitlementDocument>
@@ -111,11 +119,11 @@ public sealed class MongoDbContext
             )
         );
         Checkpoints = database.GetCollection<EventCheckpointDocument>("eventCheckpoints");
-        PaymentIntents = database.GetCollection<RelayPaymentIntentDocument>("relayPaymentIntents");
-        Payments = database.GetCollection<RelayPaymentDocument>("relayPayments");
+        PaymentIntents = database.GetCollection<RelayPaymentIntentDocument>("relayPaymentIntents").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
+        Payments = database.GetCollection<RelayPaymentDocument>("relayPayments").WithWriteConcern(WriteConcern.WMajority.With(journal: true));
         EntitlementHistory = database.GetCollection<RelayEntitlementHistoryDocument>(
             "relayEntitlementHistory"
-        );
+        ).WithWriteConcern(WriteConcern.WMajority.With(journal: true));
         PaymentIntents.Indexes.CreateOne(
             new CreateIndexModel<RelayPaymentIntentDocument>(
                 Builders<RelayPaymentIntentDocument>
@@ -161,14 +169,31 @@ public sealed class MongoDbContext
                     .Descending(x => x.VerifiedAt)
             )
         );
+        PaymentIntents.Indexes.CreateOne(new CreateIndexModel<RelayPaymentIntentDocument>(
+            Builders<RelayPaymentIntentDocument>.IndexKeys.Ascending(x => x.ProjectId).Ascending(x => x.RequestKey),
+            new CreateIndexOptions<RelayPaymentIntentDocument> { Name = "project_request_unique", Unique = true,
+                PartialFilterExpression = new BsonDocument("requestKey", new BsonDocument("$type", "string")) }));
+        PaymentIntents.Indexes.CreateOne(new CreateIndexModel<RelayPaymentIntentDocument>(
+            Builders<RelayPaymentIntentDocument>.IndexKeys.Ascending(x => x.Status).Ascending(x => x.NextRecoveryAt).Ascending(x => x.CreatedAt),
+            new CreateIndexOptions { Name = "payment_recovery_due" }));
+        PaymentResolutions.Indexes.CreateOne(new CreateIndexModel<RelayPaymentResolutionDocument>(
+            Builders<RelayPaymentResolutionDocument>.IndexKeys.Ascending(x => x.IntentId),
+            new CreateIndexOptions { Name = "resolution_intent_lookup" }));
         EntitlementHistory.Indexes.CreateOne(
             new CreateIndexModel<RelayEntitlementHistoryDocument>(
                 Builders<RelayEntitlementHistoryDocument>
                     .IndexKeys.Ascending(x => x.PaymentId)
-                    .Ascending(x => x.Network),
-                new CreateIndexOptions { Unique = true }
+                    .Ascending(x => x.Network).Ascending(x => x.AllocationId),
+                new CreateIndexOptions { Name = "payment_network_allocation_unique", Unique = true }
             )
         );
+        // Create the stronger index before removing its old two-column predecessor.
+        // Billing writers must be quiesced during this additive schema rollout.
+        if (EntitlementHistory.Indexes.List().ToList().Any(x => x["name"] == "paymentId_1_network_1"))
+        {
+            try { EntitlementHistory.Indexes.DropOne("paymentId_1_network_1"); }
+            catch (MongoCommandException error) when (error.Code == 27) { } // another instance completed the same migration
+        }
     }
 
     public IMongoCollection<WebhookSubscriptionDocument> Subscriptions { get; }
@@ -179,6 +204,9 @@ public sealed class MongoDbContext
     public IMongoCollection<RelayGrantProgressDocument> GrantProgress { get; }
     public IMongoCollection<BsonDocument> BillingSchema { get; }
     public IMongoCollection<BsonDocument> LegacyBillingSnapshots { get; }
+    public IMongoCollection<RelayBillingLedgerDocument> BillingLedgers { get; }
+    public IMongoCollection<RelayPaymentResolutionDocument> PaymentResolutions { get; }
+    public IMongoCollection<BsonDocument> PaymentTransactions { get; }
 
     public IMongoCollection<RelayAllowancePeriodDocument> AllowancePeriods { get; }
 

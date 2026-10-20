@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using backend.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -210,8 +211,9 @@ public sealed class ProjectRelayGatewayController(
     public Task<IActionResult> CreatePaymentIntent(
         string projectId,
         string network,
-        CancellationToken ct
-    ) => Forward(projectId, network, HttpMethod.Post, "relay/payments/intents", null, ct);
+        CancellationToken ct,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body = null
+    ) => Forward(projectId, network, HttpMethod.Post, "relay/payments/intents", body, ct);
 
     [HttpPost("payments/confirm")]
     public Task<IActionResult> ConfirmPayment(

@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Pusharoo.EventRelay.Models;
 using Pusharoo.EventRelay.Services;
-using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Pusharoo.EventRelay.Controllers;
@@ -17,18 +16,17 @@ public sealed class RelayPaymentsController(RelayPaymentService payments) : Cont
     public async Task<ActionResult<PaymentIntentResponse>> CreateIntent(
         string projectId,
         CancellationToken ct,
-        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? request = null
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] CreateRelayPaymentIntentRequest? request = null
     )
     {
         try
         {
-            if (request is { ValueKind: not JsonValueKind.Null })
-                return Conflict(new { error = "Package-aware purchases and upgrades are not enabled yet. This endpoint currently supports the existing Starter purchase only." });
             return Ok(
                 await payments.CreateIntentAsync(
                     projectId,
                     Request.Headers["X-Pusharoo-Actor-Address"].ToString(),
                     Request.Headers["X-Pusharoo-Actor-Script-Hash"].ToString(),
+                    request ?? new(),
                     ct
                 )
             );

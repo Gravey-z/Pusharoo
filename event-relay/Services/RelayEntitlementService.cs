@@ -170,7 +170,7 @@ public sealed class RelayEntitlementService(
         return result.ModifiedCount == 1 || await WasChargedAsync(periodId, deliveryId, ct);
     }
 
-    private async Task ClosePeriodAsync(RelayEntitlementDocument entitlement, CancellationToken ct)
+    internal async Task ClosePeriodAsync(RelayEntitlementDocument entitlement, CancellationToken ct)
     {
         await db
             .AllowancePeriods.WithWriteConcern(WriteConcern.WMajority.With(journal: true))

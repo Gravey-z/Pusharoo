@@ -43,6 +43,8 @@ public static class RelayServiceRegistration
         services.AddScoped<RelayEntitlementService>();
         services.AddScoped<RelayPaymentVerifier>();
         services.AddScoped<RelayPaymentService>();
+        services.AddScoped<IRelayPaymentProjector, RelayPaymentProjector>();
+        services.AddHostedService<RelayPaymentRecoveryWorker>();
     }
 
     private static void AddSecretProtection(

@@ -2,8 +2,18 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Pusharoo.EventRelay.Models;
 
-public sealed class RelayPaymentIntentDocument
+public sealed record RelayPaymentIntentDocument
 {
+    [BsonElement("requestKey")] public string? RequestKey { get; init; }
+    [BsonElement("requestFingerprint")] public string? RequestFingerprint { get; init; }
+    [BsonElement("lateSubmission")] public bool LateSubmission { get; init; }
+    [BsonElement("unappliedGasDatoshis")] public long UnappliedGasDatoshis { get; init; }
+    [BsonElement("recoveryMessage")] public string? RecoveryMessage { get; init; }
+    [BsonElement("applicationDecisionId")] public string? ApplicationDecisionId { get; init; }
+    [BsonElement("activeResolutionId")] public string? ActiveResolutionId { get; init; }
+    [BsonElement("completedResolutions")] public string[] CompletedResolutions { get; init; } = [];
+    [BsonElement("confirmationBlocks")] public uint? ConfirmationBlocks { get; init; }
+    [BsonElement("nextRecoveryAt")] public DateTime? NextRecoveryAt { get; init; }
     [BsonElement("terms")]
     public RelayPurchaseTerms? Terms { get; init; }
 
@@ -89,11 +99,12 @@ public sealed class RelayPaymentDocument
     public DateTime VerifiedAt { get; init; }
 
     [BsonElement("entitlementEndsAt")]
-    public DateTime EntitlementEndsAt { get; init; }
+    public DateTime? EntitlementEndsAt { get; init; }
 }
 
 public sealed class RelayEntitlementHistoryDocument
 {
+    [BsonElement("allocationId")] public string? AllocationId { get; init; }
     [BsonElement("terms")]
     public RelayPurchaseTerms? Terms { get; init; }
 

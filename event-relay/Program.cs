@@ -1,12 +1,26 @@
 using Pusharoo.EventRelay.Services;
 using Pusharoo.EventRelay.Startup;
 using MongoDB.Bson;
+using System.Text.Json;
+using Pusharoo.EventRelay.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddPusharooEventRelay(builder.Configuration);
 
 var app = builder.Build();
+
+if (args.Contains("--relay-payment-resolution"))
+{
+    var path = builder.Configuration["relay-payment-resolution"]
+        ?? throw new ArgumentException("An operator resolution JSON path is required.");
+    var request = JsonSerializer.Deserialize<RelayPaymentResolutionRequest>(await File.ReadAllTextAsync(path), new JsonSerializerOptions(JsonSerializerDefaults.Web))
+        ?? throw new ArgumentException("Resolution JSON is missing.");
+    using var scope = app.Services.CreateScope();
+    var result = await scope.ServiceProvider.GetRequiredService<RelayPaymentService>().ResolveAsync(request, CancellationToken.None);
+    Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+    return;
+}
 
 if (args.Contains("--billing-schema-inventory") || args.Contains("--billing-schema-baseline"))
 {

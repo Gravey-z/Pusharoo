@@ -17,7 +17,7 @@ public sealed class RelayPaymentVerifier(NeoRpcClient neoRpc, IOptions<EventRela
         var raw = await neoRpc.GetRawTransactionAsync(transactionId, ct);
         var confirmations = ReadUInt(raw, "confirmations");
 
-        if (confirmations < Math.Max(1, options.Value.PaymentConfirmationBlocks))
+        if (confirmations < (intent.ConfirmationBlocks ?? Math.Max(1, options.Value.PaymentConfirmationBlocks)))
             return new PaymentVerificationResult(PaymentVerificationStatus.AwaitingFinality);
 
         var log = await neoRpc.GetApplicationLogAsync(transactionId, ct);

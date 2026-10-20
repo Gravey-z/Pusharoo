@@ -17,6 +17,8 @@ public static class NeoGasTransferVerifier
     )
     {
         amount = 0;
+        long total = 0;
+        var hasRequiredTransfer = false;
 
         if (
             !log.TryGetProperty("executions", out var executions)
@@ -73,17 +75,21 @@ public static class NeoGasTransferVerifier
                 if (
                     string.Equals(sender, payer, StringComparison.Ordinal)
                     && string.Equals(receiver, recipient, StringComparison.Ordinal)
-                    && transferAmount >= minimum
+                    && transferAmount > 0
                 )
                 {
-                    amount = transferAmount;
-
-                    return true;
+                    // Require at least one full quoted transfer, while retaining
+                    // every matching amount so additional transfers are not lost.
+                    hasRequiredTransfer |= transferAmount >= minimum;
+                    try { total = checked(total + transferAmount); }
+                    catch (OverflowException) { return false; }
                 }
             }
         }
 
-        return false;
+        if (!hasRequiredTransfer) return false;
+        amount = total;
+        return true;
     }
 
     private static bool TryGetValues(JsonElement state, out JsonElement[] values)

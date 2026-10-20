@@ -67,4 +67,5 @@ public sealed class EventRelayOptions
     public int PaymentIntentMinutes { get; init; } = 15;
 
     public uint PaymentConfirmationBlocks { get; init; } = 2;
+    public int PaymentRecoveryPollSeconds { get; init; } = 10;
 }

@@ -119,6 +119,8 @@ internal static class RelayOptionsRegistration
                     && x.PaidMaxEvents is >= 0 and <= 100000,
                 "Allowance periods support at most 100000 receipts."
             )
+            .Validate(x => x.PaymentIntentMinutes is >= 1 and <= 60 && x.PaymentRecoveryPollSeconds is >= 1 and <= 300,
+                "Invalid payment quote expiry or recovery polling interval.")
             .ValidateOnStart();
     }
 }

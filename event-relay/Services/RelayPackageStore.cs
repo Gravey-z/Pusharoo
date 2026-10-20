@@ -29,12 +29,8 @@ public sealed class RelayPackageStore(MongoDbContext db, RelayPackageCatalog cat
             blocker ??= "A relay reported a catalog conflict. Synchronize both relays and clear the recorded conflict through the rollout procedure before new billing.";
         var legacy = RelayPackageCatalog.LegacyTerms(options.Value);
         if (legacy.PackageId != "starter") blocker ??= "Non-default legacy paid settings require a recorded legacy baseline; they cannot redefine Starter or Pro.";
-        if (legacy.PackageId == "starter" && catalog.Get("starter") is { } starter
-            && (starter.GasDatoshis != legacy.GasDatoshis || starter.Days != legacy.Days || starter.GraceDays != legacy.GraceDays
-                || starter.MaxEvents != legacy.MaxEvents || starter.MaxActiveSubscriptions != legacy.MaxActiveSubscriptions))
-            blocker ??= "Catalog Starter differs from the legacy purchase path; package-aware purchases are not enabled yet.";
         return new(catalog.Revision, catalog.Fingerprint, "project_shared_mainnet_testnet", "project_per_network_per_period",
-            catalog.Packages.Select(x => new RelayPackageMetadata(x, x.PackageId == "starter" && blocker is null)).ToArray(),
+            catalog.Packages.Select(x => new RelayPackageMetadata(x, blocker is null)).ToArray(),
             blocker is null, blocker, RelayPackageCatalog.BonusPolicyVersion);
     }
 

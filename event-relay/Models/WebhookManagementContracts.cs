@@ -1,5 +1,13 @@
 namespace Pusharoo.EventRelay.Models;
 
+[System.Text.Json.Serialization.JsonUnmappedMemberHandling(System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
+public sealed record CreateRelayPaymentIntentRequest(
+    string? PackageId = null,
+    string Operation = "purchase_period",
+    string[]? PeriodIds = null,
+    string? RequestKey = null
+);
+
 public sealed record CreateSubscriptionRequest(
     string Name,
     string ContractHash,
@@ -54,7 +62,9 @@ public sealed record PaymentIntentResponse(
     DateTime ExpiresAt,
     string? ConfirmedTransactionId,
     string? SubmittedTransactionId,
-    RelayPurchaseTerms? Terms = null
+    RelayPurchaseTerms? Terms = null,
+    long UnappliedGasDatoshis = 0,
+    string? RecoveryMessage = null
 );
 
 public sealed record PaymentResponse(
@@ -63,13 +73,17 @@ public sealed record PaymentResponse(
     string Status,
     DateTime? EntitlementEndsAt,
     string? Message = null,
-    RelayPurchaseTerms? Terms = null
+    RelayPurchaseTerms? Terms = null,
+    long UnappliedGasDatoshis = 0,
+    IReadOnlyList<RelayGrantAllocation>? Allocations = null,
+    IReadOnlyList<RelayGrantProgressDocument>? GrantProgress = null
 );
 
 public sealed record PaymentHistoryResponse(
     IReadOnlyList<PaymentResponse> Payments,
     IReadOnlyList<EntitlementHistoryResponse> Entitlements,
-    IReadOnlyList<PaymentIntentResponse> PendingIntents
+    IReadOnlyList<PaymentIntentResponse> PendingIntents,
+    IReadOnlyList<RelayPaymentResolutionDocument>? Resolutions = null
 );
 
 public sealed record EntitlementHistoryResponse(
@@ -79,7 +93,8 @@ public sealed record EntitlementHistoryResponse(
     DateTime PeriodEndsAt,
     DateTime GraceEndsAt,
     RelayPurchaseTerms? Terms = null,
-    string? PeriodId = null
+    string? PeriodId = null,
+    string? AllocationId = null
 );
 
 public sealed record SubscriptionUsageResponse(
