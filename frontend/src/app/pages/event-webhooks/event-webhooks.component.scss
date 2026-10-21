@@ -32,12 +32,22 @@
   line-height: 1.45;
 }
 
-.testnet-trial {
-  border-color: var(--testnet-border);
-  background: var(--testnet-soft);
+.webhook-testnet-notice {
+  grid-column: 1 / -1;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--testnet-border);
 }
-.testnet-trial h2 {
+
+.webhook-testnet-notice strong {
   color: var(--testnet);
+  font-size: var(--font-size-label);
+}
+
+.webhook-testnet-notice p {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: var(--line-height-body);
 }
 
 .webhook-form,

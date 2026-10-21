@@ -331,6 +331,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       this.destroyed ||
       !this.isRelayConnected ||
       !this.relayNetwork ||
+      !this.subscriptionsByNetwork[this.relayNetwork]?.length ||
       (typeof document !== 'undefined' && document.hidden)
     )
       return;

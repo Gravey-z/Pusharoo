@@ -67,6 +67,17 @@
         }
       </div>
     </div>
+
+    @if (webhookNetwork === 'neo3:testnet') {
+      <div class="webhook-testnet-notice" aria-label="Free N3:Testnet Relay">
+        <strong>Free N3:Testnet Relay</strong>
+        <p>
+          Use up to 5 active Testnet webhooks and 2,500 deliveries every 7 days for free. Each
+          webhook and its history are removed seven days after creation. Editing a webhook does not
+          extend its lifetime. Mainnet packages do not change Testnet limits or expiry.
+        </p>
+      </div>
+    }
   </section>
 
   @if (!isRelayConnected) {
@@ -81,19 +92,6 @@
         (click)="connectRelay()"
         [disabled]="connectingRelay || !canManageProject"
         >{{ connectingRelay ? 'Connecting...' : 'Open Relay workspace' }}</button
-      >
-    </section>
-  }
-  @if (webhookNetwork === 'neo3:testnet') {
-    <section class="relay-plan testnet-trial surface-panel" aria-label="Free N3:Testnet Relay">
-      <div
-        ><h2>Free N3:Testnet Relay</h2
-        ><p
-          >Use up to 5 active Testnet webhooks and 2,500 deliveries every 7 days for free. Each
-          Testnet webhook and its history are removed seven days after the webhook was created.
-          Editing a webhook does not extend its lifetime. Mainnet packages do not change Testnet
-          limits or expiry.</p
-        ></div
       >
     </section>
   }
