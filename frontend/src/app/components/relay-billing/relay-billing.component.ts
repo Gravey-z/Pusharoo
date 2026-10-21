@@ -3,6 +3,7 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   Project,
+  RelayPackageCatalog,
   RelayPaymentIntent,
   RelayPayment,
   RelayPurchasedPeriod,
@@ -35,12 +36,21 @@ export class RelayBillingComponent implements OnChanges {
   }
 
   ngOnChanges(): void {
+    this.packageId = 'starter';
     this.reviewed = {};
     this.recoveryHashes = {};
     this.noTransfer = {};
     this.selectedPeriodIds = [];
     this.selectionDrafts = {};
     this.billing.start(this.connected ? this.project : null);
+  }
+
+  get purchasePackages(): RelayPackageCatalog['packages'] {
+    return [...(this.billing.catalog?.packages ?? [])].sort((left, right) => {
+      const leftPosition = left.terms.packageId === 'starter' ? 0 : 1;
+      const rightPosition = right.terms.packageId === 'starter' ? 0 : 1;
+      return leftPosition - rightPosition;
+    });
   }
 
   get periods(): RelayPurchasedPeriod[] {

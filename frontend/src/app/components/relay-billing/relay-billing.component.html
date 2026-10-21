@@ -117,7 +117,7 @@
           [disabled]="billing.busy || billing.loading || billing.openIntent"
         >
           <legend>Select a package for the new period</legend>
-          @for (entry of catalog.packages; track entry.terms.packageId) {
+          @for (entry of purchasePackages; track entry.terms.packageId) {
             <label class="package" [class.selected]="packageId === entry.terms.packageId">
               <span class="choice"
                 ><input
