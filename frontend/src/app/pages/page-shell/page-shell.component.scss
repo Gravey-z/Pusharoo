@@ -30,7 +30,15 @@
   padding: 0 var(--space-8);
   border-bottom: 1px solid var(--line);
   background: rgba(8, 11, 18, 0.82);
+}
+
+.topbar::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   backdrop-filter: blur(12px);
+  pointer-events: none;
+  content: '';
 }
 
 .brand,
