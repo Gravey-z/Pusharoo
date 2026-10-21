@@ -202,7 +202,7 @@ export class RelayBillingStateService implements OnDestroy {
       this.history = { payments: [], entitlements: [], ...this.history, pendingIntents: [intent] };
       this.quoteRequest = null;
       this.message =
-        'Quote ready. Review the stored terms below before opening your wallet. An unpaid quote reserves billing until its deadline.';
+        'Review your purchase below. You can cancel the quote to choose another package.';
     }, 'Could not create the quote. Retry the same selection or refresh to recover an existing quote.');
   }
 
@@ -223,6 +223,56 @@ export class RelayBillingStateService implements OnDestroy {
       /^0x[\da-f]{40}$/i.test(intent.recipientScriptHash) &&
       (!intent.terms || intent.terms.requiredGasDatoshis === intent.requiredGasDatoshis)
     );
+  }
+
+  canCancel(intent: RelayPaymentIntent): boolean {
+    return (
+      this.connected &&
+      this.ready &&
+      !this.busy &&
+      !this.loading &&
+      intent.projectId === this.project?.id &&
+      intent.network === 'neo3:mainnet' &&
+      intent.status === 'pending' &&
+      !this.transactionId(intent) &&
+      this.localSubmission?.intent.id !== intent.id
+    );
+  }
+
+  async cancel(intent: RelayPaymentIntent): Promise<void> {
+    if (!this.canCancel(intent)) return;
+    const generation = this.generation;
+    await this.perform(async () => {
+      if (!navigator.locks)
+        throw new Error(
+          'This browser cannot coordinate payments safely. Use a browser with Web Locks support.'
+        );
+      await navigator.locks.request(
+        `pusharoo.relay.${intent.projectId}.${intent.id}`,
+        { ifAvailable: true },
+        async lock => {
+          if (!lock || this.readSubmission())
+            throw new Error('A wallet attempt is open. Check it before cancelling this quote.');
+          if (generation !== this.generation || !this.connected) return;
+          const cancelled = await firstValueFrom(
+            this.api.cancelRelayPaymentIntent(intent.projectId, intent.id).pipe(timeout(20000))
+          );
+          if (generation !== this.generation || !this.connected) return;
+          if (this.history) {
+            this.history.pendingIntents = this.history.pendingIntents.filter(
+              x => x.id !== intent.id
+            );
+            this.history.recentIntents = [
+              cancelled,
+              ...(this.history.recentIntents ?? []).filter(x => x.id !== intent.id)
+            ];
+          }
+          this.quoteRequest = null;
+          this.message = 'Quote cancelled. Choose another package when you are ready.';
+        }
+      );
+    }, 'Could not cancel the quote. Refresh billing to check its status before continuing.');
+    if (generation === this.generation) await this.refresh();
   }
 
   async pay(intent: RelayPaymentIntent): Promise<void> {
@@ -254,6 +304,22 @@ export class RelayBillingStateService implements OnDestroy {
               'A saved wallet attempt already exists. Recover it before trying another transfer.'
             );
           }
+          const history = await firstValueFrom(
+            this.api.getRelayPaymentHistory(intent.projectId).pipe(timeout(20000))
+          );
+          const current = history.pendingIntents.find(x => x.id === intent.id);
+          if (
+            generation !== this.generation ||
+            !this.mainnetWallet ||
+            !current ||
+            current.status !== 'pending' ||
+            current.submittedTransactionId ||
+            current.confirmedTransactionId ||
+            Date.parse(current.expiresAt) <= Date.now() ||
+            current.requiredGasDatoshis !== intent.requiredGasDatoshis ||
+            current.recipientScriptHash !== intent.recipientScriptHash
+          )
+            throw new Error('This quote changed or was cancelled. Refresh billing before paying.');
           const account = this.wallet.account()!;
           const submission: LocalRelaySubmission = { intent, payerAddress: account.address };
           this.storeSubmission(submission);

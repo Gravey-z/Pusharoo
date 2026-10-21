@@ -189,6 +189,7 @@ export class RelayBillingComponent implements OnChanges {
       resolved: 'Resolved',
       rejected: 'Rejected',
       expired: 'Expired',
+      cancelled: 'Cancelled',
       active: 'Active',
       grace: 'Grace period',
       accepted: 'Accepted',

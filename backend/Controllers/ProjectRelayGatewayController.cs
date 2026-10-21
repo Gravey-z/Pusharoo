@@ -253,6 +253,14 @@ public sealed class ProjectRelayGatewayController(
         CancellationToken ct
     ) => Forward(projectId, network, HttpMethod.Post, "relay/payments/history/query", null, ct);
 
+    [HttpPost("payments/cancel")]
+    public Task<IActionResult> CancelPaymentIntent(
+        string projectId,
+        string network,
+        [FromBody] CancelRelayPaymentIntentRequest body,
+        CancellationToken ct
+    ) => Forward(projectId, network, HttpMethod.Post, "relay/payments/cancel", body, ct);
+
     private async Task<IActionResult> Forward(
         string projectId,
         string network,
@@ -314,3 +322,5 @@ public sealed class ProjectRelayGatewayController(
 }
 
 public sealed record ConfirmRelayPaymentRequest(string IntentId, string TransactionId);
+
+public sealed record CancelRelayPaymentIntentRequest(string IntentId);

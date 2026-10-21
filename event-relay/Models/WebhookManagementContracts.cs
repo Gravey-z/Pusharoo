@@ -53,6 +53,8 @@ public sealed record SubscriptionResponse(
 
 public sealed record ConfirmPaymentRequest(string IntentId, string TransactionId);
 
+public sealed record CancelPaymentIntentRequest(string IntentId);
+
 public sealed record PaymentIntentResponse(
     string Id,
     string ProjectId,

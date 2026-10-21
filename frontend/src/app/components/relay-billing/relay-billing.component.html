@@ -138,10 +138,7 @@
         billing.busy ? 'Working...' : 'Review purchase'
       }}</button>
       @if (billing.openIntent) {
-        <p class="warning"
-          >Finish the payment below before starting another purchase. Unpaid quotes expire
-          automatically.</p
-        >
+        <p class="warning">Finish or cancel the quote below to choose another package.</p>
       }
     }
 
@@ -326,6 +323,13 @@
             (click)="billing.pay(intent)"
             [disabled]="!reviewed[intent.id] || !billing.canPay(intent)"
             >Pay {{ gas(intent.requiredGasDatoshis) }} GAS</button
+          >
+          <button
+            class="secondary-button"
+            type="button"
+            (click)="billing.cancel(intent)"
+            [disabled]="!billing.canCancel(intent)"
+            >Cancel quote</button
           >
           @if (expired(intent)) {
             <p class="warning"

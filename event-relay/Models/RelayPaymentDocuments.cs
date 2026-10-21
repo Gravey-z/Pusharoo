@@ -79,6 +79,9 @@ public sealed record RelayPaymentIntentDocument
     [BsonElement("submittedAt")]
     public DateTime? SubmittedAt { get; init; }
 
+    [BsonElement("cancelledAt")]
+    public DateTime? CancelledAt { get; init; }
+
     [BsonElement("confirmedAt")]
     public DateTime? ConfirmedAt { get; init; }
 

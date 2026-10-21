@@ -58,6 +58,23 @@ public sealed class RelayPaymentsController(RelayPaymentService payments) : Cont
         }
     }
 
+    [HttpPost("cancel")]
+    public async Task<ActionResult<PaymentIntentResponse>> Cancel(
+        string projectId,
+        CancelPaymentIntentRequest request,
+        CancellationToken ct
+    )
+    {
+        try
+        {
+            return Ok(await payments.CancelIntentAsync(projectId, request.IntentId, ct));
+        }
+        catch (PaymentValidationException error)
+        {
+            return StatusCode(error.StatusCode, new { error = error.Message });
+        }
+    }
+
     [HttpPost("history/query")]
     [EnableRateLimiting(RelayRateLimiting.Queries)]
     public async Task<ActionResult<PaymentHistoryResponse>> History(

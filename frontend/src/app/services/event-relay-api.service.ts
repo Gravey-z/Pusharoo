@@ -99,6 +99,14 @@ export class EventRelayApiService {
     );
   }
 
+  cancelRelayPaymentIntent(projectId: string, intentId: string): Observable<RelayPaymentIntent> {
+    return this.http.post<RelayPaymentIntent>(
+      `${this.baseUrl(projectId, 'neo3:mainnet')}/payments/cancel`,
+      { intentId },
+      this.options()
+    );
+  }
+
   createWebhookSubscription(
     projectId: string,
     network: string,

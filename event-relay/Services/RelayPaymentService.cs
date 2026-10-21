@@ -341,8 +341,8 @@ public sealed partial class RelayPaymentService(
         )
             return await ResponseAsync(intent, tx, ct);
 
-        if (intent.Status is "rejected" or "cancelled")
-            throw new PaymentValidationException("This intent was rejected or cancelled.", 409);
+        if (intent.Status == "rejected")
+            throw new PaymentValidationException("This intent was rejected.", 409);
 
         var claim = await ClaimTransactionAsync(tx, intent.Id, "payment", ct, intent.SubmittedAt);
         var knownPayment = await db.Payments.Find(x => x.Id == tx).FirstOrDefaultAsync(ct);
@@ -355,25 +355,14 @@ public sealed partial class RelayPaymentService(
 
         if (intent.SubmittedTransactionId is null)
         {
-            var now = ClaimTime(claim);
-
             try
             {
-                await db.PaymentIntents.UpdateOneAsync(
-                    x => x.Id == intent.Id && x.SubmittedTransactionId == null,
-                    Builders<RelayPaymentIntentDocument>
-                        .Update.Set(x => x.SubmittedTransactionId, tx)
-                        .Set(x => x.SubmittedAt, now)
-                        .Set(x => x.Status, "pending")
-                        .Set(
-                            x => x.LateSubmission,
-                            now >= intent.ExpiresAt
-                                && (
-                                    knownPayment == null
-                                    || knownPayment.VerifiedAt >= intent.ExpiresAt
-                                )
-                        ),
-                    cancellationToken: ct
+                intent = await BindSubmissionAsync(
+                    intent.Id,
+                    tx,
+                    ClaimTime(claim),
+                    knownPayment,
+                    ct
                 );
             }
             catch (MongoWriteException error)
@@ -890,19 +879,7 @@ public sealed partial class RelayPaymentService(
 
             try
             {
-                await db.PaymentIntents.UpdateOneAsync(
-                    x => x.Id == intent.Id && x.SubmittedTransactionId == null,
-                    Builders<RelayPaymentIntentDocument>
-                        .Update.Set(x => x.SubmittedTransactionId, tx)
-                        .Set(x => x.SubmittedAt, submitted)
-                        .Set(
-                            x => x.LateSubmission,
-                            submitted >= intent.ExpiresAt
-                                && (payment == null || payment.VerifiedAt >= intent.ExpiresAt)
-                        )
-                        .Set(x => x.Status, "pending"),
-                    cancellationToken: ct
-                );
+                await BindSubmissionAsync(intent.Id, tx, submitted, payment, ct);
 
                 if (
                     !await db
@@ -924,6 +901,10 @@ public sealed partial class RelayPaymentService(
             }
             catch (MongoWriteException error)
                 when (error.WriteError.Category == ServerErrorCategory.DuplicateKey)
+            {
+                deferred++;
+            }
+            catch (PaymentValidationException)
             {
                 deferred++;
             }
