@@ -575,6 +575,9 @@ public sealed partial class RelayLifecycleService(
             ? update.Set(x => x.Closed, true)
             : update.SetOnInsert(x => x.Closed, false);
 
+        if (budget.Receipts.Length > 1)
+            update = BulkArchiveUpdate(budget, closed);
+
         try
         {
             await db
@@ -595,6 +598,55 @@ public sealed partial class RelayLifecycleService(
                 cancellationToken: ct
             );
         }
+    }
+
+    private static UpdateDefinition<RelayAllowancePeriodDocument> BulkArchiveUpdate(
+        RelayNetworkBudget budget,
+        bool closed
+    )
+    {
+        var usage = new BsonDocument(
+            "$max",
+            new BsonArray
+            {
+                new BsonDocument("$ifNull", new BsonArray { "$eventsUsed", 0 }),
+                budget.EventsUsed,
+            }
+        );
+        var periodEnd = new BsonDocument(
+            "$ifNull",
+            new BsonArray { "$periodEndsAt", new BsonDateTime(budget.Entitlement.PeriodEndsAt) }
+        );
+        var receipts = new BsonDocument(
+            "$setUnion",
+            new BsonArray
+            {
+                new BsonDocument(
+                    "$ifNull",
+                    new BsonArray { "$chargedDeliveries", new BsonArray() }
+                ),
+                new BsonDocument("$literal", new BsonArray(budget.Receipts)),
+            }
+        );
+        BsonValue closedState = closed
+            ? BsonBoolean.True
+            : new BsonDocument("$ifNull", new BsonArray { "$closed", false });
+
+        return Builders<RelayAllowancePeriodDocument>.Update.Pipeline(
+            new BsonDocument[]
+            {
+                new(
+                    "$set",
+                    new BsonDocument
+                    {
+                        { "eventsUsed", usage },
+                        { "periodEndsAt", periodEnd },
+                        { "chargedDeliveries", receipts },
+                        { "closed", closedState },
+                    }
+                ),
+            }
+        );
     }
 
     public async Task<RelayEntitlementDocument> GetEntitlementAsync(
