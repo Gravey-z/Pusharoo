@@ -174,12 +174,17 @@ export class RelayBillingComponent implements OnChanges {
     );
   }
 
+  scheduledStart(intent: RelayPaymentIntent): string | null {
+    const startsAt = intent.terms?.scheduleTail;
+    return startsAt && Date.parse(startsAt) > this.billing.now ? startsAt : null;
+  }
+
   label(status: string): string {
     const labels: Record<string, string> = {
       pending: 'Awaiting payment',
-      awaiting_finality: 'Awaiting Mainnet finality',
-      applying: 'Applying access',
-      reconciliation_required: 'Needs payment review',
+      awaiting_finality: 'Confirming payment',
+      applying: 'Activating package',
+      reconciliation_required: 'Payment needs review',
       confirmed: 'Confirmed',
       resolved: 'Resolved',
       rejected: 'Rejected',

@@ -85,6 +85,10 @@ legend {
   gap: 14px;
 }
 
+.usage-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .package {
   display: grid;
   align-content: start;
@@ -133,11 +137,24 @@ button {
   margin: 0;
 }
 
+.quote-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.quote-price strong {
+  color: var(--text);
+  font-size: 22px;
+}
+
 .recovery {
-  display: grid;
-  gap: 10px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
+  background: var(--card-soft);
+}
+
+.recovery label {
+  display: block;
 }
 
 .recovery input {
