@@ -40,8 +40,6 @@ public interface IWebhookSubscriptionRepository
         CancellationToken cancellationToken
     );
 
-    Task ClearTestnetSubscriptionExpiryAsync(string projectId, CancellationToken cancellationToken);
-
     Task<IReadOnlyList<string>> DeleteExpiredAsync(
         DateTime now,
         CancellationToken cancellationToken

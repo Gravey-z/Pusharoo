@@ -197,12 +197,7 @@ public sealed class WebhookSubscriptionRepository(
         {
             if (lifecycle is not null)
             {
-                var state = await lifecycle.EnsureAsync(projectId, cancellationToken);
-                if (state.Testnet?.Entitlement.Plan == "paid")
-                {
-                    await ClearTestnetSubscriptionExpiryAsync(projectId, cancellationToken);
-                    return;
-                }
+                await lifecycle.EnsureAsync(projectId, cancellationToken);
                 var current = await GetByIdAsync(subscription.Id, cancellationToken);
                 if (current is not null)
                     await lifecycle.MutateSubscriptionAsync(
@@ -225,23 +220,6 @@ public sealed class WebhookSubscriptionRepository(
                 cancellationToken: cancellationToken
             );
         }
-    }
-
-    public async Task ClearTestnetSubscriptionExpiryAsync(
-        string projectId,
-        CancellationToken cancellationToken
-    )
-    {
-        var filter = Builders<WebhookSubscriptionDocument>.Filter.And(
-            Builders<WebhookSubscriptionDocument>.Filter.Eq(item => item.ProjectId, projectId),
-            Builders<WebhookSubscriptionDocument>.Filter.Eq(item => item.Network, "neo3:testnet"),
-            Builders<WebhookSubscriptionDocument>.Filter.Ne(item => item.ExpiresAt, null)
-        );
-        await db.Subscriptions.UpdateManyAsync(
-            filter,
-            Builders<WebhookSubscriptionDocument>.Update.Set(item => item.ExpiresAt, null),
-            cancellationToken: cancellationToken
-        );
     }
 
     public async Task<IReadOnlyList<string>> DeleteExpiredAsync(

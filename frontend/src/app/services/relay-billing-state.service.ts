@@ -131,19 +131,14 @@ export class RelayBillingStateService implements OnDestroy {
         }
       }
 
-      const [catalog, history, mainnet, testnet, mainnetSubscriptions, testnetSubscriptions] =
-        await Promise.all([
-          firstValueFrom(this.api.getRelayPackages(projectId).pipe(timeout(20000))),
-          firstValueFrom(this.api.getRelayPaymentHistory(projectId).pipe(timeout(20000))),
-          firstValueFrom(this.api.getRelayUsage(projectId, 'neo3:mainnet').pipe(timeout(20000))),
-          firstValueFrom(this.api.getRelayUsage(projectId, 'neo3:testnet').pipe(timeout(20000))),
-          firstValueFrom(
-            this.api.getWebhookSubscriptions(projectId, 'neo3:mainnet').pipe(timeout(20000))
-          ),
-          firstValueFrom(
-            this.api.getWebhookSubscriptions(projectId, 'neo3:testnet').pipe(timeout(20000))
-          )
-        ]);
+      const [catalog, history, mainnet, mainnetSubscriptions] = await Promise.all([
+        firstValueFrom(this.api.getRelayPackages(projectId).pipe(timeout(20000))),
+        firstValueFrom(this.api.getRelayPaymentHistory(projectId).pipe(timeout(20000))),
+        firstValueFrom(this.api.getRelayUsage(projectId, 'neo3:mainnet').pipe(timeout(20000))),
+        firstValueFrom(
+          this.api.getWebhookSubscriptions(projectId, 'neo3:mainnet').pipe(timeout(20000))
+        )
+      ]);
       if (generation !== this.generation || !this.connected) return;
 
       this.catalog = catalog;
@@ -158,8 +153,8 @@ export class RelayBillingStateService implements OnDestroy {
         .map(intent => ({ ...intent, status: 'expired' }));
       history.pendingIntents = [...history.pendingIntents, ...expiredQuotes];
       this.history = history;
-      this.usage = { 'neo3:mainnet': mainnet, 'neo3:testnet': testnet };
-      this.subscriptions = [...mainnetSubscriptions, ...testnetSubscriptions];
+      this.usage = { 'neo3:mainnet': mainnet };
+      this.subscriptions = mainnetSubscriptions.filter(x => x.network === 'neo3:mainnet');
       this.now = Date.now();
       this.ready = true;
       this.reconcileSubmission();

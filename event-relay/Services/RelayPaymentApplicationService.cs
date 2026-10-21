@@ -20,7 +20,7 @@ public sealed class RelayPaymentApplicationService(
     RelayLifecycleService? lifecycle = null
 )
 {
-    private static readonly string[] Networks = ["neo3:mainnet", "neo3:testnet"];
+    private static readonly string[] Networks = ["neo3:mainnet"];
 
     public async Task<RelayPaymentApplicationOutcome> ApplyAsync(
         RelayPaymentIntentDocument intent,
@@ -162,7 +162,11 @@ public sealed class RelayPaymentApplicationService(
                 terms.Source == "catalog"
                     ? []
                     : await db
-                        .Entitlements.Find(x => x.ProjectId == intent.ProjectId && x.Plan == "paid")
+                        .Entitlements.Find(x =>
+                            x.ProjectId == intent.ProjectId
+                            && x.Network == "neo3:mainnet"
+                            && x.Plan == "paid"
+                        )
                         .ToListAsync(ct);
             var oldGrant = oldEntitlements
                 .OrderBy(x => x.Network == "neo3:mainnet" ? 0 : 1)
@@ -335,7 +339,6 @@ public sealed class RelayPaymentApplicationService(
                     OriginalTerms = allocation.Terms,
                     EffectiveTerms = allocation.Terms,
                     MainnetLedgerId = OriginalLedger("neo3:mainnet"),
-                    TestnetLedgerId = OriginalLedger("neo3:testnet"),
                 },
                 ct
             );

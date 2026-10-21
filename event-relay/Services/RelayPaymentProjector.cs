@@ -1,6 +1,5 @@
 using MongoDB.Driver;
 using Pusharoo.EventRelay.Models;
-using Pusharoo.EventRelay.Repositories;
 
 namespace Pusharoo.EventRelay.Services;
 
@@ -19,7 +18,6 @@ public sealed class RelayPaymentProjectionConflictException(string message) : Ex
 public sealed class RelayPaymentProjector(
     MongoDbContext db,
     RelayEntitlementService entitlements,
-    IWebhookSubscriptionRepository subscriptions,
     TimeProvider? timeProvider = null
 ) : IRelayPaymentProjector
 {
@@ -32,6 +30,12 @@ public sealed class RelayPaymentProjector(
         CancellationToken ct
     )
     {
+        if (network != "neo3:mainnet")
+            throw new ArgumentException(
+                "Paid relay access applies only to Mainnet.",
+                nameof(network)
+            );
+
         var marker = $"{decision.Id}:{allocation.Id}";
 
         for (var attempt = 0; attempt < 20; attempt++)
@@ -41,9 +45,6 @@ public sealed class RelayPaymentProjector(
             if (current.AppliedPaymentAllocations.Contains(marker))
             {
                 await HistoryAsync(decision, allocation, network, ct);
-
-                if (network == "neo3:testnet")
-                    await subscriptions.ClearTestnetSubscriptionExpiryAsync(decision.ProjectId, ct);
 
                 return;
             }
@@ -199,9 +200,6 @@ public sealed class RelayPaymentProjector(
                 continue;
 
             await HistoryAsync(decision, allocation, network, ct);
-
-            if (network == "neo3:testnet")
-                await subscriptions.ClearTestnetSubscriptionExpiryAsync(decision.ProjectId, ct);
 
             return;
         }

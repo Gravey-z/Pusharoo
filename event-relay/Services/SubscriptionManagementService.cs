@@ -65,9 +65,7 @@ public sealed class SubscriptionManagementService(
 
         var activeSubscriptions = (
             await subscriptions.GetByProjectIdAsync(projectId, cancellationToken)
-        ).Count(item =>
-            item.IsEnabled && (entitlement.Plan == "paid" || item.Network == request.Network.Trim())
-        );
+        ).Count(item => item.IsEnabled && item.Network == request.Network.Trim());
 
         if (request.IsEnabled && activeSubscriptions >= entitlement.MaxActiveSubscriptions)
         {
@@ -99,13 +97,9 @@ public sealed class SubscriptionManagementService(
             PayloadVersion = request.PayloadVersion,
             CreatedAt = now,
             UpdatedAt = now,
-            ExpiresAt =
-                string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal)
-                && entitlement.Plan == "free_beta"
-                    ? now.AddDays(
-                        Math.Max(1, eventRelayOptions.Value.TestnetSubscriptionRetentionDays)
-                    )
-                    : null,
+            ExpiresAt = string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal)
+                ? now.AddDays(Math.Max(1, eventRelayOptions.Value.TestnetSubscriptionRetentionDays))
+                : null,
         };
 
         var admissionError = await entitlements.Lifecycle.MutateSubscriptionAsync(
@@ -133,9 +127,7 @@ public sealed class SubscriptionManagementService(
             cancellationToken
         );
         var active = (await subscriptions.GetByProjectIdAsync(projectId, cancellationToken)).Count(
-            x =>
-                x.IsEnabled
-                && (entitlement.Plan == "paid" || x.Network == neoRpcOptions.Value.Network)
+            x => x.IsEnabled && x.Network == neoRpcOptions.Value.Network
         );
 
         return new SubscriptionUsageResponse(
@@ -156,12 +148,14 @@ public sealed class SubscriptionManagementService(
                 entitlement,
                 clock.GetUtcNow().UtcDateTime
             ),
-            packageStore is null
+            packageStore is null || neoRpcOptions.Value.Network != "neo3:mainnet"
                 ? []
                 : (await packageStore.PeriodsAsync(projectId, cancellationToken))
                     .Where(x => x.StartsAt > clock.GetUtcNow().UtcDateTime)
                     .ToArray(),
-            await entitlements.Lifecycle.TransitionsAsync(projectId, cancellationToken)
+            neoRpcOptions.Value.Network == "neo3:mainnet"
+                ? await entitlements.Lifecycle.TransitionsAsync(projectId, cancellationToken)
+                : null
         );
     }
 
@@ -204,9 +198,7 @@ public sealed class SubscriptionManagementService(
             var activeSubscriptions = (
                 await subscriptions.GetByProjectIdAsync(projectId, cancellationToken)
             ).Count(item =>
-                item.Id != existing.Id
-                && item.IsEnabled
-                && (entitlement.Plan == "paid" || item.Network == request.Network.Trim())
+                item.Id != existing.Id && item.IsEnabled && item.Network == request.Network.Trim()
             );
 
             if (
@@ -245,14 +237,11 @@ public sealed class SubscriptionManagementService(
             PayloadVersion = request.PayloadVersion,
             CreatedAt = existing.CreatedAt,
             UpdatedAt = clock.GetUtcNow().UtcDateTime,
-            ExpiresAt =
-                string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal)
-                && entitlement.Plan == "free_beta"
-                    ? existing.ExpiresAt
-                        ?? existing.CreatedAt.AddDays(
-                            Math.Max(1, eventRelayOptions.Value.TestnetSubscriptionRetentionDays)
-                        )
-                    : null,
+            ExpiresAt = string.Equals(request.Network, "neo3:testnet", StringComparison.Ordinal)
+                ? existing.CreatedAt.AddDays(
+                    Math.Max(1, eventRelayOptions.Value.TestnetSubscriptionRetentionDays)
+                )
+                : null,
             AdmissionRevision = existing.AdmissionRevision,
         };
 
@@ -409,6 +398,10 @@ public sealed class SubscriptionManagementService(
         return
             subscription is not null
             && string.Equals(subscription.ProjectId, projectId, StringComparison.Ordinal)
+            && (
+                subscription.ExpiresAt is null
+                || subscription.ExpiresAt > clock.GetUtcNow().UtcDateTime
+            )
             ? subscription
             : null;
     }

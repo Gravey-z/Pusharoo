@@ -72,8 +72,8 @@ public sealed class RelayPackageStore(
         return new(
             catalog.Revision,
             catalog.Fingerprint,
-            "project_shared_mainnet_testnet",
-            "project_per_network_per_period",
+            "project_mainnet",
+            "project_mainnet_per_period",
             catalog.Packages.Select(x => new RelayPackageMetadata(x, blocker is null)).ToArray(),
             blocker is null,
             blocker,
@@ -332,11 +332,15 @@ public sealed class RelayPackageStore(
 
 public sealed class RelayCatalogReadinessWorker(
     IServiceScopeFactory scopes,
-    ILogger<RelayCatalogReadinessWorker> logger
+    ILogger<RelayCatalogReadinessWorker> logger,
+    IOptions<NeoRpcOptions> network
 ) : IHostedService
 {
     public async Task StartAsync(CancellationToken ct)
     {
+        if (network.Value.Network != "neo3:mainnet")
+            return;
+
         using var scope = scopes.CreateScope();
         var catalog = await scope
             .ServiceProvider.GetRequiredService<RelayPackageStore>()

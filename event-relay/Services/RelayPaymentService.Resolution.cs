@@ -100,9 +100,7 @@ public sealed partial class RelayPaymentService
                 .Allocations.Where(x => x.Status == "accepted")
                 .Any(x =>
                     !progress.Any(p =>
-                        p.AllocationId == x.Id
-                        && p.AppliedNetworks.Contains("neo3:mainnet")
-                        && p.AppliedNetworks.Contains("neo3:testnet")
+                        p.AllocationId == x.Id && p.AppliedNetworks.Contains("neo3:mainnet")
                     )
                 )
         )

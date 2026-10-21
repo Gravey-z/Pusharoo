@@ -111,6 +111,9 @@ public sealed partial class RelayLifecycleService(
             var now = Now;
             var mainTarget = Desired(mainnet, periods, now);
             var testTarget = Desired(testnet, periods, now);
+            var candidates = await db
+                .Subscriptions.Find(x => x.ProjectId == projectId && !x.Deleted)
+                .ToListAsync(ct);
             var validUntil = periods
                 .Where(x => x.StartsAt > now)
                 .Select(x => (DateTime?)x.StartsAt)
@@ -121,43 +124,33 @@ public sealed partial class RelayLifecycleService(
                         : null
                     )
                 )
+                .Concat(
+                    candidates
+                        .Where(x => x.Network == "neo3:testnet")
+                        .Select(x => (DateTime?)TestnetExpiresAt(x))
+                )
                 .Where(x => x > now)
                 .Min();
             var slots = state.Slots;
-            var paid =
-                mainTarget.Plan == "paid" ? mainTarget
-                : testTarget.Plan == "paid" ? testTarget
-                : null;
-            var candidates = await db
-                .Subscriptions.Find(x => x.ProjectId == projectId && !x.Deleted)
-                .ToListAsync(ct);
+            var paid = mainTarget.Plan == "paid" ? mainTarget : null;
             var validIds = candidates
                 .Where(x =>
-                    x.ExpiresAt == null
-                    || x.ExpiresAt > now
-                    || paid is not null && x.Network == "neo3:testnet"
+                    x.Network == "neo3:testnet"
+                        ? TestnetExpiresAt(x) > now
+                        : x.ExpiresAt == null || x.ExpiresAt > now
                 )
                 .Select(x => x.Id)
                 .ToHashSet(StringComparer.Ordinal);
 
             slots = slots.Where(x => validIds.Contains(x.Id)).ToArray();
 
-            if (
-                paid is not null
-                && state.Mainnet?.Entitlement.Plan != "paid"
-                && state.Testnet?.Entitlement.Plan != "paid"
-            )
-                slots = slots
-                    .Concat(
-                        candidates
-                            .Where(x =>
-                                x.IsEnabled
-                                && x.Network == "neo3:testnet"
-                                && !slots.Any(s => s.Id == x.Id)
-                            )
-                            .Select(x => new RelaySubscriptionSlot(x.Id, x.Network, x.CreatedAt))
-                    )
-                    .ToArray();
+            var mainnetSlots = slots.Where(x => x.Network == "neo3:mainnet").ToArray();
+            var testnetSlots = slots
+                .Where(x => x.Network == "neo3:testnet")
+                .OrderBy(x => x.CreatedAt)
+                .ThenBy(x => x.Id, StringComparer.Ordinal)
+                .Take(testTarget.MaxActiveSubscriptions)
+                .ToArray();
 
             var paidBoundary =
                 paid is not null
@@ -171,25 +164,27 @@ public sealed partial class RelayLifecycleService(
             if (
                 paid is not null
                 && (paid.Status == "active" || paidBoundary)
-                && (slots.Length > paid.MaxActiveSubscriptions || lowerBoundary)
+                && (mainnetSlots.Length > paid.MaxActiveSubscriptions || lowerBoundary)
             )
             {
                 var selection = state.Selections.SingleOrDefault(x =>
                     x.PeriodId == paid.PurchasedPeriodId
                 );
 
-                slots =
+                mainnetSlots =
                     selection is not null && lowerBoundary
-                        ? slots
+                        ? mainnetSlots
                             .Where(x => selection.SubscriptionIds.Contains(x.Id))
                             .Take(paid.MaxActiveSubscriptions)
                             .ToArray()
-                        : slots
+                        : mainnetSlots
                             .OrderBy(x => x.CreatedAt)
                             .ThenBy(x => x.Id, StringComparer.Ordinal)
                             .Take(paid.MaxActiveSubscriptions)
                             .ToArray();
             }
+
+            slots = mainnetSlots.Concat(testnetSlots).ToArray();
 
             var changed =
                 !Equivalent(state.Mainnet?.Entitlement, mainTarget)
@@ -197,6 +192,9 @@ public sealed partial class RelayLifecycleService(
                 || !Equivalent(mainnet, mainTarget)
                 || !Equivalent(testnet, testTarget)
                 || !state.Slots.SequenceEqual(slots)
+                || candidates.Any(x =>
+                    x.Network == "neo3:testnet" && x.ExpiresAt != TestnetExpiresAt(x)
+                )
                 || state.ValidUntil != validUntil;
 
             if (!changed)
@@ -288,6 +286,29 @@ public sealed partial class RelayLifecycleService(
         DateTime now
     )
     {
+        if (current.Network == "neo3:testnet")
+        {
+            var newPeriod = current.Plan != "free_beta" || current.PeriodEndsAt <= now;
+            var start = newPeriod ? now : current.PeriodStart;
+
+            return current with
+            {
+                Plan = "free_beta",
+                PackageId = "free_beta",
+                PackageTerms = null,
+                PurchasedPeriodId = null,
+                PaidUntil = null,
+                GraceEndsAt = null,
+                LastPaymentId = null,
+                Status = "active",
+                PeriodStart = start,
+                PeriodEndsAt = start.AddDays(Settings.FreeBetaPeriodDays),
+                MaxEvents = Settings.FreeTestnetMaxEvents,
+                MaxActiveSubscriptions = Settings.FreeTestnetMaxActiveSubscriptions,
+                EventsUsed = newPeriod ? 0 : current.EventsUsed,
+            };
+        }
+
         var active = periods.Where(x => x.StartsAt <= now && x.EndsAt > now).ToArray();
 
         if (active.Length > 1)
@@ -351,21 +372,6 @@ public sealed partial class RelayLifecycleService(
         if (tail is not null)
             current = current with { PaidUntil = tail };
 
-        if (current.Plan == "free_beta" && current.Network == "neo3:testnet")
-        {
-            var start = current.PeriodEndsAt <= now ? now : current.PeriodStart;
-
-            return current with
-            {
-                Status = "active",
-                PeriodStart = start,
-                PeriodEndsAt = start.AddDays(Settings.FreeBetaPeriodDays),
-                MaxEvents = Settings.FreeTestnetMaxEvents,
-                MaxActiveSubscriptions = Settings.FreeTestnetMaxActiveSubscriptions,
-                EventsUsed = start == current.PeriodStart ? current.EventsUsed : 0,
-            };
-        }
-
         return current with
         {
             Status =
@@ -407,6 +413,24 @@ public sealed partial class RelayLifecycleService(
         {
             var id = RelayEntitlementService.PeriodId(target);
 
+            if (old is null)
+            {
+                var previous = await db
+                    .Entitlements.Find(x => x.Id == target.Id)
+                    .FirstOrDefaultAsync(ct);
+                if (previous is not null && RelayEntitlementService.PeriodId(previous) != id)
+                    await ArchiveAsync(
+                        new RelayNetworkBudget
+                        {
+                            Entitlement = previous,
+                            PeriodId = RelayEntitlementService.PeriodId(previous),
+                            EventsUsed = previous.EventsUsed,
+                        },
+                        true,
+                        ct
+                    );
+            }
+
             if (old is not null && old.PeriodId != id)
                 await ArchiveAsync(old, true, ct);
 
@@ -433,18 +457,39 @@ public sealed partial class RelayLifecycleService(
                 ct
             );
 
-            if (target.Plan == "paid")
-                await db.Subscriptions.UpdateManyAsync(
-                    x => x.ProjectId == state.Id && x.Network == "neo3:testnet" && !x.Deleted,
-                    Builders<WebhookSubscriptionDocument>.Update.Set(x => x.ExpiresAt, null),
-                    cancellationToken: ct
-                );
-
             return budget;
         }
 
         var mainnet = await Prepare(state.Mainnet, change.Mainnet);
         var testnet = await Prepare(state.Testnet, change.Testnet);
+
+        var testnetSubscriptions = await db
+            .Subscriptions.Find(x =>
+                x.ProjectId == state.Id && x.Network == "neo3:testnet" && !x.Deleted
+            )
+            .ToListAsync(ct);
+
+        foreach (var subscription in testnetSubscriptions)
+        {
+            if (subscription.ExpiresAt != TestnetExpiresAt(subscription))
+            {
+                var filter = Builders<WebhookSubscriptionDocument>.Filter;
+                await db.Subscriptions.UpdateOneAsync(
+                    filter.Where(x =>
+                        x.Id == subscription.Id && x.Network == "neo3:testnet" && !x.Deleted
+                    )
+                        & (
+                            filter.Lte(x => x.AdmissionRevision, change.Revision)
+                            | filter.Exists(x => x.AdmissionRevision, false)
+                        ),
+                    Builders<WebhookSubscriptionDocument>.Update.Set(
+                        x => x.ExpiresAt,
+                        TestnetExpiresAt(subscription)
+                    ),
+                    cancellationToken: ct
+                );
+            }
+        }
 
         foreach (var id in change.PausedIds)
             await db.Subscriptions.UpdateOneAsync(
@@ -475,6 +520,9 @@ public sealed partial class RelayLifecycleService(
             cancellationToken: ct
         );
     }
+
+    private DateTime TestnetExpiresAt(WebhookSubscriptionDocument subscription) =>
+        subscription.CreatedAt.AddDays(Math.Max(1, Settings.TestnetSubscriptionRetentionDays));
 
     private async Task ProjectEntitlementAsync(
         RelayEntitlementDocument target,

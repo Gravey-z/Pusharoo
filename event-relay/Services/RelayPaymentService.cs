@@ -39,13 +39,7 @@ public sealed partial class RelayPaymentService(
         new(
             db,
             Store,
-            paymentProjector
-                ?? new RelayPaymentProjector(
-                    db,
-                    entitlements,
-                    new WebhookSubscriptionRepository(db),
-                    clock
-                ),
+            paymentProjector ?? new RelayPaymentProjector(db, entitlements, clock),
             entitlements.Lifecycle
         );
 
@@ -127,7 +121,9 @@ public sealed partial class RelayPaymentService(
         var now = Now();
         var periods = await db.PurchasedPeriods.Find(x => x.ProjectId == projectId).ToListAsync(ct);
         var existing = await db
-            .Entitlements.Find(x => x.ProjectId == projectId && x.Plan == "paid")
+            .Entitlements.Find(x =>
+                x.ProjectId == projectId && x.Network == "neo3:mainnet" && x.Plan == "paid"
+            )
             .ToListAsync(ct);
         var packageId = request.PackageId;
 
@@ -210,10 +206,7 @@ public sealed partial class RelayPaymentService(
                         )
                     );
 
-                if (
-                    !Maps("neo3:mainnet", active.MainnetLedgerId)
-                    || !Maps("neo3:testnet", active.TestnetLedgerId)
-                )
+                if (!Maps("neo3:mainnet", active.MainnetLedgerId))
                     throw new PaymentValidationException(
                         "Reconcile the active Starter period's network ledgers before quoting its free Pro upgrade.",
                         409

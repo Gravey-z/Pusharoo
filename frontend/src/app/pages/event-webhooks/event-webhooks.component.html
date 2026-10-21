@@ -52,7 +52,7 @@
         @if (relayUsageByNetwork[webhookNetwork]; as usage) {
           <dl class="relay-usage">
             <div>
-              <dt>{{ usage.plan === 'paid' ? 'Shared active' : 'Testnet active' }}</dt>
+              <dt>Active webhooks</dt>
               <dd>{{ usage.activeSubscriptions }}/{{ usage.maxActiveSubscriptions }}</dd>
             </div>
             <div>
@@ -84,17 +84,15 @@
       >
     </section>
   }
-  @if (webhookNetwork === 'neo3:testnet' && relayUsageByNetwork[webhookNetwork]?.plan !== 'paid') {
-    <section
-      class="relay-plan testnet-trial surface-panel"
-      aria-label="N3:Testnet Relay free trial"
-    >
+  @if (webhookNetwork === 'neo3:testnet') {
+    <section class="relay-plan testnet-trial surface-panel" aria-label="Free N3:Testnet Relay">
       <div
-        ><h2>N3:Testnet Relay free trial</h2
+        ><h2>Free N3:Testnet Relay</h2
         ><p
-          >Use up to 5 active Testnet webhooks and 1,000 deliveries every 7 days. Free-trial
-          webhooks and their history are removed seven days after creation. Paid Testnet access
-          follows its purchased package instead.</p
+          >Use up to 5 active Testnet webhooks and 2,500 deliveries every 7 days for free. Each
+          Testnet webhook and its history are removed seven days after the webhook was created.
+          Editing a webhook does not extend its lifetime. Mainnet packages do not change Testnet
+          limits or expiry.</p
         ></div
       >
     </section>
@@ -267,8 +265,8 @@
                   <div class="subscription-summary">
                     @if (!subscription.isEnabled && subscription.pauseReason === 'package_limit') {
                       <p class="hint"
-                        >Paused at a lower package limit. Resume explicitly when a shared webhook
-                        slot is available.</p
+                        >Paused at a lower package limit. Resume explicitly when a webhook slot is
+                        available.</p
                       >
                     }
                     <dl class="subscription-metadata">

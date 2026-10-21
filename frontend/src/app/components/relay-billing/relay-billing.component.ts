@@ -49,7 +49,7 @@ export class RelayBillingComponent implements OnChanges {
 
   get enabledSubscriptions(): WebhookSubscription[] {
     return this.billing.subscriptions
-      .filter(x => x.isEnabled)
+      .filter(x => x.isEnabled && x.network === 'neo3:mainnet')
       .sort(
         (a, b) =>
           Date.parse(a.createdAt) - Date.parse(b.createdAt) ||

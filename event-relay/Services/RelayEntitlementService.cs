@@ -61,11 +61,8 @@ public sealed class RelayEntitlementService(
         if (period is null)
         {
             var current = await GetAsync(projectId, "neo3:mainnet", ct);
-            var other = await GetAsync(projectId, "neo3:testnet", ct);
-            var old = current
-                .PaymentGrants.Concat(other.PaymentGrants)
-                .FirstOrDefault(x => x.PaymentId == paymentId);
-            var tail = new[] { current.PaidUntil, other.PaidUntil }.Max();
+            var old = current.PaymentGrants.FirstOrDefault(x => x.PaymentId == paymentId);
+            var tail = current.PaidUntil;
             var start = old?.PeriodStart ?? (tail > now ? tail.Value : now);
             var end = old?.PeriodEndsAt ?? start.AddDays(terms.Package.Days);
 
@@ -82,7 +79,6 @@ public sealed class RelayEntitlementService(
                 OriginalTerms = terms.Package,
                 EffectiveTerms = terms.Package,
                 MainnetLedgerId = Ledger("neo3:mainnet"),
-                TestnetLedgerId = Ledger("neo3:testnet"),
                 Source = terms.Source,
             };
 
@@ -96,7 +92,7 @@ public sealed class RelayEntitlementService(
             period = await db.PurchasedPeriods.Find(x => x.Id == id).SingleAsync(ct);
         }
 
-        foreach (var network in new[] { "neo3:mainnet", "neo3:testnet" })
+        foreach (var network in new[] { "neo3:mainnet" })
         {
             var grant = new RelayEntitlementPaymentGrant
             {
@@ -154,13 +150,13 @@ public sealed class RelayEntitlementService(
             }
         }
 
-        var result = new[]
-        {
-            await GetAsync(projectId, "neo3:mainnet", ct),
-            await GetAsync(projectId, "neo3:testnet", ct),
-        };
+        var result = new[] { await GetAsync(projectId, "neo3:mainnet", ct) };
 
-        await subscriptions.ClearTestnetSubscriptionExpiryAsync(projectId, ct);
+        await subscriptions.SetFreeTestnetSubscriptionExpiryAsync(
+            projectId,
+            options.Value.TestnetSubscriptionRetentionDays,
+            ct
+        );
 
         return result;
     }
@@ -179,17 +175,25 @@ public sealed class RelayEntitlementService(
         );
     }
 
-    public async Task<IReadOnlyList<RelayEntitlementDocument>> ReconcileFreeTestnetTrialsAsync(
+    public async Task<IReadOnlyList<RelayEntitlementDocument>> ReconcileFreeTestnetAccessAsync(
         CancellationToken ct
     )
     {
         var projects = await db
-            .Entitlements.Find(x => x.Network == "neo3:testnet" && x.Plan == "free_beta")
+            .Entitlements.Find(x => x.Network == "neo3:testnet")
             .Project(x => x.ProjectId)
             .ToListAsync(ct);
         var results = new List<RelayEntitlementDocument>();
+        var subscriptionProjects = await db
+            .Subscriptions.Find(x =>
+                x.Network == "neo3:testnet" && x.ProjectId != null && !x.Deleted
+            )
+            .Project(x => x.ProjectId!)
+            .ToListAsync(ct);
 
-        foreach (var projectId in projects.Distinct(StringComparer.Ordinal))
+        foreach (
+            var projectId in projects.Concat(subscriptionProjects).Distinct(StringComparer.Ordinal)
+        )
         {
             var value = await GetAsync(projectId, "neo3:testnet", ct);
 

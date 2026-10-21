@@ -26,14 +26,14 @@ public sealed class WebhookRetentionWorker(
                     scope.ServiceProvider.GetRequiredService<IWebhookDeliveryRepository>();
                 var subscriptionRepository =
                     scope.ServiceProvider.GetRequiredService<IWebhookSubscriptionRepository>();
-                var freeTrials = await scope
+                var testnetAccess = await scope
                     .ServiceProvider.GetRequiredService<RelayEntitlementService>()
-                    .ReconcileFreeTestnetTrialsAsync(stoppingToken);
+                    .ReconcileFreeTestnetAccessAsync(stoppingToken);
 
-                foreach (var trial in freeTrials)
+                foreach (var access in testnetAccess)
                 {
                     await subscriptionRepository.SetFreeTestnetSubscriptionExpiryAsync(
-                        trial.ProjectId,
+                        access.ProjectId,
                         settings.TestnetSubscriptionRetentionDays,
                         stoppingToken
                     );

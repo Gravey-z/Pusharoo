@@ -480,11 +480,32 @@ test('out-of-order refresh cannot overwrite a different project context', async 
   assert.equal(f.state.ready, false);
 });
 
-test('usage refresh preserves independent Mainnet and Testnet counters', async () => {
+test('billing refresh requests only Mainnet usage and subscriptions', async () => {
   const f = fixture();
+  const networks = [];
+  const originalUsage = f.api.getRelayUsage;
+  f.api.getRelayUsage = (id, network) => {
+    networks.push(network);
+    if (network !== 'neo3:mainnet') throw new Error('Testnet is unavailable');
+    return originalUsage(id, network);
+  };
+  f.api.getWebhookSubscriptions = (_, network) => {
+    networks.push(network);
+    if (network !== 'neo3:mainnet') throw new Error('Testnet is unavailable');
+    return of([
+      { id: 'mainnet', network },
+      { id: 'testnet', network: 'neo3:testnet' }
+    ]);
+  };
   await f.state.refresh();
   assert.equal(f.state.usage['neo3:mainnet'].eventsUsed, 8000);
-  assert.equal(f.state.usage['neo3:testnet'].eventsUsed, 120);
+  assert.equal(f.state.usage['neo3:testnet'], undefined);
+  assert.equal(f.state.ready, true);
+  assert.deepEqual(networks, ['neo3:mainnet', 'neo3:mainnet']);
+  assert.deepEqual(
+    plain(f.state.subscriptions).map(x => x.id),
+    ['mainnet']
+  );
 });
 
 test('future Starter boundaries remain visible when buying or upgrading Pro', () => {
@@ -519,7 +540,7 @@ test('only unexpired standard Starter periods are selectable for standalone upgr
   );
 });
 
-test('a lower-cap boundary uses enabled subscriptions from both networks in deterministic order', () => {
+test('a lower-cap boundary uses only enabled Mainnet subscriptions in deterministic order', () => {
   const f = fixture(),
     c = component(f),
     now = Date.now();
@@ -534,7 +555,7 @@ test('a lower-cap boundary uses enabled subscriptions from both networks in dete
     network: index % 2 ? 'neo3:mainnet' : 'neo3:testnet'
   }));
   assert.equal(c.downgradePeriods.length, 1);
-  assert.deepEqual(plain(c.selections(c.downgradePeriods[0])), ['a', 'b', 'c', 'd', 'e']);
+  assert.deepEqual(plain(c.selections(c.downgradePeriods[0])), ['a', 'c', 'e']);
 });
 
 test('an explicit empty boundary selection remains empty and does not refill defaults', async () => {
@@ -545,7 +566,9 @@ test('an explicit empty boundary selection remains empty and does not refill def
   f.state.usage['neo3:mainnet'] = {
     transitions: { selections: [{ periodId: 'starter', subscriptionIds: [] }] }
   };
-  f.state.subscriptions = [{ id: 'a', isEnabled: true, createdAt: new Date(0).toISOString() }];
+  f.state.subscriptions = [
+    { id: 'a', isEnabled: true, createdAt: new Date(0).toISOString(), network: 'neo3:mainnet' }
+  ];
   assert.deepEqual(plain(c.selections(boundary)), []);
   await c.saveSelection(boundary);
   assert.deepEqual(plain(f.calls.selection[0].subscriptionIds), []);
@@ -557,8 +580,14 @@ test('disabled or deleted selected webhooks are not sent as active boundary choi
     now = Date.now();
   c.selectionDrafts.starter = ['enabled', 'paused', 'deleted'];
   f.state.subscriptions = [
-    { id: 'enabled', isEnabled: true, createdAt: new Date(0).toISOString() },
-    { id: 'paused', isEnabled: false }
+    {
+      id: 'enabled',
+      isEnabled: true,
+      createdAt: new Date(0).toISOString(),
+      network: 'neo3:mainnet'
+    },
+    { id: 'paused', isEnabled: false, network: 'neo3:mainnet' },
+    { id: 'testnet', isEnabled: true, network: 'neo3:testnet' }
   ];
   await c.saveSelection(period('starter', 'starter', now + 10000, now + 20000));
   assert.deepEqual(plain(f.calls.selection[0].subscriptionIds), ['enabled']);

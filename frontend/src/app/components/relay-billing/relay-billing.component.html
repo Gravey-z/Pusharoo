@@ -2,10 +2,7 @@
   <header>
     <div>
       <h2 id="relay-billing-heading">Relay packages and billing</h2>
-      <p
-        >Packages belong to this project. Webhook slots are shared across Mainnet and Testnet; each
-        network has its own delivery allowance.</p
-      >
+      <p>Packages apply to this project's N3:Mainnet webhooks and delivery allowance.</p>
     </div>
     @if (connected) {
       <button
@@ -35,56 +32,50 @@
     }
     @if (!billing.mainnetWallet) {
       <p class="warning"
-        >Connect the project-owner wallet on N3:Mainnet to pay for either network. You can still
-        review billing here.</p
+        >Connect the project-owner wallet on N3:Mainnet to purchase a package. You can still review
+        billing here.</p
       >
     }
 
     <div class="usage-grid" aria-label="Current access and usage">
-      @for (network of ['neo3:mainnet', 'neo3:testnet']; track network) {
-        @if (billing.usage[network]; as usage) {
-          <article>
-            <h3>{{ network === 'neo3:mainnet' ? 'N3:Mainnet' : 'N3:Testnet' }}</h3>
-            <strong
-              >{{
-                usage.packageTerms?.name ||
-                  (usage.plan === 'paid'
-                    ? 'Paid Relay (legacy terms)'
-                    : network === 'neo3:testnet'
-                      ? 'Free Testnet'
-                      : 'No paid access')
-              }}
-              · {{ label(usage.status) }}</strong
+      @if (billing.usage['neo3:mainnet']; as usage) {
+        <article>
+          <h3>N3:Mainnet</h3>
+          <strong
+            >{{
+              usage.packageTerms?.name ||
+                (usage.plan === 'paid' ? 'Paid Relay (legacy terms)' : 'No paid access')
+            }}
+            · {{ label(usage.status) }}</strong
+          >
+          <p
+            >Current allowance: {{ usage.eventsUsed | number }} used /
+            {{ usage.maxEvents | number }} deliveries;
+            {{ usage.eventsRemaining | number }} remaining.</p
+          >
+          <p>Current period ends {{ usage.periodEndsAt | date: 'medium' : 'UTC' }} UTC.</p>
+          @if (usage.status === 'grace') {
+            <p class="warning"
+              >Grace ends {{ usage.graceEndsAt | date: 'medium' : 'UTC' }} UTC. Grace adds no
+              delivery allowance.</p
             >
-            <p
-              >Current allowance: {{ usage.eventsUsed | number }} used /
-              {{ usage.maxEvents | number }} deliveries;
-              {{ usage.eventsRemaining | number }} remaining.</p
+          }
+          @if (usage.needsReconciliation) {
+            <p class="warning"
+              >Historical access needs review before a standard upgrade can be quoted.</p
             >
-            <p>Current period ends {{ usage.periodEndsAt | date: 'medium' : 'UTC' }} UTC.</p>
-            @if (usage.status === 'grace') {
-              <p class="warning"
-                >Grace ends {{ usage.graceEndsAt | date: 'medium' : 'UTC' }} UTC. Grace adds no
-                delivery allowance.</p
-              >
-            }
-            @if (usage.needsReconciliation) {
-              <p class="warning"
-                >Historical access needs review before a standard upgrade can be quoted.</p
-              >
-            }
-          </article>
-        }
+          }
+        </article>
       }
     </div>
     @if (billing.usage['neo3:mainnet']; as usage) {
       @if (usage.plan === 'paid') {
         <p
           ><strong
-            >Shared enabled webhooks: {{ usage.activeSubscriptions }} /
+            >Enabled Mainnet webhooks: {{ usage.activeSubscriptions }} /
             {{ usage.maxActiveSubscriptions }}</strong
           >
-          across both networks.</p
+          on N3:Mainnet.</p
         >
       }
     }
@@ -138,11 +129,8 @@
                 /><strong>{{ entry.terms.name }}</strong></span
               >
               <strong>{{ gas(entry.terms.gasDatoshis) }} GAS / {{ entry.terms.days }} days</strong>
-              <span
-                >{{ entry.terms.maxActiveSubscriptions }} active webhooks shared across both
-                networks</span
-              >
-              <span>{{ entry.terms.maxEvents | number }} deliveries per network, per period</span>
+              <span>{{ entry.terms.maxActiveSubscriptions }} active Mainnet webhooks</span>
+              <span>{{ entry.terms.maxEvents | number }} Mainnet deliveries per period</span>
             </label>
           }
         </fieldset>
@@ -201,8 +189,8 @@
               {{ period.endsAt | date: 'medium' : 'UTC' }} UTC</p
             >
             <p
-              >{{ period.effectiveTerms.maxActiveSubscriptions }} shared webhooks ·
-              {{ period.effectiveTerms.maxEvents | number }} deliveries per network.</p
+              >{{ period.effectiveTerms.maxActiveSubscriptions }} Mainnet webhooks ·
+              {{ period.effectiveTerms.maxEvents | number }} Mainnet deliveries.</p
             >
             @if (period.originalTerms.packageId !== period.effectiveTerms.packageId) {
               <p
@@ -246,8 +234,8 @@
         >
         @if (intent.terms; as terms) {
           <p
-            >{{ terms.package.maxActiveSubscriptions }} shared active webhooks ·
-            {{ terms.package.maxEvents | number }} deliveries per network ·
+            >{{ terms.package.maxActiveSubscriptions }} active Mainnet webhooks ·
+            {{ terms.package.maxEvents | number }} Mainnet deliveries ·
             {{ terms.package.days }} days for a new period.</p
           >
           @if (terms.operation === 'purchase_period') {
@@ -282,8 +270,8 @@
             <p class="status"
               ><strong>Included free: remaining current Starter time → Pro, 0 GAS.</strong> It ends
               {{ bonus.target.endsAt | date: 'medium' : 'UTC' }} UTC. Existing usage and receipts
-              are retained: the new ceiling is {{ bonus.target.targetTerms.maxEvents | number }} per
-              network, with {{ bonus.target.targetTerms.maxActiveSubscriptions }} shared slots.</p
+              are retained: the new ceiling is {{ bonus.target.targetTerms.maxEvents | number }} on
+              Mainnet, with {{ bonus.target.targetTerms.maxActiveSubscriptions }} Mainnet slots.</p
             >
             <p
               >If that specific period ends or changes before payment acceptance, the free bonus may
@@ -295,9 +283,9 @@
             <p class="warning"
               >Unchanged Starter period: {{ period.startsAt | date: 'medium' : 'UTC' }} –
               {{ period.endsAt | date: 'medium' : 'UTC' }} UTC. Its limit is
-              {{ period.effectiveTerms.maxActiveSubscriptions }} shared webhooks and
-              {{ period.effectiveTerms.maxEvents | number }} deliveries per network. This limit
-              applies at its boundary unless this period is separately upgraded.</p
+              {{ period.effectiveTerms.maxActiveSubscriptions }} Mainnet webhooks and
+              {{ period.effectiveTerms.maxEvents | number }} Mainnet deliveries. This limit applies
+              at its boundary unless this period is separately upgraded.</p
             >
           }
           @if (terms.operation === 'purchase_period' && terms.package.packageId === 'starter') {
@@ -409,7 +397,7 @@
         <legend>Keep webhooks at the Starter boundary</legend>
         <p
           >At {{ period.startsAt | date: 'medium' : 'UTC' }} UTC, the cap returns to
-          {{ period.effectiveTerms.maxActiveSubscriptions }} shared enabled webhooks. Others are
+          {{ period.effectiveTerms.maxActiveSubscriptions }} enabled Mainnet webhooks. Others are
           paused with their configuration and queued work retained. A later Pro period does not
           resume them automatically.</p
         >
@@ -428,8 +416,7 @@
               type="checkbox"
               [checked]="selections(period).includes(subscription.id)"
               (change)="toggleSubscription(period, subscription.id, $any($event.target).checked)"
-            />{{ subscription.name }} ·
-            {{ subscription.network === 'neo3:mainnet' ? 'Mainnet' : 'Testnet' }}</label
+            />{{ subscription.name }} · Mainnet</label
           >
         }
         <button
@@ -441,8 +428,7 @@
         >
         @if (selections(period).length > period.effectiveTerms.maxActiveSubscriptions) {
           <p class="error"
-            >Choose at most {{ period.effectiveTerms.maxActiveSubscriptions }} webhooks across both
-            networks.</p
+            >Choose at most {{ period.effectiveTerms.maxActiveSubscriptions }} Mainnet webhooks.</p
           >
         }
       </fieldset>
@@ -520,8 +506,9 @@
           </ul>
           @for (progress of payment.grantProgress ?? []; track progress.allocationId) {
             <p
-              >Access updated on {{ progress.appliedNetworks.length }} / 2 networks for allocation
-              <span class="hash">{{ progress.allocationId }}</span
+              >Mainnet access
+              {{ progress.appliedNetworks.includes('neo3:mainnet') ? 'updated' : 'pending' }} for
+              allocation <span class="hash">{{ progress.allocationId }}</span
               >.</p
             >
           }
@@ -572,11 +559,13 @@
         </article>
       }
       @for (entry of billing.history?.entitlements ?? []; track $index) {
-        <p
-          >{{ entry.network }} · {{ entry.terms?.package?.name || entry.plan }} ·
-          {{ entry.periodStart | date: 'mediumDate' : 'UTC' }} –
-          {{ entry.periodEndsAt | date: 'mediumDate' : 'UTC' }}</p
-        >
+        @if (entry.network === 'neo3:mainnet') {
+          <p
+            >{{ entry.network }} · {{ entry.terms?.package?.name || entry.plan }} ·
+            {{ entry.periodStart | date: 'mediumDate' : 'UTC' }} –
+            {{ entry.periodEndsAt | date: 'mediumDate' : 'UTC' }}</p
+          >
+        }
       }
     </details>
   }

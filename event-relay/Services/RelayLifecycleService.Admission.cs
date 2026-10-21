@@ -232,7 +232,7 @@ public sealed partial class RelayLifecycleService
             if (
                 expiredOnly
                 && (
-                    budget.Entitlement.Plan == "paid"
+                    desired.Network != "neo3:testnet"
                     || existing?.ExpiresAt is null
                     || existing.ExpiresAt > Now
                 )
@@ -255,9 +255,10 @@ public sealed partial class RelayLifecycleService
                 )
                     return "Relay access is not active for this network.";
 
-                var used = slots.Count(x =>
-                    budget.Entitlement.Plan == "paid" || x.Network == desired.Network
-                );
+                if (desired.Network == "neo3:testnet" && TestnetExpiresAt(desired) <= Now)
+                    return "This Testnet webhook expired seven days after creation.";
+
+                var used = slots.Count(x => x.Network == desired.Network);
 
                 if (used >= budget.Entitlement.MaxActiveSubscriptions)
                     return "The Relay active-webhook limit has been reached.";
@@ -273,7 +274,8 @@ public sealed partial class RelayLifecycleService
                 {
                     AdmissionRevision = state.Version + 1,
                     PauseReason = desired.IsEnabled ? null : desired.PauseReason,
-                    ExpiresAt = budget.Entitlement.Plan == "paid" ? null : desired.ExpiresAt,
+                    ExpiresAt =
+                        desired.Network == "neo3:testnet" ? TestnetExpiresAt(desired) : null,
                 },
                 Delete = delete,
             };
@@ -422,7 +424,36 @@ public sealed partial class RelayLifecycleService
     {
         var state = await EnsureAsync(projectId, ct);
 
-        return new(state.Selections, state.LastTransition);
+        if (state.Selections.Length == 0 && state.LastTransition is null)
+            return new([], null);
+
+        var mainnetIds = (
+            await db
+                .Subscriptions.Find(x => x.ProjectId == projectId && x.Network == "neo3:mainnet")
+                .Project(x => x.Id)
+                .ToListAsync(ct)
+        ).ToHashSet(StringComparer.Ordinal);
+
+        return new(
+            state
+                .Selections.Select(selection =>
+                    selection with
+                    {
+                        SubscriptionIds = selection
+                            .SubscriptionIds.Where(mainnetIds.Contains)
+                            .ToArray(),
+                    }
+                )
+                .ToArray(),
+            state.LastTransition is { } transition
+                ? transition with
+                {
+                    PausedSubscriptionIds = transition
+                        .PausedSubscriptionIds.Where(mainnetIds.Contains)
+                        .ToArray(),
+                }
+                : null
+        );
     }
 
     public async Task SetDowngradeSelectionAsync(
@@ -473,7 +504,9 @@ public sealed partial class RelayLifecycleService
 
             if (
                 request.SubscriptionIds.Length > period.EffectiveTerms.MaxActiveSubscriptions
-                || request.SubscriptionIds.Any(x => !state.Slots.Any(y => y.Id == x))
+                || request.SubscriptionIds.Any(x =>
+                    !state.Slots.Any(y => y.Id == x && y.Network == "neo3:mainnet")
+                )
             )
                 throw new PaymentValidationException(
                     "Select up to the boundary's limit from currently enabled project webhooks.",

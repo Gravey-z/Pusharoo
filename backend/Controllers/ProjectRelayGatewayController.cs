@@ -273,10 +273,15 @@ public sealed class ProjectRelayGatewayController(
             return BadRequest(new { error = "Relay resource identifier is invalid." });
 
         if (
-            resource.StartsWith("relay/payments/", StringComparison.Ordinal)
+            (
+                resource.StartsWith("relay/", StringComparison.Ordinal)
+                || resource.StartsWith("subscriptions/transitions/", StringComparison.Ordinal)
+            )
             && network != "mainnet"
         )
-            return NotFound(new { error = "Relay payments are available on MainNet only." });
+            return NotFound(
+                new { error = "Relay packages and billing are available on Mainnet only." }
+            );
 
         var project = await projects.GetByIdAsync(projectId, ct);
 

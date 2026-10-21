@@ -50,7 +50,7 @@ public sealed class EventRelayOptions
 
     public int FreeTestnetMaxActiveSubscriptions { get; init; } = 5;
 
-    public int FreeTestnetMaxEvents { get; init; } = 1000;
+    public int FreeTestnetMaxEvents { get; init; } = 2500;
 
     public string PaymentRecipientAddress { get; init; } = string.Empty;
 
