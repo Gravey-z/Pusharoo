@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { RelayBillingComponent } from '../../components/relay-billing/relay-billing.component';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subject, firstValueFrom, takeUntil, timeout } from 'rxjs';
@@ -13,9 +14,7 @@ import {
   WebhookDelivery,
   WebhookSubscription,
   RelayUsage,
-  RelayReplayJob,
-  RelayPaymentHistory,
-  RelayPaymentIntent
+  RelayReplayJob
 } from '../../models/pusharoo.models';
 import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
@@ -40,6 +39,7 @@ interface DeploymentOption {
   selector: 'app-event-webhooks',
   imports: [
     RelayHealthPanelComponent,
+    RelayBillingComponent,
     DatePipe,
     FormsModule,
     PageShellComponent,
@@ -193,11 +193,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   relayDetails: Partial<Record<string, EventRelayStatus>> = {};
   relayStatuses: Record<string, 'ok' | 'degraded' | 'offline'> = {};
   readonly relayUsageByNetwork: Record<string, RelayUsage> = {};
-  paymentHistory: RelayPaymentHistory | null = null;
   connectingRelay = false;
-  renewingRelay = false;
-  payingIntentId = '';
-  resumingIntentId = '';
   projectId = '';
   name = '';
   contractHash = '';
@@ -530,37 +526,11 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     );
   }
 
-  async renewRelay(): Promise<void> {
-    this.errorMessage = '';
-    this.formStatus = '';
-    if (!this.canManageProject) {
-      this.errorMessage = 'Only the project owner can renew Relay access.';
-      return;
-    }
-    const account = this.wallet.account();
-    if (!account || this.wallet.session()?.network !== 'neo3:mainnet') {
-      this.errorMessage = 'Connect the project owner wallet on N3:Mainnet before renewing.';
-      return;
-    }
-    this.renewingRelay = true;
-    try {
-      await this.auth.ensureAuthenticated();
-      await firstValueFrom(this.api.createRelayPaymentIntent(this.projectId));
-      await this.loadPaymentHistory();
-      this.formStatus =
-        'Payment intent created. Review the recipient and amount, then approve the GAS transfer in your wallet.';
-    } catch (error) {
-      this.errorMessage = this.errors.format(error, 'Could not create a Relay payment intent.');
-    } finally {
-      this.renewingRelay = false;
-    }
-  }
-
   async connectRelay(): Promise<void> {
     this.errorMessage = '';
     this.formStatus = '';
     if (!this.canManageProject) {
-      this.errorMessage = 'Only the project owner can connect to N3:Mainnet Relay.';
+      this.errorMessage = 'Only the project owner can connect to Relay.';
       return;
     }
     this.connectingRelay = true;
@@ -568,7 +538,6 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       await this.auth.ensureAuthenticated();
       await this.loadUsage(this.webhookNetwork);
       if (this.deploymentOptions.length) await this.loadSubscriptions(this.webhookNetwork);
-      if (this.webhookNetwork === 'neo3:mainnet') await this.loadPaymentHistory();
     } catch (error) {
       this.errorMessage = this.errors.format(error, 'Could not open the Relay workspace.');
     } finally {
@@ -576,83 +545,8 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     }
   }
 
-  async payRelayIntent(intent: RelayPaymentIntent): Promise<void> {
-    const account = this.wallet.account();
-    if (!account || this.wallet.session()?.network !== 'neo3:mainnet') {
-      this.errorMessage =
-        'Connect the project owner wallet on N3:Mainnet before approving this payment.';
-      return;
-    }
-    this.errorMessage = '';
-    this.payingIntentId = intent.id;
-    try {
-      await this.auth.ensureAuthenticated();
-      const transactionId = await this.wallet.invokeContract(
-        'neo3:mainnet',
-        '0xd2a4cff31913016155e38e474a2c06d08be276cf',
-        'transfer',
-        [
-          { type: 'Hash160', value: account.scriptHash },
-          { type: 'Hash160', value: intent.recipientScriptHash },
-          { type: 'Integer', value: String(intent.requiredGasDatoshis) },
-          { type: 'Any', value: null }
-        ],
-        'GAS'
-      );
-      const confirmation = await this.confirmPayment(intent.id, transactionId);
-      this.formStatus =
-        confirmation.status === 'confirmed'
-          ? `Relay renewed until ${new Date(confirmation.entitlementEndsAt ?? '').toLocaleDateString('en-GB')}.`
-          : (confirmation.message ??
-            'Payment submitted. Relay access will renew once N3:Mainnet finality is reached.');
-      await Promise.all([
-        this.loadUsage('neo3:testnet'),
-        this.loadUsage('neo3:mainnet'),
-        this.loadPaymentHistory()
-      ]);
-    } catch (error) {
-      this.errorMessage = this.errors.format(error, 'Could not submit the Relay payment.');
-    } finally {
-      this.payingIntentId = '';
-    }
-  }
-
-  async resumeRelayPayment(intent: RelayPaymentIntent): Promise<void> {
-    if (!intent.submittedTransactionId) return;
-    this.errorMessage = '';
-    this.resumingIntentId = intent.id;
-    try {
-      const confirmation = await this.confirmPayment(intent.id, intent.submittedTransactionId);
-      this.formStatus =
-        confirmation.status === 'confirmed'
-          ? `Relay renewed until ${new Date(confirmation.entitlementEndsAt ?? '').toLocaleDateString('en-GB')}.`
-          : (confirmation.message ?? 'Payment is still waiting for N3:Mainnet finality.');
-      await Promise.all([
-        this.loadUsage('neo3:testnet'),
-        this.loadUsage('neo3:mainnet'),
-        this.loadPaymentHistory()
-      ]);
-    } catch (error) {
-      this.errorMessage = this.errors.format(
-        error,
-        'Could not confirm the submitted Relay payment.'
-      );
-    } finally {
-      this.resumingIntentId = '';
-    }
-  }
-
-  async showPaymentHistory(): Promise<void> {
-    this.errorMessage = '';
-    try {
-      await this.loadPaymentHistory();
-    } catch (error) {
-      this.errorMessage = this.errors.format(error, 'Could not load Relay payment history.');
-    }
-  }
-
-  gasAmount(datoshis: number): string {
-    return (datoshis / 100000000).toLocaleString(undefined, { maximumFractionDigits: 8 });
+  updateRelayUsage(usage: Record<string, RelayUsage>): void {
+    Object.assign(this.relayUsageByNetwork, usage);
   }
 
   eventLabel(subscription: WebhookSubscription): string {
@@ -699,8 +593,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       const networks = [...new Set([this.relayNetwork, 'neo3:mainnet'])];
       await Promise.all([
         this.loadSubscriptions(),
-        ...networks.map(network => this.loadUsage(network)),
-        this.loadPaymentHistory()
+        ...networks.map(network => this.loadUsage(network))
       ]);
     } catch (error) {
       this.errorMessage = this.errors.format(error, 'Could not load webhook subscriptions.');
@@ -738,17 +631,6 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     this.relayUsageByNetwork[network] = await this.executeWebhookRequest(() =>
       this.api.getRelayUsage(this.projectId, network)
     );
-  }
-
-  private async loadPaymentHistory(): Promise<void> {
-    this.paymentHistory = await this.executeWebhookRequest(() =>
-      this.api.getRelayPaymentHistory(this.projectId)
-    );
-  }
-
-  private async confirmPayment(intentId: string, transactionId: string) {
-    await this.auth.ensureAuthenticated();
-    return firstValueFrom(this.api.confirmRelayPayment(this.projectId, intentId, transactionId));
   }
 
   private async updateSubscription(

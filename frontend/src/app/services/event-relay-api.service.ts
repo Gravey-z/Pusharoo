@@ -7,6 +7,9 @@ import {
   RelayPayment,
   RelayPaymentHistory,
   RelayPaymentIntent,
+  RelayPackageCatalog,
+  RelayTransitions,
+  CreateRelayPaymentIntentRequest,
   RelayUsage,
   RelayReplayJob,
   WebhookDelivery,
@@ -45,10 +48,33 @@ export class EventRelayApiService {
     );
   }
 
-  createRelayPaymentIntent(projectId: string): Observable<RelayPaymentIntent> {
+  getRelayPackages(projectId: string): Observable<RelayPackageCatalog> {
+    return this.http.post<RelayPackageCatalog>(
+      `${this.baseUrl(projectId, 'neo3:mainnet')}/packages/query`,
+      null,
+      this.options()
+    );
+  }
+
+  setRelayDowngradeSelection(
+    projectId: string,
+    periodId: string,
+    subscriptionIds: string[]
+  ): Observable<RelayTransitions> {
+    return this.http.post<RelayTransitions>(
+      `${this.baseUrl(projectId, 'neo3:mainnet')}/subscriptions/transitions/selection`,
+      { periodId, subscriptionIds },
+      this.options()
+    );
+  }
+
+  createRelayPaymentIntent(
+    projectId: string,
+    request: CreateRelayPaymentIntentRequest
+  ): Observable<RelayPaymentIntent> {
     return this.http.post<RelayPaymentIntent>(
       `${this.baseUrl(projectId, 'neo3:mainnet')}/payments/intents`,
-      null,
+      request,
       this.options()
     );
   }

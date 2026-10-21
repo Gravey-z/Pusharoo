@@ -5,8 +5,7 @@
   align-items: start;
 }
 
-.relay-plan,
-.payment-history {
+.relay-plan {
   margin-bottom: 16px;
 }
 
@@ -18,8 +17,7 @@
   padding: 16px 18px;
 }
 
-.relay-plan h2,
-.payment-history h2 {
+.relay-plan h2 {
   margin: 0;
   color: var(--accent);
   font-family: var(--font-display);
@@ -34,51 +32,6 @@
   line-height: 1.45;
 }
 
-.relay-plan .relay-plan-status {
-  color: var(--ink);
-}
-.relay-plan .relay-plan-warning {
-  color: var(--danger);
-}
-.relay-plan > .secondary-button {
-  margin-left: auto;
-}
-.payment-status,
-.payment-error {
-  margin: -6px 0 16px;
-  font-size: 13px;
-  font-weight: 650;
-}
-.payment-status {
-  color: var(--accent);
-}
-.payment-error {
-  color: var(--danger);
-}
-
-.payment-history {
-  overflow: hidden;
-}
-.payment-history h2 {
-  padding: 13px 16px;
-  border-bottom: 1px solid var(--line);
-}
-.payment-history div {
-  display: grid;
-  grid-template-columns: minmax(150px, 0.8fr) 120px 1fr;
-  gap: 12px;
-  padding: 11px 16px;
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 13px;
-}
-.payment-history div:last-child {
-  border-bottom: 0;
-}
-.pending-payments div {
-  grid-template-columns: minmax(190px, 1fr) 170px minmax(220px, 1fr) auto;
-  align-items: center;
-}
 .testnet-trial {
   border-color: var(--testnet-border);
   background: var(--testnet-soft);
@@ -164,23 +117,6 @@
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.45;
-}
-
-.relay-payment-button {
-  min-height: 40px;
-  border: 1px solid var(--warning-border);
-  border-radius: var(--radius-control);
-  padding: 0 var(--space-4);
-  background: linear-gradient(135deg, #ffd166, #f6a84f);
-  box-shadow: 0 0 20px rgba(255, 209, 102, 0.16);
-  color: #1a1203;
-  font: var(--font-weight-bold) var(--font-size-body) var(--font-body);
-  cursor: pointer;
-}
-
-.relay-payment-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.58;
 }
 
 .form-actions,
@@ -630,12 +566,5 @@
   .relay-plan {
     align-items: stretch;
     flex-direction: column;
-  }
-  .relay-plan > .secondary-button {
-    margin-left: 0;
-  }
-  .payment-history div,
-  .pending-payments div {
-    grid-template-columns: 1fr;
   }
 }

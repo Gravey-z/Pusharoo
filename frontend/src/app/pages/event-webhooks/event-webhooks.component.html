@@ -49,7 +49,7 @@
         @if (relayUsageByNetwork[webhookNetwork]; as usage) {
           <dl class="relay-usage">
             <div>
-              <dt>Active</dt>
+              <dt>{{ usage.plan === 'paid' ? 'Shared active' : 'Testnet active' }}</dt>
               <dd>{{ usage.activeSubscriptions }}/{{ usage.maxActiveSubscriptions }}</dd>
             </div>
             <div>
@@ -66,206 +66,41 @@
     </div>
   </section>
 
-  @if (webhookNetwork === 'neo3:mainnet') {
-    @if (!isRelayConnected) {
-      <section class="relay-plan surface-panel" aria-label="N3:Mainnet Relay connection">
-        <div>
-          <h2>Pusharoo Relay</h2>
-          <p>Sign in with the project-owner wallet to view and manage N3:Mainnet Relay access.</p>
-        </div>
-        <button
-          class="primary-button"
-          type="button"
-          (click)="connectRelay()"
-          [disabled]="connectingRelay || !canManageProject"
-          title="Only the project owner can connect to Relay"
-        >
-          {{ connectingRelay ? 'Connecting...' : 'Open Relay workspace' }}
-        </button>
-      </section>
-    } @else if (relayUsageByNetwork['neo3:mainnet']; as mainnetUsage) {
-      <section class="relay-plan surface-panel" aria-label="Pusharoo Relay plan">
-        <div>
-          <h2>Pusharoo Relay</h2>
-          <p>
-            {{
-              mainnetUsage.plan === 'paid'
-                ? 'Paid Relay includes N3:Mainnet and N3:Testnet delivery.'
-                : 'Upgrade to use N3:Mainnet delivery.'
-            }}
-            {{ mainnetUsage.maxActiveSubscriptions }} active webhooks and
-            {{ mainnetUsage.maxEvents }} events per 30 days.
-          </p>
-          <p class="relay-plan-status">
-            {{
-              mainnetUsage.status === 'active'
-                ? 'Active until'
-                : mainnetUsage.status === 'grace'
-                  ? 'Grace period ends after'
-                  : 'Access ended on'
-            }}
-            {{
-              (mainnetUsage.status === 'grace'
-                ? mainnetUsage.graceEndsAt
-                : mainnetUsage.periodEndsAt
-              ) | date: 'mediumDate'
-            }}.
-          </p>
-          <p class="relay-plan-warning">
-            @if (mainnetUsage.status === 'active') {
-              Renew before expiry to avoid paused deliveries.
-            } @else if (mainnetUsage.status === 'grace') {
-              Deliveries are paused during grace. Renew now to restore access.
-            } @else {
-              Deliveries are paused until Relay is renewed.
-            }
-          </p>
-        </div>
-        <button
-          class="secondary-button"
-          type="button"
-          (click)="showPaymentHistory()"
-          [disabled]="!canManageProject"
-          >Payment history</button
-        >
-        <button
-          class="relay-payment-button"
-          type="button"
-          (click)="renewRelay()"
-          [disabled]="renewingRelay || !canManageProject"
-          title="Only the project owner can renew Relay"
-        >
-          {{
-            renewingRelay
-              ? 'Creating intent…'
-              : mainnetUsage.plan === 'paid'
-                ? 'Renew: 5 GAS'
-                : 'Unlock Relay: 5 GAS'
-          }}
-        </button>
-      </section>
-    } @else {
-      <section class="relay-plan surface-panel" aria-label="Pusharoo Relay plan">
-        <div>
-          <h2>Pusharoo Relay</h2>
-          <p
-            >Unlock N3:Mainnet and N3:Testnet event delivery for 5 GAS every 30 days, including five
-            active webhooks and 10,000 events.</p
-          >
-        </div>
-        <button
-          class="secondary-button"
-          type="button"
-          (click)="showPaymentHistory()"
-          [disabled]="!canManageProject"
-          >Payment history</button
-        >
-        <button
-          class="relay-payment-button"
-          type="button"
-          (click)="renewRelay()"
-          [disabled]="renewingRelay || !canManageProject"
-          title="Only the project owner can renew Relay"
-        >
-          {{ renewingRelay ? 'Creating intent…' : 'Unlock Relay: 5 GAS' }}
-        </button>
-      </section>
-    }
-
-    @if (formStatus) {
-      <p class="payment-status" aria-live="polite">{{ formStatus }}</p>
-    }
-    @if (errorMessage) {
-      <p class="payment-error" role="alert">{{ errorMessage }}</p>
-    }
-
-    @if (paymentHistory?.pendingIntents?.length) {
-      <section
-        class="payment-history pending-payments surface-panel surface-panel--flush"
-        aria-label="Pending Relay payments"
+  @if (!isRelayConnected) {
+    <section class="relay-plan surface-panel" aria-label="Relay connection">
+      <div
+        ><h2>Pusharoo Relay</h2
+        ><p>Sign in with the project-owner wallet to view packages and manage Relay access.</p></div
       >
-        <h2>Pending Relay payments</h2>
-        @for (intent of paymentHistory?.pendingIntents ?? []; track intent.id) {
-          <div>
-            <span
-              >{{ gasAmount(intent.requiredGasDatoshis) }} GAS to
-              {{ intent.recipientAddress }}</span
-            >
-            <span>Expires {{ intent.expiresAt | date: 'short' }}</span>
-            @if (intent.submittedTransactionId) {
-              <span
-                >Submitted: {{ shortHash(intent.submittedTransactionId) }} · awaiting N3:Mainnet
-                finality</span
-              >
-              <button
-                class="primary-button"
-                type="button"
-                (click)="resumeRelayPayment(intent)"
-                [disabled]="resumingIntentId === intent.id"
-              >
-                {{ resumingIntentId === intent.id ? 'Checking…' : 'Check confirmation' }}
-              </button>
-            } @else {
-              <span>Ready for wallet approval</span>
-              <button
-                class="relay-payment-button"
-                type="button"
-                (click)="payRelayIntent(intent)"
-                [disabled]="payingIntentId === intent.id"
-              >
-                {{
-                  payingIntentId === intent.id
-                    ? 'Waiting for wallet…'
-                    : 'Pay ' + gasAmount(intent.requiredGasDatoshis) + ' GAS'
-                }}
-              </button>
-            }
-          </div>
-        }
-      </section>
-    }
-
-    @if (paymentHistory?.payments?.length) {
-      <section
-        class="payment-history surface-panel surface-panel--flush"
-        aria-label="Relay payment history"
+      <button
+        class="primary-button"
+        type="button"
+        (click)="connectRelay()"
+        [disabled]="connectingRelay || !canManageProject"
+        >{{ connectingRelay ? 'Connecting...' : 'Open Relay workspace' }}</button
       >
-        <h2>Relay payment history</h2>
-        @for (payment of paymentHistory?.payments ?? []; track payment.transactionId) {
-          <div>
-            <span>{{ shortHash(payment.transactionId) }}</span>
-            <span>Confirmed</span>
-            <span>Access through {{ payment.entitlementEndsAt | date: 'mediumDate' }}</span>
-          </div>
-        }
-      </section>
-    }
-  } @else {
+    </section>
+  }
+  @if (overview) {
+    <app-relay-billing
+      [project]="overview.project"
+      [connected]="isRelayConnected"
+      (usageChanged)="updateRelayUsage($event)"
+    />
+  }
+  @if (webhookNetwork === 'neo3:testnet' && relayUsageByNetwork[webhookNetwork]?.plan !== 'paid') {
     <section
       class="relay-plan testnet-trial surface-panel"
       aria-label="N3:Testnet Relay free trial"
     >
-      <div>
-        <h2>N3:Testnet Relay free trial</h2>
-        <p
-          >Use up to 5 active webhooks and 1,000 matched events every 7 days. This is a free
-          N3:Testnet-only trial.</p
-        >
-        <p class="relay-plan-warning"
-          >Each N3:Testnet webhook and its delivery history are automatically removed seven days
-          after that webhook is created.</p
-        >
-      </div>
-      @if (!isRelayConnected && isWalletConnected && canManageProject) {
-        <button
-          class="primary-button"
-          type="button"
-          (click)="connectRelay()"
-          [disabled]="connectingRelay"
-        >
-          {{ connectingRelay ? 'Connecting...' : 'Open Relay workspace' }}
-        </button>
-      }
+      <div
+        ><h2>N3:Testnet Relay free trial</h2
+        ><p
+          >Use up to 5 active Testnet webhooks and 1,000 deliveries every 7 days. Free-trial
+          webhooks and their history are removed seven days after creation. Paid Testnet access
+          follows its purchased package instead.</p
+        ></div
+      >
     </section>
   }
 
@@ -434,6 +269,12 @@
                     </span>
                   </header>
                   <div class="subscription-summary">
+                    @if (!subscription.isEnabled && subscription.pauseReason === 'package_limit') {
+                      <p class="hint"
+                        >Paused at a lower package limit. Resume explicitly when a shared webhook
+                        slot is available.</p
+                      >
+                    }
                     <dl class="subscription-metadata">
                       <div>
                         <dt>Contract</dt>

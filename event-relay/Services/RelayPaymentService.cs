@@ -844,7 +844,17 @@ public sealed partial class RelayPaymentService(
                 ))
                 .ToArray(),
             pending.Select(ToResponse).ToArray(),
-            annotated
+            annotated,
+            await Store.PeriodsAsync(projectId, ct),
+            (
+                await db
+                    .PaymentIntents.Find(x => x.ProjectId == projectId)
+                    .SortByDescending(x => x.CreatedAt)
+                    .Limit(25)
+                    .ToListAsync(ct)
+            )
+                .Select(ToResponse)
+                .ToArray()
         );
     }
 
@@ -1015,7 +1025,7 @@ public sealed partial class RelayPaymentService(
             intent.SubmittedTransactionId,
             intent.Terms,
             intent.UnappliedGasDatoshis,
-            intent.RecoveryMessage
+            intent.RecoveryMessage ?? intent.RejectionReason
         );
 }
 

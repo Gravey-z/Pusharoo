@@ -235,6 +235,7 @@ export interface WebhookSubscription {
   webhookUrl: string;
   headers: Record<string, string>;
   isEnabled: boolean;
+  pauseReason?: string | null;
   createdAt: string;
   updatedAt: string;
   latestDelivery?: WebhookDelivery | null;
@@ -311,6 +312,7 @@ export interface EventRelayStatus {
 export interface RelayUsage {
   plan: string;
   status: string;
+  periodStart?: string;
   periodEndsAt: string;
   graceEndsAt?: string | null;
   maxActiveSubscriptions: number;
@@ -318,6 +320,91 @@ export interface RelayUsage {
   maxEvents: number;
   eventsUsed: number;
   eventsRemaining: number;
+  packageId?: string | null;
+  purchasedPeriodId?: string | null;
+  packageTerms?: RelayPackageTerms | null;
+  needsReconciliation?: boolean;
+  scheduledPeriods?: RelayPurchasedPeriod[] | null;
+  transitions?: RelayTransitions | null;
+}
+
+export interface RelayPackageTerms {
+  packageId: string;
+  version: string;
+  name: string;
+  gasDatoshis: number;
+  days: number;
+  graceDays: number;
+  maxActiveSubscriptions: number;
+  maxEvents: number;
+}
+
+export interface RelayPackageCatalog {
+  revision: string;
+  fingerprint: string;
+  webhookScope: string;
+  eventScope: string;
+  packages: { terms: RelayPackageTerms; purchaseEnabled: boolean }[];
+  billingReady: boolean;
+  billingBlocker?: string | null;
+  bonusPolicyVersion: string;
+}
+
+export interface RelayPurchasedPeriod {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  originalTerms: RelayPackageTerms;
+  effectiveTerms: RelayPackageTerms;
+  version: number;
+  source: string;
+}
+
+export interface RelayPeriodTarget {
+  periodId: string;
+  expectedVersion: number;
+  originalTerms: RelayPackageTerms;
+  targetTerms: RelayPackageTerms;
+  priceDatoshis: number;
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface RelayPurchaseTerms {
+  schemaVersion: number;
+  operation: string;
+  package: RelayPackageTerms;
+  requiredGasDatoshis: number;
+  quotedAt: string;
+  source: string;
+  targets: RelayPeriodTarget[];
+  bonus?: { policyVersion: string; target: RelayPeriodTarget } | null;
+  scheduleTail?: string | null;
+  effectiveRule: string;
+}
+
+export interface CreateRelayPaymentIntentRequest {
+  packageId: string;
+  operation: 'purchase_period' | 'upgrade_periods';
+  periodIds?: string[];
+  requestKey: string;
+}
+
+export interface RelayTransitions {
+  selections: { periodId: string; subscriptionIds: string[]; recordedAt: string }[];
+  lastTransition?: { id: string; appliedAt: string; pausedSubscriptionIds: string[] } | null;
+}
+
+export interface RelayGrantAllocation {
+  id: string;
+  periodId: string;
+  kind: string;
+  status: string;
+  reason?: string | null;
+  priceDatoshis: number;
+  terms: RelayPackageTerms;
+  startsAt: string;
+  endsAt: string;
 }
 
 export interface RelayPaymentIntent {
@@ -332,6 +419,9 @@ export interface RelayPaymentIntent {
   expiresAt: string;
   confirmedTransactionId?: string | null;
   submittedTransactionId?: string | null;
+  terms?: RelayPurchaseTerms | null;
+  unappliedGasDatoshis?: number;
+  recoveryMessage?: string | null;
 }
 
 export interface RelayPayment {
@@ -340,6 +430,10 @@ export interface RelayPayment {
   status: string;
   entitlementEndsAt?: string | null;
   message?: string | null;
+  terms?: RelayPurchaseTerms | null;
+  unappliedGasDatoshis?: number;
+  allocations?: RelayGrantAllocation[] | null;
+  grantProgress?: { allocationId: string; appliedNetworks: string[] }[] | null;
 }
 
 export interface RelayEntitlementHistory {
@@ -348,12 +442,31 @@ export interface RelayEntitlementHistory {
   periodStart: string;
   periodEndsAt: string;
   graceEndsAt: string;
+  terms?: RelayPurchaseTerms | null;
+  periodId?: string | null;
+  allocationId?: string | null;
 }
 
 export interface RelayPaymentHistory {
   payments: RelayPayment[];
   entitlements: RelayEntitlementHistory[];
   pendingIntents: RelayPaymentIntent[];
+  periods?: RelayPurchasedPeriod[] | null;
+  recentIntents?: RelayPaymentIntent[] | null;
+  resolutions?:
+    | {
+        id: string;
+        intentId: string;
+        action: string;
+        outcome: string;
+        amountDatoshis: number;
+        actualRefundGasDatoshis?: number | null;
+        resolvedGasDatoshis?: number | null;
+        refundTransactionId?: string | null;
+        replacementQuote?: RelayPaymentIntent | null;
+        createdAt: string;
+      }[]
+    | null;
 }
 
 export interface ProjectCardViewModel {

@@ -1,0 +1,602 @@
+<section class="billing surface-panel" aria-labelledby="relay-billing-heading">
+  <header>
+    <div>
+      <h2 id="relay-billing-heading">Relay packages and billing</h2>
+      <p
+        >Packages belong to this project. Webhook slots are shared across Mainnet and Testnet; each
+        network has its own delivery allowance.</p
+      >
+    </div>
+    @if (connected) {
+      <button
+        class="secondary-button"
+        type="button"
+        (click)="billing.refresh()"
+        [disabled]="billing.loading || billing.busy"
+        >{{ billing.loading ? 'Refreshing...' : 'Refresh billing' }}</button
+      >
+    }
+  </header>
+
+  @if (!connected) {
+    <p
+      >Connect and sign in with the project-owner wallet to view packages, purchased periods, and
+      payments.</p
+    >
+  } @else {
+    @if (billing.error) {
+      <p class="error" role="alert">{{ billing.error }}</p>
+    }
+    @if (billing.message) {
+      <p class="status" role="status">{{ billing.message }}</p>
+    }
+    @if (!billing.ready && !billing.loading) {
+      <p>Billing information is unavailable or out of date. Refresh before purchasing.</p>
+    }
+    @if (!billing.mainnetWallet) {
+      <p class="warning"
+        >Connect the project-owner wallet on N3:Mainnet to pay for either network. You can still
+        review billing here.</p
+      >
+    }
+
+    <div class="usage-grid" aria-label="Current access and usage">
+      @for (network of ['neo3:mainnet', 'neo3:testnet']; track network) {
+        @if (billing.usage[network]; as usage) {
+          <article>
+            <h3>{{ network === 'neo3:mainnet' ? 'N3:Mainnet' : 'N3:Testnet' }}</h3>
+            <strong
+              >{{
+                usage.packageTerms?.name ||
+                  (usage.plan === 'paid'
+                    ? 'Paid Relay (legacy terms)'
+                    : network === 'neo3:testnet'
+                      ? 'Free Testnet'
+                      : 'No paid access')
+              }}
+              · {{ label(usage.status) }}</strong
+            >
+            <p
+              >Current allowance: {{ usage.eventsUsed | number }} used /
+              {{ usage.maxEvents | number }} deliveries;
+              {{ usage.eventsRemaining | number }} remaining.</p
+            >
+            <p>Current period ends {{ usage.periodEndsAt | date: 'medium' : 'UTC' }} UTC.</p>
+            @if (usage.status === 'grace') {
+              <p class="warning"
+                >Grace ends {{ usage.graceEndsAt | date: 'medium' : 'UTC' }} UTC. Grace adds no
+                delivery allowance.</p
+              >
+            }
+            @if (usage.needsReconciliation) {
+              <p class="warning"
+                >Historical access needs review before a standard upgrade can be quoted.</p
+              >
+            }
+          </article>
+        }
+      }
+    </div>
+    @if (billing.usage['neo3:mainnet']; as usage) {
+      @if (usage.plan === 'paid') {
+        <p
+          ><strong
+            >Shared enabled webhooks: {{ usage.activeSubscriptions }} /
+            {{ usage.maxActiveSubscriptions }}</strong
+          >
+          across both networks.</p
+        >
+      }
+    }
+
+    @if (billing.catalog; as catalog) {
+      @if (!catalog.billingReady) {
+        <p class="warning" role="status"
+          >New billing is temporarily unavailable.
+          {{
+            catalog.billingBlocker
+              ? 'The Relay service needs attention. Please try again later.'
+              : ''
+          }}</p
+        >
+      }
+      <fieldset [disabled]="billing.busy || billing.loading || billing.openIntent">
+        <legend>Choose what to buy</legend>
+        <label class="choice"
+          ><input
+            type="radio"
+            name="relay-operation"
+            value="purchase_period"
+            [(ngModel)]="operation"
+          />Buy another period</label
+        >
+        <label class="choice"
+          ><input
+            type="radio"
+            name="relay-operation"
+            value="upgrade_periods"
+            [(ngModel)]="operation"
+          />Upgrade selected existing periods</label
+        >
+      </fieldset>
+
+      @if (operation === 'purchase_period') {
+        <fieldset
+          class="package-grid"
+          [disabled]="billing.busy || billing.loading || billing.openIntent"
+        >
+          <legend>Select a package for the new period</legend>
+          @for (entry of catalog.packages; track entry.terms.packageId) {
+            <label class="package" [class.selected]="packageId === entry.terms.packageId">
+              <span class="choice"
+                ><input
+                  type="radio"
+                  name="relay-package"
+                  [value]="entry.terms.packageId"
+                  [(ngModel)]="packageId"
+                  [disabled]="!entry.purchaseEnabled"
+                /><strong>{{ entry.terms.name }}</strong></span
+              >
+              <strong>{{ gas(entry.terms.gasDatoshis) }} GAS / {{ entry.terms.days }} days</strong>
+              <span
+                >{{ entry.terms.maxActiveSubscriptions }} active webhooks shared across both
+                networks</span
+              >
+              <span>{{ entry.terms.maxEvents | number }} deliveries per network, per period</span>
+            </label>
+          }
+        </fieldset>
+        <p
+          >The new period starts after all prepaid periods, or at payment acceptance if coverage has
+          ended. It does not unlock future allowance early.</p
+        >
+        @if (packageId === 'pro') {
+          <p
+            >A full-price Pro purchase can include a free upgrade of the remaining current Starter
+            period. The quote checks eligibility and identifies that period. Other prepaid Starter
+            periods keep their package.</p
+          >
+        }
+      } @else {
+        <p
+          >Upgrade eligible Starter periods to Pro without buying another period. Dates and used
+          deliveries stay unchanged. Unselected periods keep their package. The server confirms the
+          itemized price in the quote.</p
+        >
+        <p class="warning"
+          >If you plan to buy a new Pro period, use “Buy another period”: its quote can include the
+          remaining current Starter time free. Do not pay a separate current-period upgrade for that
+          bonus.</p
+        >
+        <p
+          >Estimated total: {{ gas(estimatedUpgradeCost) }} GAS. Select periods below, then request
+          a quote.</p
+        >
+      }
+      <button class="primary-button" type="button" (click)="quote()" [disabled]="quoteDisabled">{{
+        billing.busy ? 'Working...' : 'Review server quote'
+      }}</button>
+      @if (billing.openIntent) {
+        <p class="warning"
+          >An open payment reserves billing for this project. Finish its confirmation, resolve its
+          payment review, or wait for an unpaid quote to expire before choosing another.</p
+        >
+      }
+    }
+
+    <section aria-labelledby="relay-periods-heading">
+      <h3 id="relay-periods-heading">Purchased periods</h3>
+      @if (!periods.length) {
+        <p
+          >No individually recorded purchased periods are available. Existing legacy access remains
+          shown above; ambiguous historical access needs review before upgrading.</p
+        >
+      }
+      <div class="period-list">
+        @for (period of periods; track period.id) {
+          <article>
+            <strong>{{ period.effectiveTerms.name }} · {{ periodStatus(period) }}</strong>
+            <p
+              >{{ period.startsAt | date: 'medium' : 'UTC' }} –
+              {{ period.endsAt | date: 'medium' : 'UTC' }} UTC</p
+            >
+            <p
+              >{{ period.effectiveTerms.maxActiveSubscriptions }} shared webhooks ·
+              {{ period.effectiveTerms.maxEvents | number }} deliveries per network.</p
+            >
+            @if (period.originalTerms.packageId !== period.effectiveTerms.packageId) {
+              <p
+                >Originally {{ period.originalTerms.name }}; upgraded with the original dates
+                retained.</p
+              >
+            }
+            @if (operation === 'upgrade_periods' && canUpgrade(period)) {
+              <label class="choice"
+                ><input
+                  type="checkbox"
+                  [checked]="selectedPeriodIds.includes(period.id)"
+                  (change)="togglePeriod(period.id, $any($event.target).checked)"
+                  [disabled]="billing.busy || billing.loading || billing.openIntent"
+                />Upgrade this period to Pro</label
+              >
+            }
+          </article>
+        }
+      </div>
+    </section>
+
+    @for (intent of billing.pendingIntents; track intent.id) {
+      <article class="quote" [attr.aria-label]="'Payment quote ' + intent.id">
+        <h3
+          >{{ intent.terms?.package?.name || 'Legacy paid Relay' }} ·
+          {{
+            billing.transactionId(intent) && intent.status === 'pending'
+              ? 'Submitted; checking confirmation'
+              : label(intent.status)
+          }}</h3
+        >
+        <p
+          ><strong>{{ gas(intent.requiredGasDatoshis) }} GAS</strong> to
+          <span class="hash">{{ intent.recipientAddress }}</span> on N3:Mainnet, plus your wallet’s
+          network fee.</p
+        >
+        <p
+          >Quote deadline: {{ intent.expiresAt | date: 'medium' : 'UTC' }} UTC. A transaction
+          already reported in time can finish after this deadline without another transfer.</p
+        >
+        @if (intent.terms; as terms) {
+          <p
+            >{{ terms.package.maxActiveSubscriptions }} shared active webhooks ·
+            {{ terms.package.maxEvents | number }} deliveries per network ·
+            {{ terms.package.days }} days for a new period.</p
+          >
+          @if (terms.operation === 'purchase_period') {
+            <p
+              >Payment buys one new {{ terms.package.name }} period lasting
+              {{ terms.package.days }} days.
+              @if (terms.scheduleTail) {
+                It starts at payment acceptance or after the complete prepaid schedule ending
+                {{ terms.scheduleTail | date: 'medium' : 'UTC' }} UTC, whichever is later.
+              } @else {
+                It starts at payment acceptance.
+              }
+              The dates are fixed when the verified payment is accepted.</p
+            >
+          } @else {
+            <p
+              >Only these periods are upgraded. No extra period is purchased; dates, used allowance,
+              and delivery receipts stay unchanged.</p
+            >
+          }
+          <ul>
+            @for (target of terms.targets; track target.periodId) {
+              <li
+                >{{ target.originalTerms.name }} → {{ target.targetTerms.name }}:
+                {{ target.startsAt | date: 'medium' : 'UTC' }} –
+                {{ target.endsAt | date: 'medium' : 'UTC' }} UTC ·
+                {{ gas(target.priceDatoshis) }} GAS</li
+              >
+            }
+          </ul>
+          @if (terms.bonus; as bonus) {
+            <p class="status"
+              ><strong>Included free: remaining current Starter time → Pro, 0 GAS.</strong> It ends
+              {{ bonus.target.endsAt | date: 'medium' : 'UTC' }} UTC. Existing usage and receipts
+              are retained: the new ceiling is {{ bonus.target.targetTerms.maxEvents | number }} per
+              network, with {{ bonus.target.targetTerms.maxActiveSubscriptions }} shared slots.</p
+            >
+            <p
+              >If that specific period ends or changes before payment acceptance, the free bonus may
+              no longer apply. Your paid new Pro period is still honored; the bonus is not moved to
+              another period.</p
+            >
+          }
+          @for (period of quoteStarterPeriods(intent); track period.id) {
+            <p class="warning"
+              >Unchanged Starter period: {{ period.startsAt | date: 'medium' : 'UTC' }} –
+              {{ period.endsAt | date: 'medium' : 'UTC' }} UTC. Its limit is
+              {{ period.effectiveTerms.maxActiveSubscriptions }} shared webhooks and
+              {{ period.effectiveTerms.maxEvents | number }} deliveries per network. This limit
+              applies at its boundary unless this period is separately upgraded.</p
+            >
+          }
+          @if (terms.operation === 'purchase_period' && terms.package.packageId === 'starter') {
+            <p class="warning"
+              >At this new Starter period’s start, enabled webhooks above its
+              {{ terms.package.maxActiveSubscriptions }}-webhook cap will be paused. Save which
+              webhooks to keep after the period is confirmed; otherwise the oldest enabled webhooks
+              are kept.</p
+            >
+          }
+        } @else {
+          <p
+            >This older quote has no package snapshot available for review. It follows its original
+            quoted payment terms; its amount does not select Pro. Contact support if those terms are
+            unclear.</p
+          >
+        }
+        @if (intent.recoveryMessage) {
+          <p class="warning">{{ intent.recoveryMessage }}</p>
+        }
+        @if (intent.unappliedGasDatoshis) {
+          <p class="warning"
+            >Unapplied amount requiring review: {{ gas(intent.unappliedGasDatoshis!) }} GAS. Do not
+            pay again. Contact support with payment reference {{ intent.id }}.</p
+          >
+        }
+
+        @if (billing.transactionId(intent); as transactionId) {
+          <p class="hash">Submitted transaction: {{ transactionId }}</p>
+          <button
+            class="secondary-button"
+            type="button"
+            (click)="billing.check(intent)"
+            [disabled]="billing.busy || billing.loading || !billing.connected"
+            >Check existing transaction</button
+          >
+        } @else if (billing.localSubmission?.intent?.id === intent.id) {
+          <p class="warning"
+            >The wallet attempt did not return a saved transaction hash. If you rejected it, verify
+            that nothing was broadcast. If it was submitted, enter its hash below. Another transfer
+            is blocked until you resolve this attempt.</p
+          >
+          <label class="choice"
+            ><input
+              type="checkbox"
+              [(ngModel)]="noTransfer[intent.id]"
+              [disabled]="billing.busy"
+            />I checked my wallet: this attempt did not broadcast a transaction.</label
+          >
+          <button
+            class="secondary-button"
+            type="button"
+            (click)="billing.acknowledgeNoTransfer(intent)"
+            [disabled]="!noTransfer[intent.id] || billing.busy"
+            >Clear unsubmitted wallet attempt</button
+          >
+        }
+        @if (
+          !billing.transactionId(intent) &&
+          billing.localSubmission?.intent?.id !== intent.id &&
+          intent.status === 'pending'
+        ) {
+          <label class="choice"
+            ><input type="checkbox" [(ngModel)]="reviewed[intent.id]" [disabled]="billing.busy" />I
+            reviewed the package, dates, retained usage, and any return to Starter.</label
+          >
+          <button
+            class="primary-button"
+            type="button"
+            (click)="billing.pay(intent)"
+            [disabled]="!reviewed[intent.id] || !billing.canPay(intent)"
+            >Pay {{ gas(intent.requiredGasDatoshis) }} GAS</button
+          >
+          @if (expired(intent)) {
+            <p class="warning"
+              >This unpaid quote expired. Refresh and request a new quote. If you already sent GAS,
+              recover its transaction below.</p
+            >
+          }
+        }
+        @if (!billing.transactionId(intent)) {
+          <div class="recovery">
+            <label [for]="'relay-tx-' + intent.id"
+              >Already submitted? Recover the existing transaction</label
+            >
+            <input
+              [id]="'relay-tx-' + intent.id"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              [(ngModel)]="recoveryHashes[intent.id]"
+              placeholder="Mainnet transaction hash"
+              [disabled]="billing.busy"
+            />
+            <button
+              class="secondary-button"
+              type="button"
+              (click)="billing.check(intent, recoveryHashes[intent.id] || '')"
+              [disabled]="billing.busy || billing.loading || !recoveryHashes[intent.id]"
+              >Confirm existing transfer</button
+            >
+          </div>
+        }
+      </article>
+    }
+
+    @for (period of downgradePeriods; track period.id) {
+      <fieldset [disabled]="billing.busy || billing.loading || !billing.ready">
+        <legend>Keep webhooks at the Starter boundary</legend>
+        <p
+          >At {{ period.startsAt | date: 'medium' : 'UTC' }} UTC, the cap returns to
+          {{ period.effectiveTerms.maxActiveSubscriptions }} shared enabled webhooks. Others are
+          paused with their configuration and queued work retained. A later Pro period does not
+          resume them automatically.</p
+        >
+        <p
+          >{{
+            hasSavedSelection(period.id)
+              ? 'A selection is saved for this boundary.'
+              : 'Default: keep the oldest enabled webhooks, breaking creation-time ties by webhook ID.'
+          }}
+          You may save up to {{ period.effectiveTerms.maxActiveSubscriptions }} currently enabled
+          webhooks, including none. Deleted or paused choices are not replaced automatically.</p
+        >
+        @for (subscription of enabledSubscriptions; track subscription.id) {
+          <label class="choice"
+            ><input
+              type="checkbox"
+              [checked]="selections(period).includes(subscription.id)"
+              (change)="toggleSubscription(period, subscription.id, $any($event.target).checked)"
+            />{{ subscription.name }} ·
+            {{ subscription.network === 'neo3:mainnet' ? 'Mainnet' : 'Testnet' }}</label
+          >
+        }
+        <button
+          class="secondary-button"
+          type="button"
+          (click)="saveSelection(period)"
+          [disabled]="selections(period).length > period.effectiveTerms.maxActiveSubscriptions"
+          >Save {{ selections(period).length }} webhook choices</button
+        >
+        @if (selections(period).length > period.effectiveTerms.maxActiveSubscriptions) {
+          <p class="error"
+            >Choose at most {{ period.effectiveTerms.maxActiveSubscriptions }} webhooks across both
+            networks.</p
+          >
+        }
+      </fieldset>
+    }
+    @if (billing.usage['neo3:mainnet']?.transitions?.lastTransition; as transition) {
+      @if (transition.pausedSubscriptionIds.length) {
+        <p class="warning"
+          >Last package transition paused {{ transition.pausedSubscriptionIds.length }} webhooks.
+          They stay paused until you explicitly resume them within the current limit.</p
+        ><ul>
+          @for (id of transition.pausedSubscriptionIds; track id) {
+            <li class="hash">{{ id }}</li>
+          }
+        </ul>
+      }
+    }
+
+    <details>
+      <summary>Payment and access history</summary>
+      @if (!billing.history?.payments?.length) {
+        <p>No verified payments recorded.</p>
+      }
+      @for (payment of billing.history?.payments ?? []; track payment.transactionId) {
+        <article class="history-item">
+          <h3
+            >{{ payment.terms?.package?.name || 'Legacy paid Relay' }} ·
+            {{ label(payment.status) }}</h3
+          >
+          <p
+            >{{
+              payment.terms?.operation === 'upgrade_periods'
+                ? 'Selected-period upgrade'
+                : 'New period purchase'
+            }}<span class="hash"> · {{ payment.transactionId }}</span></p
+          >
+          @if (payment.entitlementEndsAt) {
+            <p
+              >Recorded access through {{ payment.entitlementEndsAt | date: 'medium' : 'UTC' }} UTC.
+              Current access follows the schedule above.</p
+            >
+          }
+          @if (payment.message) {
+            <p>{{ payment.message }}</p>
+          }
+          @if (payment.unappliedGasDatoshis) {
+            <p class="warning"
+              >Unapplied amount: {{ gas(payment.unappliedGasDatoshis!) }} GAS. Contact support with
+              reference {{ payment.intentId }}; no duplicate transfer is needed.</p
+            >
+            @if (otherUnapplied(payment)) {
+              <p class="warning"
+                >Other unapplied funds, such as a late transfer or excess payment:
+                {{ gas(otherUnapplied(payment)) }} GAS. Paid upgrade lines that could not apply are
+                itemized below.</p
+              >
+            }
+          }
+          <ul>
+            @for (allocation of payment.allocations ?? []; track allocation.id) {
+              <li
+                >{{
+                  allocation.kind === 'bonus'
+                    ? 'Free current-period bonus'
+                    : allocation.kind === 'upgrade'
+                      ? 'Selected-period upgrade'
+                      : 'Purchased period'
+                }}
+                · {{ allocation.terms.name }} · {{ gas(allocation.priceDatoshis) }} GAS ·
+                {{ label(allocation.status) }} ·
+                {{ allocation.startsAt | date: 'mediumDate' : 'UTC' }} –
+                {{ allocation.endsAt | date: 'mediumDate' : 'UTC'
+                }}{{ allocation.reason ? ' · ' + allocation.reason : '' }}</li
+              >
+            }
+          </ul>
+          @for (progress of payment.grantProgress ?? []; track progress.allocationId) {
+            <p
+              >Access updated on {{ progress.appliedNetworks.length }} / 2 networks for allocation
+              <span class="hash">{{ progress.allocationId }}</span
+              >.</p
+            >
+          }
+        </article>
+      }
+      @for (resolution of billing.history?.resolutions ?? []; track resolution.id) {
+        <article class="history-item"
+          ><strong
+            >{{ resolution.action === 'refund' ? 'Refund' : 'Replacement allocation' }} ·
+            {{ label(resolution.outcome) }}</strong
+          ><p
+            >{{ gas(resolution.amountDatoshis) }} GAS reviewed;
+            @if (resolution.action === 'refund') {
+              {{ gas(resolution.resolvedGasDatoshis ?? 0) }} GAS recorded as settled by refund
+              proof.
+            } @else {
+              {{
+                resolution.outcome === 'completed'
+                  ? 'The replacement allocation completed without a new transfer.'
+                  : 'Replacement allocation is ' + label(resolution.outcome) + '.'
+              }}
+            }
+            Reference <span class="hash">{{ resolution.id }}</span
+            >.</p
+          >
+          @if (resolution.refundTransactionId) {
+            <p class="hash">{{ resolution.refundTransactionId }}</p>
+          }
+          @if (resolution.replacementQuote?.terms; as replacement) {
+            <p
+              >Replacement: {{ replacement.package.name }} ·
+              {{
+                replacement.operation === 'upgrade_periods'
+                  ? 'selected existing periods'
+                  : 'new period'
+              }}
+              · {{ gas(replacement.requiredGasDatoshis) }} GAS from the recorded unapplied
+              balance.</p
+            >
+            @for (target of replacement.targets; track target.periodId) {
+              <p
+                >{{ target.startsAt | date: 'medium' : 'UTC' }} –
+                {{ target.endsAt | date: 'medium' : 'UTC' }} UTC ·
+                {{ gas(target.priceDatoshis) }} GAS.</p
+              >
+            }
+          }
+        </article>
+      }
+      @for (entry of billing.history?.entitlements ?? []; track $index) {
+        <p
+          >{{ entry.network }} · {{ entry.terms?.package?.name || entry.plan }} ·
+          {{ entry.periodStart | date: 'mediumDate' : 'UTC' }} –
+          {{ entry.periodEndsAt | date: 'mediumDate' : 'UTC' }}</p
+        >
+      }
+    </details>
+  }
+
+  <details>
+    <summary>How delivery allowance and expiry work</summary>
+    <p
+      >One matching event delivered to one webhook uses one unit, even if the HTTP delivery fails.
+      One event matching three webhooks uses three units. Automatic retries retain their original
+      charge; manual redelivery uses a new unit; test sends are free.</p
+    >
+    <p
+      >When allowance is exhausted or paid access ends, new deliveries wait without HTTP attempts.
+      Already-charged retries keep their charge and still require an enabled webhook. Grace adds no
+      days or allowance. Consecutive prepaid periods have no grace between them.</p
+    >
+    <p
+      >Historical recovery has a separate block-scanning quota and cooldown. Only newly queued
+      billable deliveries consume event allowance; scanning limits do not increase with a paid
+      package.</p
+    >
+  </details>
+</section>

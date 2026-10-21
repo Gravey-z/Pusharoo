@@ -5,6 +5,7 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
+    "test:relay-billing": "node --test tests/relay-billing-checks.cjs",
     "watch": "ng build --watch --configuration development"
   },
   "private": true,

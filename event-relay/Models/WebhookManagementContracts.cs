@@ -86,7 +86,9 @@ public sealed record PaymentHistoryResponse(
     IReadOnlyList<PaymentResponse> Payments,
     IReadOnlyList<EntitlementHistoryResponse> Entitlements,
     IReadOnlyList<PaymentIntentResponse> PendingIntents,
-    IReadOnlyList<RelayPaymentResolutionDocument>? Resolutions = null
+    IReadOnlyList<RelayPaymentResolutionDocument>? Resolutions = null,
+    IReadOnlyList<RelayPeriodResponse>? Periods = null,
+    IReadOnlyList<PaymentIntentResponse>? RecentIntents = null
 );
 
 public sealed record EntitlementHistoryResponse(
