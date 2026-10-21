@@ -3,12 +3,13 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.RateLimiting;
 using Pusharoo.EventRelay.Models;
 using Pusharoo.EventRelay.Services;
+using Pusharoo.EventRelay.Startup;
 
 namespace Pusharoo.EventRelay.Controllers;
 
 [ApiController]
 [RequireApiService]
-[EnableRateLimiting("WebhookManagement")]
+[EnableRateLimiting(RelayRateLimiting.Management)]
 [Route("api/projects/{projectId}/relay/payments")]
 public sealed class RelayPaymentsController(RelayPaymentService payments) : ControllerBase
 {
@@ -58,6 +59,7 @@ public sealed class RelayPaymentsController(RelayPaymentService payments) : Cont
     }
 
     [HttpPost("history/query")]
+    [EnableRateLimiting(RelayRateLimiting.Queries)]
     public async Task<ActionResult<PaymentHistoryResponse>> History(
         string projectId,
         CancellationToken ct

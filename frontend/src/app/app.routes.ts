@@ -109,6 +109,14 @@ export const routes: Routes = [
           import('./pages/event-webhooks/event-webhooks.component').then(
             component => component.EventWebhooksComponent
           )
+      },
+      {
+        path: 'relay-billing',
+        data: { preload: true },
+        loadComponent: () =>
+          import('./pages/relay-billing/relay-billing-page.component').then(
+            component => component.RelayBillingPageComponent
+          )
       }
     ]
   },

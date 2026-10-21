@@ -2,17 +2,19 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Pusharoo.EventRelay.Models;
 using Pusharoo.EventRelay.Services;
+using Pusharoo.EventRelay.Startup;
 
 namespace Pusharoo.EventRelay.Controllers;
 
 [ApiController]
 [RequireApiService]
-[EnableRateLimiting("WebhookManagement")]
+[EnableRateLimiting(RelayRateLimiting.Management)]
 [Route("api/projects/{projectId}/subscriptions")]
 public sealed class SubscriptionsController(SubscriptionManagementService management)
     : ControllerBase
 {
     [HttpPost("query")]
+    [EnableRateLimiting(RelayRateLimiting.Queries)]
     public async Task<ActionResult<IReadOnlyList<SubscriptionResponse>>> GetAll(
         string projectId,
         CancellationToken cancellationToken
@@ -33,10 +35,12 @@ public sealed class SubscriptionsController(SubscriptionManagementService manage
     }
 
     [HttpPost("usage")]
+    [EnableRateLimiting(RelayRateLimiting.Queries)]
     public async Task<IActionResult> Usage(string projectId, CancellationToken cancellationToken) =>
         Ok(await management.UsageAsync(projectId, cancellationToken));
 
     [HttpPost("transitions/query")]
+    [EnableRateLimiting(RelayRateLimiting.Queries)]
     public async Task<IActionResult> Transitions(string projectId, CancellationToken ct) =>
         Ok(await management.TransitionsAsync(projectId, ct));
 
@@ -89,6 +93,7 @@ public sealed class SubscriptionsController(SubscriptionManagementService manage
     }
 
     [HttpPost("{subscriptionId}/deliveries/query")]
+    [EnableRateLimiting(RelayRateLimiting.Queries)]
     public async Task<ActionResult<IReadOnlyList<WebhookDeliveryDocument>>> GetDeliveries(
         string projectId,
         string subscriptionId,

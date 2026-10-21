@@ -35,13 +35,7 @@ public sealed class RequireApiServiceAttribute : Attribute, IAuthorizationFilter
             return;
         }
 
-        if (
-            supplied.Length != configured.Length
-            || !CryptographicOperations.FixedTimeEquals(
-                Encoding.UTF8.GetBytes(supplied),
-                Encoding.UTF8.GetBytes(configured)
-            )
-        )
+        if (!HasValidServiceToken(configured, supplied))
         {
             context.Result = new UnauthorizedObjectResult(
                 new { error = "Relay management requires the Pusharoo API." }
@@ -50,16 +44,41 @@ public sealed class RequireApiServiceAttribute : Attribute, IAuthorizationFilter
             return;
         }
 
-        var address = context.HttpContext.Request.Headers["X-Pusharoo-Actor-Address"].ToString();
-        var scriptHash = context
-            .HttpContext.Request.Headers["X-Pusharoo-Actor-Script-Hash"]
-            .ToString();
-
-        if (address.Length != 34 || !address.StartsWith('N') || !ScriptHash.IsMatch(scriptHash))
+        if (GetActorScriptHash(context.HttpContext) is null)
         {
             context.Result = new BadRequestObjectResult(
                 new { error = "Verified actor identity is missing." }
             );
         }
+    }
+
+    internal static string? GetVerifiedActorScriptHash(HttpContext context)
+    {
+        var configured = context
+            .RequestServices.GetRequiredService<IOptions<PusharooApiOptions>>()
+            .Value.ServiceToken;
+        var supplied = context.Request.Headers["X-Pusharoo-Service-Token"].ToString();
+
+        return HasValidServiceToken(configured, supplied) ? GetActorScriptHash(context) : null;
+    }
+
+    private static bool HasValidServiceToken(string configured, string supplied) =>
+        !string.IsNullOrWhiteSpace(configured)
+        && configured.Length >= 32
+        && supplied.Length == configured.Length
+        && CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(supplied),
+            Encoding.UTF8.GetBytes(configured)
+        );
+
+    private static string? GetActorScriptHash(HttpContext context)
+    {
+        var address = context.Request.Headers["X-Pusharoo-Actor-Address"].ToString();
+        var scriptHash = context.Request.Headers["X-Pusharoo-Actor-Script-Hash"].ToString();
+
+        if (address.Length != 34 || !address.StartsWith('N') || !ScriptHash.IsMatch(scriptHash))
+            return null;
+
+        return scriptHash[^40..].ToLowerInvariant();
     }
 }

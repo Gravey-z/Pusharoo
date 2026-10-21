@@ -17,6 +17,9 @@
     </div>
 
     <div class="webhook-workspace-controls">
+      <a class="secondary-button" [routerLink]="['/projects', projectId, 'relay-billing']"
+        >Packages &amp; billing</a
+      >
       <div class="webhook-network-tabs" role="group" aria-label="Webhook network">
         @for (network of ['neo3:testnet', 'neo3:mainnet']; track network) {
           <button
@@ -70,7 +73,7 @@
     <section class="relay-plan surface-panel" aria-label="Relay connection">
       <div
         ><h2>Pusharoo Relay</h2
-        ><p>Sign in with the project-owner wallet to view packages and manage Relay access.</p></div
+        ><p>Sign in with the project-owner wallet to manage event webhooks.</p></div
       >
       <button
         class="primary-button"
@@ -80,13 +83,6 @@
         >{{ connectingRelay ? 'Connecting...' : 'Open Relay workspace' }}</button
       >
     </section>
-  }
-  @if (overview) {
-    <app-relay-billing
-      [project]="overview.project"
-      [connected]="isRelayConnected"
-      (usageChanged)="updateRelayUsage($event)"
-    />
   }
   @if (webhookNetwork === 'neo3:testnet' && relayUsageByNetwork[webhookNetwork]?.plan !== 'paid') {
     <section

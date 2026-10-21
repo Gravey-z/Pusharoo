@@ -1,0 +1,43 @@
+@if (project; as project) {
+  <section class="billing-page" aria-labelledby="relay-billing-title">
+    <header class="billing-heading">
+      <div>
+        <span class="eyebrow">Project subscription</span>
+        <h1 id="relay-billing-title">Relay billing</h1>
+        <p>Manage packages, prepaid periods, upgrades, and payment history for this project.</p>
+      </div>
+      <a class="secondary-button" [routerLink]="['/projects', project.id, 'webhooks']"
+        >Back to webhooks</a
+      >
+    </header>
+
+    @if (connected) {
+      <app-relay-billing [project]="project" [connected]="connected" />
+    } @else {
+      <section class="billing-connection surface-panel" aria-label="Relay billing access">
+        @if (auth.state() === 'checking') {
+          <p role="status">Checking your sign-in...</p>
+        } @else if (!wallet.account()) {
+          <h2>Connect the project-owner wallet</h2>
+          <p>Use the wallet connection above to view this project's packages and payments.</p>
+        } @else if (!isOwner) {
+          <h2>Billing is managed by the project owner</h2>
+          <p>Switch to the project-owner wallet to view packages and manage Relay payments.</p>
+        } @else {
+          <h2>Sign in to manage Relay billing</h2>
+          <p>Sign in with the project-owner wallet. Payments require N3:Mainnet.</p>
+          <button
+            class="primary-button"
+            type="button"
+            (click)="connect()"
+            [disabled]="connecting"
+            >{{ connecting ? 'Signing in...' : 'Open Relay billing' }}</button
+          >
+        }
+        @if (error || auth.errorMessage()) {
+          <p class="form-error" role="alert">{{ error || auth.errorMessage() }}</p>
+        }
+      </section>
+    }
+  </section>
+}

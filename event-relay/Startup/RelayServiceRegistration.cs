@@ -1,4 +1,3 @@
-using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.DataProtection;
 using Pusharoo.EventRelay.Options;
 using Pusharoo.EventRelay.Repositories;
@@ -100,24 +99,7 @@ public static class RelayServiceRegistration
 
     private static void AddHttpServices(IServiceCollection services)
     {
-        services.AddRateLimiter(options =>
-        {
-            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            options.AddPolicy(
-                "WebhookManagement",
-                context =>
-                    RateLimitPartition.GetFixedWindowLimiter(
-                        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                        _ => new FixedWindowRateLimiterOptions
-                        {
-                            PermitLimit = 30,
-                            Window = TimeSpan.FromMinutes(1),
-                            QueueLimit = 0,
-                            AutoReplenishment = true,
-                        }
-                    )
-            );
-        });
+        services.AddRelayManagementRateLimiting();
 
         services.AddControllers();
         services.AddOpenApi();

@@ -6,10 +6,11 @@ using Pusharoo.EventRelay.Models;
 using Pusharoo.EventRelay.Options;
 using Pusharoo.EventRelay.Repositories;
 using Pusharoo.EventRelay.Services;
+using Pusharoo.EventRelay.Startup;
 
 namespace Pusharoo.EventRelay.Controllers;
 
-[ApiController, RequireApiService, EnableRateLimiting("WebhookManagement")]
+[ApiController, RequireApiService, EnableRateLimiting(RelayRateLimiting.Management)]
 [Route("api/projects/{projectId}/subscriptions/{subscriptionId}/replays")]
 public sealed class ReplayJobsController(
     IWebhookSubscriptionRepository subscriptions,
@@ -35,6 +36,7 @@ public sealed class ReplayJobsController(
     }
 
     [HttpPost("query")]
+    [EnableRateLimiting(RelayRateLimiting.Queries)]
     public async Task<IActionResult> List(
         string projectId,
         string subscriptionId,
@@ -149,6 +151,7 @@ public sealed class ReplayJobsController(
     }
 
     [HttpPost("~/api/projects/{projectId}/replays/query")]
+    [EnableRateLimiting(RelayRateLimiting.Queries)]
     public async Task<IActionResult> ListProject(string projectId, CancellationToken ct) =>
         Ok(await jobs.ListProjectAsync(projectId, rpcOptions.Value.Network, ct));
 

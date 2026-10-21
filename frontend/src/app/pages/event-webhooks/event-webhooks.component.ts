@@ -1,6 +1,5 @@
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { RelayBillingComponent } from '../../components/relay-billing/relay-billing.component';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subject, firstValueFrom, takeUntil, timeout } from 'rxjs';
@@ -39,7 +38,6 @@ interface DeploymentOption {
   selector: 'app-event-webhooks',
   imports: [
     RelayHealthPanelComponent,
-    RelayBillingComponent,
     DatePipe,
     FormsModule,
     PageShellComponent,
@@ -339,7 +337,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     const network = this.relayNetwork;
     const historyFor = this.deliveryHistoryForByNetwork[network];
     try {
-      const [subscriptions, history] = await Promise.all([
+      const [subscriptions, history, usage] = await Promise.all([
         firstValueFrom(
           this.api
             .getWebhookSubscriptions(this.projectId, network)
@@ -351,11 +349,17 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
                 .getWebhookDeliveries(this.projectId, network, historyFor)
                 .pipe(timeout(10000), takeUntil(this.destroy$))
             )
-          : Promise.resolve(null)
+          : Promise.resolve(null),
+        firstValueFrom(
+          this.api
+            .getRelayUsage(this.projectId, network)
+            .pipe(timeout(10000), takeUntil(this.destroy$))
+        )
       ]);
       if (this.destroyed || !this.isRelayConnected) return;
       this.subscriptionsByNetwork[network] = subscriptions;
       if (network === this.relayNetwork) this.subscriptions = subscriptions;
+      this.relayUsageByNetwork[network] = usage;
       if (history && this.deliveryHistoryForByNetwork[network] === historyFor) {
         this.deliveryHistoryByNetwork[network] = history;
       }
@@ -543,10 +547,6 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     } finally {
       this.connectingRelay = false;
     }
-  }
-
-  updateRelayUsage(usage: Record<string, RelayUsage>): void {
-    Object.assign(this.relayUsageByNetwork, usage);
   }
 
   eventLabel(subscription: WebhookSubscription): string {
