@@ -4,6 +4,16 @@ namespace backend.Services;
 
 public static class ResponseMapper
 {
+    public static ContractResponse ToResponse(this ContractDocument contract) =>
+        new(
+            contract.Id,
+            contract.ProjectId,
+            contract.Name,
+            contract.Description,
+            contract.CreatedAt,
+            contract.UpdatedAt
+        );
+
     public static ProjectResponse ToResponse(this ProjectDocument project)
     {
         return new ProjectResponse(
@@ -29,7 +39,8 @@ public static class ResponseMapper
             artifact.Manifest,
             artifact.Summary,
             artifact.Warnings,
-            artifact.CreatedAt
+            artifact.CreatedAt,
+            artifact.ContractId
         );
     }
 
@@ -57,7 +68,8 @@ public static class ResponseMapper
                 .AuthorizationSnapshot
                 ?.DeploymentDataFormatVersion,
             AuthorizationSchemaVersion: deployment.AuthorizationSnapshot?.AuthorizationSchemaVersion
-                ?? 1
+                ?? 1,
+            ContractId: deployment.ContractId
         );
     }
 

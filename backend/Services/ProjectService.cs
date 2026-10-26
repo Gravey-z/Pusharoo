@@ -5,7 +5,11 @@ using MongoDB.Driver;
 
 namespace backend.Services;
 
-public sealed class ProjectService(IProjectRepository projects, MongoDbContext db)
+public sealed class ProjectService(
+    IProjectRepository projects,
+    MongoDbContext db,
+    ContractWriteGuard contractWrites
+)
 {
     public async Task<ProjectDocument> CreateAsync(
         CreateProjectRequest request,
@@ -28,6 +32,7 @@ public sealed class ProjectService(IProjectRepository projects, MongoDbContext d
             CreatorNetwork = request.CreatorNetwork,
             IdempotencyKey = idempotencyKey,
             IdempotencyPayloadHash = idempotencyPayloadHash,
+            ContractSchemaVersion = 1,
             CreatedAt = DateTime.UtcNow,
         };
 
@@ -144,6 +149,8 @@ public sealed class ProjectService(IProjectRepository projects, MongoDbContext d
 
     public async Task DeleteAsync(string projectId, CancellationToken cancellationToken)
     {
+        await contractWrites.BeginDeletionAsync(projectId, cancellationToken);
+
         var subscriptions = await db
             .WebhookSubscriptions.Find(Builders<BsonDocument>.Filter.Eq("projectId", projectId))
             .Project(Builders<BsonDocument>.Projection.Include("_id"))
@@ -206,6 +213,10 @@ public sealed class ProjectService(IProjectRepository projects, MongoDbContext d
         );
         await db.ContractArtifacts.DeleteManyAsync(
             artifact => artifact.ProjectId == projectId,
+            cancellationToken
+        );
+        await db.Contracts.DeleteManyAsync(
+            contract => contract.ProjectId == projectId,
             cancellationToken
         );
         await db.Projects.DeleteOneAsync(project => project.Id == projectId, cancellationToken);

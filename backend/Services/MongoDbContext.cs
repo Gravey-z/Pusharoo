@@ -15,6 +15,7 @@ public sealed class MongoDbContext
         var database = client.GetDatabase(mongoOptions.DatabaseName);
 
         Projects = database.GetCollection<ProjectDocument>("projects");
+        Contracts = database.GetCollection<ContractDocument>("contracts");
         ContractArtifacts = database.GetCollection<ArtifactDocument>("contractArtifacts");
         Deployments = database.GetCollection<DeploymentDocument>("deployments");
         WebhookSubscriptions = database.GetCollection<BsonDocument>("eventSubscriptions");
@@ -74,6 +75,30 @@ public sealed class MongoDbContext
                 new CreateIndexOptions { Unique = true, Sparse = true }
             )
         );
+        Contracts.Indexes.CreateMany([
+            new CreateIndexModel<ContractDocument>(
+                Builders<ContractDocument>
+                    .IndexKeys.Ascending(contract => contract.ProjectId)
+                    .Ascending(contract => contract.NormalizedName),
+                new CreateIndexOptions { Name = "contract_project_name", Unique = true }
+            ),
+            new CreateIndexModel<ContractDocument>(
+                Builders<ContractDocument>.IndexKeys.Ascending(contract => contract.IdempotencyKey),
+                new CreateIndexOptions
+                {
+                    Name = "contract_creation_key",
+                    Unique = true,
+                    Sparse = true,
+                }
+            ),
+            new CreateIndexModel<ContractDocument>(
+                Builders<ContractDocument>
+                    .IndexKeys.Ascending(contract => contract.ProjectId)
+                    .Ascending(contract => contract.CreatedAt)
+                    .Ascending(contract => contract.Id),
+                new CreateIndexOptions { Name = "contract_project_list" }
+            ),
+        ]);
         ContractArtifacts.Indexes.CreateMany([
             new CreateIndexModel<ArtifactDocument>(
                 Builders<ArtifactDocument>
@@ -108,6 +133,8 @@ public sealed class MongoDbContext
     }
 
     public IMongoCollection<ProjectDocument> Projects { get; }
+
+    public IMongoCollection<ContractDocument> Contracts { get; }
 
     public IMongoCollection<ArtifactDocument> ContractArtifacts { get; }
 

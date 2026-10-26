@@ -65,6 +65,11 @@ public static class BackendServiceRegistration
         services.AddScoped<IArtifactRepository, ArtifactRepository>();
         services.AddScoped<IDeploymentRepository, DeploymentRepository>();
         services.AddScoped<ProjectService>();
+        services.AddScoped<IContractRepository, ContractRepository>();
+        services.AddScoped<ProjectContractLoader>();
+        services.AddScoped<ContractService>();
+        services.AddScoped<ContractWriteGuard>();
+        services.AddScoped<ContractApiFilter>();
         services.AddScoped<ArtifactService>();
         services.AddSingleton<ArtifactValidator>();
         services.AddScoped<DeploymentService>();
@@ -176,7 +181,7 @@ public static class BackendServiceRegistration
         }
 
         services
-            .AddControllers()
+            .AddControllers(options => options.Filters.AddService<ContractApiFilter>())
             .AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.Converters.Add(new BsonValueJsonConverter());

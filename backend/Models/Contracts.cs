@@ -59,7 +59,8 @@ public sealed record ArtifactResponse(
     NeoContractManifest Manifest,
     ArtifactSummary Summary,
     IReadOnlyList<string> Warnings,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? ContractId = null
 );
 
 public sealed record ArtifactComparisonResponse(
@@ -150,5 +151,19 @@ public sealed record DeploymentResponse(
     DeploymentDataValue? DeploymentData = null,
     string? DeploymentDataSha256 = null,
     string? DeploymentDataFormatVersion = null,
-    int AuthorizationSchemaVersion = 1
+    int AuthorizationSchemaVersion = 1,
+    string? ContractId = null
+);
+
+public sealed record CreateContractRequest(string Name, string? Description);
+
+public sealed record RenameContractRequest(string Name);
+
+public sealed record ContractResponse(
+    string Id,
+    string ProjectId,
+    string Name,
+    string? Description,
+    DateTime CreatedAt,
+    DateTime UpdatedAt
 );

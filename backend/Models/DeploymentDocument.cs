@@ -8,6 +8,10 @@ public sealed record DeploymentDocument
     [BsonElement("_id")]
     public string Id { get; init; } = string.Empty;
 
+    [BsonElement("contractId")]
+    [BsonIgnoreIfNull]
+    public string? ContractId { get; init; }
+
     [BsonElement("projectId")]
     public string ProjectId { get; init; } = string.Empty;
 

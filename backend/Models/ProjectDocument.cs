@@ -48,6 +48,16 @@ public sealed class ProjectDocument
     [BsonIgnoreIfNull]
     public string? IdempotencyPayloadHash { get; init; }
 
+    [BsonElement("contractSchemaVersion")]
+    public int ContractSchemaVersion { get; init; }
+
+    [BsonElement("isDeleting")]
+    public bool IsDeleting { get; init; }
+
+    [BsonElement("contractWriteToken")]
+    [BsonIgnoreIfNull]
+    public string? ContractWriteToken { get; init; }
+
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; init; }
 }
