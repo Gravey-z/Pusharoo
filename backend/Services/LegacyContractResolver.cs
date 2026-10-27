@@ -9,7 +9,8 @@ public sealed class LegacyContractResolver(
     ProjectContractLoader loader,
     IContractRepository contracts,
     DeploymentService deployments,
-    IOptions<MultiContractOptions> options
+    IOptions<MultiContractOptions> options,
+    ContractWriteGuard migrationWrites
 )
 {
     public async Task<string?> ResolveOperationAsync(
@@ -17,6 +18,7 @@ public sealed class LegacyContractResolver(
         CancellationToken cancellationToken
     )
     {
+        await migrationWrites.EnsureMigrationAllowsWritesAsync(cancellationToken);
         var project = await loader.LoadProjectAsync(projectId, cancellationToken);
         var children = await contracts.ListAsync(project.Id, 0, 2, cancellationToken);
         if (children.Count == 1)
@@ -38,6 +40,10 @@ public sealed class LegacyContractResolver(
         CancellationToken cancellationToken
     )
     {
+        await migrationWrites.EnsureMigrationAllowsWritesAsync(
+            cancellationToken,
+            allowReconciliation: true
+        );
         var project = await loader.LoadProjectAsync(projectId, cancellationToken);
         var attempt = await deployments.GetByIdAsync(deploymentId, cancellationToken);
         if (attempt is null || attempt.ProjectId != project.Id)

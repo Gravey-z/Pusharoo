@@ -10,7 +10,11 @@ public sealed partial class ContractWriteGuard(
     IOptions<MultiContractOptions> options
 )
 {
-    public async Task<string> AcquireAsync(string projectId, CancellationToken cancellationToken)
+    public async Task<string> AcquireAsync(
+        string projectId,
+        CancellationToken cancellationToken,
+        bool allowMigrationReconciliation = false
+    )
     {
         if (!options.Value.WritesEnabled)
             throw new ContractOperationException(
@@ -19,6 +23,7 @@ public sealed partial class ContractWriteGuard(
                 "Contract management is not enabled."
             );
 
+        await EnsureMigrationAllowsWritesAsync(cancellationToken, allowMigrationReconciliation);
         var token = Guid.NewGuid().ToString("N");
         var result = await db.Projects.UpdateOneAsync(
             project =>
@@ -74,6 +79,7 @@ public sealed partial class ContractWriteGuard(
 
     public async Task BeginDeletionAsync(string projectId, CancellationToken cancellationToken)
     {
+        await EnsureMigrationAllowsWritesAsync(cancellationToken);
         var result = await db.Projects.UpdateOneAsync(
             project => project.Id == projectId && project.ContractWriteToken == null,
             Builders<ProjectDocument>.Update.Set(project => project.IsDeleting, true),

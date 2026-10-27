@@ -25,7 +25,8 @@ public sealed class ContractDeploymentCoordinator(
         string contractId,
         string network,
         Func<Task<T>> action,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool allowMigrationReconciliation = false
     )
     {
         if (network is not ("neo3:testnet" or "neo3:mainnet"))
@@ -36,7 +37,11 @@ public sealed class ContractDeploymentCoordinator(
             );
 
         await loader.LoadAsync(projectId, contractId, cancellationToken);
-        var projectToken = await AcquireProjectAsync(projectId, cancellationToken);
+        var projectToken = await AcquireProjectAsync(
+            projectId,
+            cancellationToken,
+            allowMigrationReconciliation
+        );
         var token = Guid.NewGuid().ToString("N");
         var tokenField =
             network == "neo3:testnet"
@@ -83,14 +88,19 @@ public sealed class ContractDeploymentCoordinator(
 
     private async Task<string> AcquireProjectAsync(
         string projectId,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool allowMigrationReconciliation = false
     )
     {
         for (var retry = 0; ; retry++)
         {
             try
             {
-                return await projectWrites.AcquireAsync(projectId, cancellationToken);
+                return await projectWrites.AcquireAsync(
+                    projectId,
+                    cancellationToken,
+                    allowMigrationReconciliation
+                );
             }
             catch (ContractOperationException error)
                 when (error.Code == "project_busy" && retry < 40)

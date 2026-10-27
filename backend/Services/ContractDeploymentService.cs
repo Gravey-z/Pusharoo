@@ -213,7 +213,8 @@ public sealed class ContractDeploymentService(
             contractId,
             attempt.Network,
             action,
-            cancellationToken
+            cancellationToken,
+            allowMigrationReconciliation: true
         );
     }
 }

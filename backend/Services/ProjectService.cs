@@ -19,6 +19,7 @@ public sealed class ProjectService(
         CancellationToken cancellationToken
     )
     {
+        await contractWrites.EnsureMigrationAllowsWritesAsync(cancellationToken);
         var project = new ProjectDocument
         {
             Id = ObjectId.GenerateNewId().ToString(),

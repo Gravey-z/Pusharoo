@@ -4,7 +4,10 @@ using MongoDB.Driver;
 
 namespace backend.Services;
 
-public sealed class ProjectAuthorizedDeployerService(MongoDbContext db)
+public sealed class ProjectAuthorizedDeployerService(
+    MongoDbContext db,
+    ContractWriteGuard migrationWrites
+)
 {
     public async Task<ProjectDocument?> AddAsync(
         string projectId,
@@ -12,6 +15,7 @@ public sealed class ProjectAuthorizedDeployerService(MongoDbContext db)
         CancellationToken cancellationToken
     )
     {
+        await migrationWrites.EnsureMigrationAllowsWritesAsync(cancellationToken);
         var filter = Builders<ProjectDocument>.Filter.And(
             Builders<ProjectDocument>.Filter.Eq(project => project.Id, projectId),
             Builders<ProjectDocument>.Filter.Not(
@@ -40,6 +44,7 @@ public sealed class ProjectAuthorizedDeployerService(MongoDbContext db)
         CancellationToken cancellationToken
     )
     {
+        await migrationWrites.EnsureMigrationAllowsWritesAsync(cancellationToken);
         var filter = Builders<ProjectDocument>.Filter.And(
             Builders<ProjectDocument>.Filter.Eq(project => project.Id, projectId),
             Builders<ProjectDocument>.Filter.ElemMatch(
@@ -72,6 +77,7 @@ public sealed class ProjectAuthorizedDeployerService(MongoDbContext db)
         CancellationToken cancellationToken
     )
     {
+        await migrationWrites.EnsureMigrationAllowsWritesAsync(cancellationToken);
         var filter = Builders<ProjectDocument>.Filter.And(
             Builders<ProjectDocument>.Filter.Eq(project => project.Id, projectId),
             Builders<ProjectDocument>.Filter.ElemMatch(
