@@ -1,107 +1,351 @@
-<section class="contracts-workspace">
-  <header class="button-row">
-    <h2>Contracts</h2>
+<section class="contracts-workspace" aria-label="Project contracts">
+  <header class="contracts-header">
+    <div>
+      <h2>Contracts</h2>
+      <p>{{
+        summary?.project?.description ||
+          'Manage contract versions and deployments across your networks.'
+      }}</p>
+    </div>
     @if (canManage) {
-      <button class="primary-button" type="button" (click)="creating = !creating"
-        >Add contract</button
+      <button
+        class="primary-button add-contract"
+        type="button"
+        (click)="openCreate()"
+        [disabled]="saving || creating"
       >
+        <span aria-hidden="true">+</span> Add contract
+      </button>
     }
   </header>
+
   @if (destination) {
-    <p role="status">Choose a contract to continue to {{ destinationLabel }}.</p>
+    <aside class="destination" role="status">
+      <span class="notice-icon" aria-hidden="true">&#8594;</span>
+      <div
+        ><strong>Select a contract</strong
+        ><p>Choose a contract to continue to {{ destinationLabel }}.</p></div
+      >
+    </aside>
   }
+
   @if (creating && canManage) {
-    <form class="surface-panel" (ngSubmit)="create()">
-      <label
-        >Contract name
-        <input name="name" [(ngModel)]="name" required maxlength="128" [disabled]="saving"
-      /></label>
-      <button class="primary-button" type="submit" [disabled]="saving || !name.trim()">{{
-        saving ? 'Saving...' : 'Create contract'
-      }}</button>
+    <form
+      class="create-contract surface-panel"
+      (ngSubmit)="create()"
+      aria-labelledby="create-contract-title"
+    >
+      <div class="create-intro"
+        ><h3 id="create-contract-title">Add a contract</h3
+        ><p>Give this part of your application a name. You can change it later.</p></div
+      >
+      <label for="contract-name">Contract name</label>
+      <div class="create-fields">
+        <input
+          id="contract-name"
+          name="name"
+          [(ngModel)]="name"
+          placeholder="e.g. Treasury"
+          required
+          maxlength="128"
+          [disabled]="saving"
+          [attr.aria-invalid]="createError ? true : null"
+          [attr.aria-describedby]="createError ? 'create-contract-error' : null"
+        />
+        <button class="primary-button" type="submit" [disabled]="saving || !name.trim()">{{
+          saving ? 'Creating...' : 'Create contract'
+        }}</button>
+        <button class="secondary-button" type="button" (click)="cancelCreate()" [disabled]="saving"
+          >Cancel</button
+        >
+      </div>
+      @if (createError) {
+        <p id="create-contract-error" class="form-error" role="alert">{{ createError }}</p>
+      }
     </form>
   }
-  @if (error) {
-    <p class="form-error" role="alert">{{ error }}</p
-    ><button class="secondary-button" type="button" (click)="load()">Refresh</button>
-  }
+
   @if (loading) {
-    <p aria-live="polite">Loading contracts...</p>
-  }
-  @if (summary; as data) {
-    <p
-      >{{ data.contracts.length }} contracts &middot; {{ data.artifactCount }} artifact versions
-      &middot; {{ data.deploymentCount }} deployment attempts</p
-    >
-    <label
-      >Search contracts
-      <input type="search" name="search" [(ngModel)]="search" (ngModelChange)="page = 1"
-    /></label>
-    <div class="contract-grid">
-      @for (item of visibleContracts; track item.contract.id) {
-        <article class="surface-panel">
-          <h3
-            ><a
-              [routerLink]="contractDestination(item.contract.id)"
-              [queryParams]="destinationQuery"
-              >{{ item.contract.name }}</a
-            ></h3
-          >
-          <p>{{ item.artifactCount }} versions &middot; {{ item.deploymentCount }} attempts</p>
-          <p>Latest upload: {{ item.latestArtifact?.version ?? 'No artifact' }}</p>
-          @for (network of ['neo3:testnet', 'neo3:mainnet']; track network) {
-            <div
-              >{{ wallet.networkLabel(network) }}:
-              @if (currentDeployment(item, network); as deployment) {
-                <strong>{{ deployment.version || 'Recovered deployment' }}</strong
-                ><code>{{ deployment.contractHash }}</code>
-              } @else {
-                <span>Not deployed</span>
-              }
-            </div>
-          }
-        </article>
-      } @empty {
-        <p>{{
-          data.contracts.length
-            ? 'No contracts match your search.'
-            : 'Add a contract to upload and deploy your first version.'
-        }}</p>
+    <div class="loading surface-panel surface-panel--flush" role="status" aria-live="polite">
+      <span class="sr-only">Loading contracts...</span>
+      @for (row of [1, 2, 3]; track row) {
+        <div class="skeleton-row" aria-hidden="true"
+          ><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span
+        ></div>
       }
     </div>
-    @if (pages > 1) {
-      <nav class="button-row" aria-label="Contract pages">
-        <button class="secondary-button" (click)="page = page - 1" [disabled]="page === 1"
-          >Previous</button
+  } @else if (error) {
+    <section class="page-state" role="alert"
+      ><span class="state-symbol" aria-hidden="true">!</span><h3>Could not load contracts</h3
+      ><p>{{ error }}</p
+      ><button class="secondary-button" type="button" (click)="load()">Try again</button></section
+    >
+  } @else if (summary; as data) {
+    <dl class="summary" aria-label="Project summary">
+      <div
+        ><dt>Contracts</dt><dd>{{ data.contracts.length }}</dd></div
+      >
+      <div
+        ><dt>Artifact versions</dt><dd>{{ data.artifactCount }}</dd></div
+      >
+      <div class="testnet-summary"
+        ><dt><i aria-hidden="true"></i>Testnet releases</dt
+        ><dd>{{ liveCount('neo3:testnet') }}</dd></div
+      >
+      <div class="mainnet-summary"
+        ><dt><i aria-hidden="true"></i>Mainnet releases</dt
+        ><dd>{{ liveCount('neo3:mainnet') }}</dd></div
+      >
+    </dl>
+
+    @if (data.contracts.length) {
+      <section class="contract-list surface-panel surface-panel--flush" aria-label="Contracts list">
+        <div class="toolbar">
+          <div
+            class="status-filters"
+            role="group"
+            aria-label="Filter contracts by deployment status"
+          >
+            <button
+              type="button"
+              [class.selected]="statusFilter === 'all'"
+              [attr.aria-pressed]="statusFilter === 'all'"
+              (click)="filterByStatus('all')"
+              >All contracts <span>{{ data.contracts.length }}</span></button
+            >
+            <button
+              type="button"
+              [class.selected]="statusFilter === 'deployed'"
+              [attr.aria-pressed]="statusFilter === 'deployed'"
+              (click)="filterByStatus('deployed')"
+              >Deployed <span>{{ deployedContractCount }}</span></button
+            >
+            <button
+              type="button"
+              [class.selected]="statusFilter === 'undeployed'"
+              [attr.aria-pressed]="statusFilter === 'undeployed'"
+              (click)="filterByStatus('undeployed')"
+              >Not deployed <span>{{ data.contracts.length - deployedContractCount }}</span></button
+            >
+          </div>
+          <label class="search-field"
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              aria-hidden="true"
+            >
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <path d="m16 16 4 4" /></svg
+            ><span class="sr-only">Search contracts, versions, or addresses</span
+            ><input
+              type="search"
+              name="search"
+              [(ngModel)]="search"
+              (ngModelChange)="page = 1"
+              placeholder="Search contracts..."
+          /></label>
+        </div>
+
+        <div class="columns" aria-hidden="true"
+          ><span>Contract</span><span>Latest upload</span><span>Testnet</span><span>Mainnet</span
+          ><span></span
+        ></div>
+        @for (item of visibleContracts; track item.contract.id) {
+          <article class="contract-row">
+            <div class="identity">
+              <span class="contract-icon" aria-hidden="true">&#123; &#125;</span>
+              <div class="identity-body">
+                <h3
+                  ><a
+                    [routerLink]="contractDestination(item.contract.id)"
+                    [queryParams]="destinationQuery"
+                    >{{ item.contract.name }}</a
+                  ></h3
+                >
+                @if (item.contract.description) {
+                  <p class="contract-description">{{ item.contract.description }}</p>
+                }
+                <p class="contract-meta"
+                  >{{ item.artifactCount }} {{ item.artifactCount === 1 ? 'version' : 'versions'
+                  }}<span aria-hidden="true">&middot;</span>{{ item.deploymentCount }}
+                  {{ item.deploymentCount === 1 ? 'attempt' : 'attempts' }}</p
+                >
+                @if (!destination) {
+                  <div class="shortcuts"
+                    ><a [routerLink]="contractRoute(item.contract.id, 'artifacts')">Artifacts</a>
+                    @if (item.currentDeployments.length) {
+                      <a [routerLink]="contractRoute(item.contract.id, 'console')">Console</a>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+            <div class="upload">
+              <span class="mobile-label">Latest upload</span>
+              @if (item.latestArtifact; as artifact) {
+                <strong>{{ artifact.version }}</strong
+                ><span>{{ artifact.createdAt | date: 'MMM d, y' }}</span>
+              } @else {
+                <span class="muted">No artifact yet</span>
+                @if (canManage && !destination) {
+                  <a [routerLink]="contractRoute(item.contract.id, 'upload')"
+                    >Upload artifact &#8594;</a
+                  >
+                }
+              }
+            </div>
+            @for (network of ['neo3:testnet', 'neo3:mainnet']; track network) {
+              <div class="release" [class.mainnet-release]="network === 'neo3:mainnet'">
+                <span class="mobile-label">{{
+                  network === 'neo3:testnet' ? 'Testnet' : 'Mainnet'
+                }}</span>
+                @if (currentDeployment(item, network); as deployment) {
+                  <a
+                    class="release-version"
+                    [routerLink]="contractRoute(item.contract.id, 'deployments')"
+                    ><i aria-hidden="true"></i
+                    >{{ deployment.artifactId ? deployment.version : 'Recovered deployment' }}</a
+                  >
+                  <code [title]="deployment.contractHash ?? ''">{{
+                    shortHash(deployment.contractHash)
+                  }}</code>
+                } @else {
+                  <span class="not-deployed"><i aria-hidden="true"></i>Not deployed</span
+                  ><span class="release-hint">No confirmed release</span>
+                }
+              </div>
+            }
+            <a
+              class="open-contract"
+              [routerLink]="contractDestination(item.contract.id)"
+              [queryParams]="destinationQuery"
+              [attr.aria-label]="(destination ? 'Continue with ' : 'Open ') + item.contract.name"
+              ><span>{{ destination ? 'Continue' : 'Open contract' }}</span
+              ><span aria-hidden="true">&#8594;</span></a
+            >
+          </article>
+        } @empty {
+          <div class="page-state no-results"
+            ><h3>No matching contracts</h3
+            ><p>Try another name, version, or address, or clear your filters.</p
+            ><button class="secondary-button" type="button" (click)="clearFilters()"
+              >Clear filters</button
+            ></div
+          >
+        }
+
+        <footer class="list-footer"
+          ><span aria-live="polite"
+            >{{ filteredContracts.length }}
+            {{ filteredContracts.length === 1 ? 'contract' : 'contracts'
+            }}{{
+              search || statusFilter !== 'all' ? ' matching your filters' : ' in this project'
+            }}</span
+          >
+          @if (pages > 1) {
+            <nav class="pagination" aria-label="Contract pages"
+              ><button
+                class="secondary-button"
+                type="button"
+                (click)="page = page - 1"
+                [disabled]="page === 1"
+                aria-label="Previous contract page"
+                >&#8592;</button
+              ><span>{{ page }} / {{ pages }}</span
+              ><button
+                class="secondary-button"
+                type="button"
+                (click)="page = page + 1"
+                [disabled]="page === pages"
+                aria-label="Next contract page"
+                >&#8594;</button
+              ></nav
+            >
+          }
+        </footer>
+      </section>
+    } @else {
+      <section class="page-state first-contract">
+        <span class="empty-icon" aria-hidden="true">&#123; &#125;</span
+        ><h3>Your first contract starts here</h3
+        ><p
+          >Add a contract for each part of your application, then upload its compiled NEF and
+          manifest to create your first version.</p
         >
-        <span>Page {{ page }} of {{ pages }}</span>
-        <button class="secondary-button" (click)="page = page + 1" [disabled]="page === pages"
-          >Next</button
-        >
-      </nav>
-    }
-    <h2>Project activity</h2>
-    @for (deployment of data.recentDeployments; track deployment.id) {
-      <p>
-        @if (deployment.contractId) {
-          <a
-            [routerLink]="[
-              '/projects',
-              data.project.id,
-              'contracts',
-              deployment.contractId,
-              'deployments'
-            ]"
-            >{{ contractName(deployment.contractId) }}</a
+        @if (canManage) {
+          <button class="primary-button" type="button" (click)="openCreate()" [disabled]="creating"
+            >+ Add your first contract</button
           >
         } @else {
-          <span>Unlinked legacy contract</span>
+          <span class="muted">The project owner can add contracts to this workspace.</span>
         }
-        &middot; {{ wallet.networkLabel(deployment.network) }} &middot;
-        {{ deployment.version || 'Recovered deployment' }} &middot; {{ deployment.status }}
-      </p>
-    } @empty {
-      <p>No deployment activity yet.</p>
+      </section>
     }
+
+    <section class="project-activity surface-panel" aria-labelledby="activity-heading">
+      <header class="activity-header"
+        ><div
+          ><h3 id="activity-heading">Recent activity</h3
+          ><p>Deployment progress across this project.</p></div
+        >
+        @if (data.recentDeployments.length > 5) {
+          <button
+            class="text-button"
+            type="button"
+            (click)="showAllActivity = !showAllActivity"
+            [attr.aria-expanded]="showAllActivity"
+            >{{ showAllActivity ? 'Show less' : 'Show more'
+            }}<span aria-hidden="true">&#8594;</span></button
+          >
+        }
+      </header>
+      @for (deployment of activity; track deployment.id) {
+        <div
+          class="activity-row"
+          [class.activity-success]="activityTone(deployment) === 'success'"
+          [class.activity-danger]="activityTone(deployment) === 'danger'"
+        >
+          <span class="activity-icon" aria-hidden="true">
+            @if (activityTone(deployment) === 'success') {
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path d="m5 10 3 3 7-7" />
+              </svg>
+            } @else if (activityTone(deployment) === 'danger') {
+              !
+            } @else {
+              &middot;
+            }
+          </span>
+          <div class="activity-detail"
+            ><strong>{{ activityLabel(deployment) }}</strong
+            ><span>
+              @if (deployment.contractId) {
+                <a [routerLink]="contractRoute(deployment.contractId, 'deployments')">{{
+                  contractName(deployment.contractId)
+                }}</a>
+              } @else {
+                <span>Unlinked legacy contract</span>
+              }
+              <span aria-hidden="true">&middot;</span
+              >{{ deployment.version || 'Recovered deployment' }}</span
+            ></div
+          >
+          <span
+            class="activity-network"
+            [class.mainnet-badge]="deployment.network === 'neo3:mainnet'"
+            >{{ deployment.network === 'neo3:mainnet' ? 'Mainnet' : 'Testnet' }}</span
+          >
+          <time [attr.datetime]="deployment.updatedAt || deployment.createdAt">{{
+            deployment.updatedAt || deployment.createdAt | date: 'MMM d, HH:mm'
+          }}</time>
+        </div>
+      } @empty {
+        <div class="empty-activity"
+          ><p>Deployment activity will appear here after your first attempt.</p></div
+        >
+      }
+    </section>
   }
 </section>

@@ -29,15 +29,6 @@
         (keydown)="onReleaseTabKeydown($event)"
         >Webhooks</a
       >
-      <a
-        #releaseTab
-        [routerLink]="['/projects', projectId, 'relay-billing']"
-        routerLinkActive="active"
-        #billingLink="routerLinkActive"
-        [attr.aria-current]="billingLink.isActive ? 'page' : null"
-        (keydown)="onReleaseTabKeydown($event)"
-        >Relay payments</a
-      >
     </div>
     <span class="wallet-context" [class.mainnet]="wallet.session()?.network === 'neo3:mainnet'">
       {{ wallet.shortAddress() || 'Wallet not connected' }} ·

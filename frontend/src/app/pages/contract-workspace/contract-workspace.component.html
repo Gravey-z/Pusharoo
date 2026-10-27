@@ -1,49 +1,100 @@
-<section class="contracts-workspace">
-  @if (error) {
-    <p class="form-error" role="alert">{{ error }}</p>
-  }
+<section class="contract-workspace">
   @if (contract; as selected) {
-    <nav aria-label="Contract breadcrumbs"
-      ><a [routerLink]="['/projects', projectId]">{{ summary?.project?.name }} / Contracts</a> /
-      {{ selected.name }}</nav
-    >
-    <header class="button-row">
-      <h2>{{ selected.name }}</h2>
-      <label
-        >Contract
-        <select name="contract" [ngModel]="contractId" (ngModelChange)="selectContract($event)">
-          @for (item of summary?.contracts ?? []; track item.contract.id) {
-            <option [value]="item.contract.id">{{ item.contract.name }}</option>
-          }
-        </select></label
-      >
-      @if (canManage) {
-        <button
-          type="button"
-          class="secondary-button"
-          (click)="editing = !editing; rename = selected.name"
-          >Rename</button
-        >
-      }
-    </header>
-    @if (editing && canManage) {
-      <form (ngSubmit)="saveName()"
-        ><label>Name <input name="rename" [(ngModel)]="rename" maxlength="128" required /></label>
-        <button class="primary-button" [disabled]="saving || !rename.trim()">Save name</button>
-      </form>
-    }
-    <nav class="button-row" aria-label="Contract workspace">
-      @for (tab of tabs; track tab; let index = $index) {
-        <a
-          [routerLink]="link(tab)"
-          routerLinkActive="active"
-          [routerLinkActiveOptions]="{ exact: true }"
-          >{{ labels[index] }}</a
-        >
-      }
+    <nav class="contract-breadcrumbs" aria-label="Contract breadcrumbs">
+      <ol>
+        <li><a [routerLink]="['/projects', projectId]">Contracts</a></li>
+        <li aria-hidden="true">/</li>
+        <li aria-current="page">{{ selected.name }}</li>
+      </ol>
     </nav>
+    <section class="contract-header surface-panel" aria-labelledby="contract-title">
+      <header class="contract-heading">
+        <div class="contract-intro">
+          <span class="eyebrow">Contract workspace</span>
+          <h2 id="contract-title">{{ selected.name }}</h2>
+          <p>{{
+            selected.description ||
+              'Manage artifacts, track releases, and interact with this contract.'
+          }}</p>
+        </div>
+        <div class="contract-controls">
+          <label class="contract-switcher" for="workspace-contract">
+            Switch contract
+            <select
+              id="workspace-contract"
+              name="contract"
+              [ngModel]="contractId"
+              (ngModelChange)="selectContract($event)"
+            >
+              @for (item of summary?.contracts ?? []; track item.contract.id) {
+                <option [value]="item.contract.id">{{ item.contract.name }}</option>
+              }
+            </select>
+          </label>
+          @if (canManage) {
+            <button
+              type="button"
+              class="secondary-button"
+              [disabled]="saving"
+              [attr.aria-expanded]="editing"
+              aria-controls="rename-contract"
+              (click)="editing = !editing; rename = selected.name"
+              >Rename</button
+            >
+          }
+        </div>
+      </header>
+      @if (editing && canManage) {
+        <form id="rename-contract" class="rename-form" (ngSubmit)="saveName()">
+          <label for="contract-name">Contract name</label>
+          <div class="rename-fields">
+            <input
+              id="contract-name"
+              name="rename"
+              [(ngModel)]="rename"
+              maxlength="128"
+              required
+              [disabled]="saving"
+            />
+            <button type="submit" class="primary-button" [disabled]="saving || !rename.trim()">{{
+              saving ? 'Saving...' : 'Save name'
+            }}</button>
+            <button
+              type="button"
+              class="secondary-button"
+              [disabled]="saving"
+              (click)="editing = false"
+              >Cancel</button
+            >
+          </div>
+        </form>
+      }
+      @if (error) {
+        <p class="form-error" role="alert">{{ error }}</p>
+      }
+      <nav class="contract-tabs" aria-label="Contract workspace">
+        @for (tab of tabs; track tab; let index = $index) {
+          <a
+            [routerLink]="link(tab)"
+            routerLinkActive="active"
+            #tabLink="routerLinkActive"
+            [routerLinkActiveOptions]="{ exact: true }"
+            [attr.aria-current]="tabLink.isActive ? 'page' : null"
+            >{{ labels[index] }}</a
+          >
+        }
+      </nav>
+    </section>
     <router-outlet />
-  } @else if (!error) {
-    <p aria-live="polite">Loading contract...</p>
+  } @else if (error) {
+    <div class="workspace-message surface-panel" role="alert">
+      <p>{{ error }}</p>
+      <a class="secondary-button" [routerLink]="['/projects', projectId]">Back to contracts</a>
+    </div>
+  } @else {
+    <div class="workspace-message surface-panel" aria-live="polite" aria-busy="true">
+      <p>Loading contract...</p>
+      <div class="skeleton"></div>
+    </div>
   }
 </section>

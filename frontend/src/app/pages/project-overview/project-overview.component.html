@@ -48,9 +48,11 @@
       @let testnetDeployment = latestDeploymentForNetwork(overview, 'testnet');
       @let mainnetDeployment = latestDeploymentForNetwork(overview, 'mainnet');
       <section class="overview-layout">
-        <div class="project-summary surface-panel">
-          <span class="eyebrow">About this project</span>
-          <p>{{ overview.project.description || 'No project description has been added yet.' }}</p>
+        <div class="description surface-panel">
+          <span class="eyebrow">{{
+            contractId ? 'About this contract' : 'About this project'
+          }}</span>
+          <p>{{ description(overview) }}</p>
         </div>
 
         <dl class="metric-grid surface-panel surface-panel--flush">
@@ -81,13 +83,22 @@
             [class.deployed]="deployment"
             [class.network-testnet]="network === 'testnet'"
             [class.network-mainnet]="network === 'mainnet'"
-            [class.network-unavailable]="isNetworkUnavailable(network)"
           >
             <span class="eyebrow">{{ network === 'testnet' ? 'N3:Testnet' : 'N3:Mainnet' }}</span>
             @if (deployment) {
-              <strong>{{ deployment.version }}</strong>
+              <strong>{{ deployment.version || 'Recovered deployment' }}</strong>
               <span class="release-state status-badge status-badge--success">Deployed</span>
-              <p>{{ shortText(deployment.contractHash, 10, 4) }}</p>
+              @if (deployment.contractHash) {
+                <a
+                  class="release-address"
+                  [href]="explorerUrl(deployment.network, 'contract', deployment.contractHash)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  [title]="deployment.contractHash"
+                  >{{ shortText(deployment.contractHash, 14, 8) }}
+                  <span aria-hidden="true">&#8599;</span></a
+                >
+              }
               <a [routerLink]="contractPath('deployments')">View deployment</a>
             } @else {
               <strong>Not deployed</strong>
@@ -95,7 +106,9 @@
                 >Awaiting release</span
               >
               <p>Deploy an artifact to establish this network release.</p>
-              @if (hasActiveAttempt(overview, network)) {
+              @if (!overview.artifacts.length) {
+                <span>Upload an artifact to get started.</span>
+              } @else if (hasActiveAttempt(overview, network)) {
                 <span class="deploy-network-button disabled"
                   >Deployment attempt already active</span
                 >
@@ -119,9 +132,14 @@
 
     @if (releaseTab !== 'deployments') {
       <section class="artifact-list" aria-label="Artifacts">
-        <header class="artifact-list-header">
+        <header class="artifact-header">
           <h2>Artifacts</h2>
-          <div class="artifact-list-actions">
+          <div class="artifact-actions">
+            @if (releaseTab === 'overview' && overview.artifacts.length) {
+              <a class="secondary-button" [routerLink]="contractPath('artifacts')"
+                >View all artifacts</a
+              >
+            }
             @if (overview.artifacts.length >= 2) {
               <a class="secondary-button" [routerLink]="contractPath('compare')">
                 Compare versions
@@ -169,13 +187,18 @@
           <div class="artifact-empty-state">
             <strong>No artifacts uploaded</strong>
             <p>Upload a NEF and manifest before creating a deployment.</p>
+            @if (canManageProject(overview)) {
+              <a class="secondary-button" [routerLink]="contractPath('upload')"
+                >Upload first artifact</a
+              >
+            }
           </div>
         }
 
         @if (
           releaseTab !== 'overview' && overview.artifacts.length && !overview.deployments.length
         ) {
-          <p class="artifact-deployment-empty"
+          <p class="artifact-note"
             >No artifacts deployed yet. Choose an artifact and network to begin a release.</p
           >
         }
@@ -184,10 +207,15 @@
 
     @if (releaseTab !== 'artifacts') {
       <section class="deployment-list" aria-label="Deployments">
-        <header class="deployment-list-header">
+        <header class="deployment-header">
           <h2>Deployments</h2>
+          @if (releaseTab === 'overview' && overview.deployments.length) {
+            <a class="secondary-button" [routerLink]="contractPath('deployments')"
+              >View all deployments</a
+            >
+          }
           @if (releaseTab === 'deployments') {
-            <div class="deployment-list-actions">
+            <div class="deployment-actions">
               @if (
                 overview.artifacts.length &&
                 canStartDeploymentToNetwork(overview, wallet.session()?.network || '')
@@ -353,7 +381,7 @@
                 <span class="deployment-failure" role="alert">{{ confirmationError }}</span>
               }
               @if (deployment.deploymentData && deployment.deploymentData.type !== 'Any') {
-                <details class="deployment-data-record">
+                <details class="deployment-data">
                   <summary>Initialization data</summary>
                   <pre>{{ formatDeploymentData(deployment.deploymentData) }}</pre>
                   @if (deployment.deploymentDataSha256) {
@@ -372,7 +400,7 @@
     }
 
     @if (releaseTab === 'overview') {
-      <section class="release-timeline" aria-label="Release audit timeline">
+      <section class="timeline" aria-label="Release audit timeline">
         <header>
           <div>
             <h2>Release Timeline</h2>

@@ -5,6 +5,7 @@ import { workspaceRoute, contractLink } from '../../services/workspace-route';
 import { firstValueFrom } from 'rxjs';
 import {
   Artifact,
+  ContractOverviewViewModel,
   Deployment,
   DeploymentDataValue,
   ProjectAuthorizedDeployer,
@@ -47,6 +48,16 @@ export class ProjectOverviewComponent implements OnInit {
     return contractLink(this.projectId, this.contractId, ...segments);
   }
   overview: ProjectOverviewViewModel | null = null;
+
+  description(overview: ProjectOverviewViewModel): string {
+    if (this.contractId && 'contract' in overview) {
+      return (
+        (overview as ContractOverviewViewModel).contract.description ||
+        'No contract description has been added yet.'
+      );
+    }
+    return overview.project.description || 'No project description has been added yet.';
+  }
 
   formatDeploymentData(value: DeploymentDataValue): string {
     return JSON.stringify(value, null, 2);

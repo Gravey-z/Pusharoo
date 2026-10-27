@@ -21,7 +21,7 @@ import { contractLink, workspaceRoute } from '../../services/workspace-route';
   selector: 'app-contract-workspace',
   imports: [FormsModule, RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: './contract-workspace.component.html',
-  styleUrl: '../contracts/contracts.component.scss'
+  styleUrl: './contract-workspace.component.scss'
 })
 export class ContractWorkspaceComponent implements OnInit {
   projectId = '';

@@ -1,9 +1,14 @@
+import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink, Params } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
-import { ProjectWorkspaceSummary } from '../../models/pusharoo.models';
+import {
+  ContractWorkspaceSummary,
+  Deployment,
+  ProjectWorkspaceSummary
+} from '../../models/pusharoo.models';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { WalletService } from '../../services/wallet.service';
@@ -13,7 +18,7 @@ import { contractLink, workspaceRoute } from '../../services/workspace-route';
 
 @Component({
   selector: 'app-contracts',
-  imports: [FormsModule, RouterLink],
+  imports: [DatePipe, FormsModule, RouterLink],
   templateUrl: './contracts.component.html',
   styleUrl: './contracts.component.scss'
 })
@@ -21,6 +26,9 @@ export class ContractsComponent implements OnInit {
   summary: ProjectWorkspaceSummary | null = null;
   destination = '';
   destinationQuery: Params = {};
+  statusFilter: 'all' | 'deployed' | 'undeployed' = 'all';
+  showAllActivity = false;
+  createError = '';
   search = '';
   page = 1;
   readonly pageSize = 12;
@@ -69,6 +77,9 @@ export class ContractsComponent implements OnInit {
       .subscribe(scope => {
         this.projectId = scope.projectId;
         this.search = '';
+        this.statusFilter = 'all';
+        this.showAllActivity = false;
+        this.createError = '';
         this.page = 1;
         this.name = '';
         this.creating = false;
@@ -101,9 +112,18 @@ export class ContractsComponent implements OnInit {
 
   get filteredContracts() {
     const query = this.search.trim().toLowerCase();
-    return (this.summary?.contracts ?? []).filter(item =>
-      item.contract.name.toLowerCase().includes(query)
-    );
+    return (this.summary?.contracts ?? []).filter(item => {
+      const deployed = (item.currentDeployments?.length ?? 0) > 0;
+      const matchesStatus =
+        this.statusFilter === 'all' || (this.statusFilter === 'deployed' ? deployed : !deployed);
+      const matchesSearch = [
+        item.contract.name,
+        item.contract.description,
+        item.latestArtifact?.version,
+        ...(item.currentDeployments ?? []).map(deployment => deployment.contractHash)
+      ].some(value => value?.toLowerCase().includes(query));
+      return matchesStatus && matchesSearch;
+    });
   }
 
   get pages(): number {
@@ -113,8 +133,64 @@ export class ContractsComponent implements OnInit {
     return this.filteredContracts.slice((this.page - 1) * this.pageSize, this.page * this.pageSize);
   }
 
-  currentDeployment(item: ProjectWorkspaceSummary['contracts'][number], network: string) {
-    return item.currentDeployments.find(deployment => deployment.network === network) ?? null;
+  get deployedContractCount(): number {
+    return (this.summary?.contracts ?? []).filter(
+      item => (item.currentDeployments?.length ?? 0) > 0
+    ).length;
+  }
+
+  get activity(): Deployment[] {
+    return (this.summary?.recentDeployments ?? []).slice(0, this.showAllActivity ? 20 : 5);
+  }
+
+  liveCount(network: string): number {
+    return (this.summary?.contracts ?? []).filter(item => this.currentDeployment(item, network))
+      .length;
+  }
+
+  filterByStatus(status: 'all' | 'deployed' | 'undeployed'): void {
+    this.statusFilter = status;
+    this.page = 1;
+  }
+
+  clearFilters(): void {
+    this.search = '';
+    this.filterByStatus('all');
+  }
+
+  contractRoute(contractId: string, ...segments: string[]): string[] {
+    return contractLink(this.projectId, contractId, ...segments);
+  }
+
+  openCreate(): void {
+    this.creating = true;
+    this.createError = '';
+  }
+
+  cancelCreate(): void {
+    if (this.saving) return;
+    this.creating = false;
+    this.createError = '';
+  }
+
+  shortHash(hash: string | null | undefined): string {
+    return hash ? `${hash.slice(0, 8)}...${hash.slice(-6)}` : '';
+  }
+
+  activityLabel(deployment: Deployment): string {
+    const action = deployment.operation === 'update' ? 'Update' : 'Deployment';
+    if (!deployment.status || deployment.status === 'confirmed') return `${action} confirmed`;
+    if (deployment.status === 'record_failed') return 'Confirmation needs attention';
+    return `${action} ${deployment.status.replaceAll('_', ' ')}`;
+  }
+
+  activityTone(deployment: Deployment): 'success' | 'danger' | 'pending' {
+    if (!deployment.status || deployment.status === 'confirmed') return 'success';
+    return deployment.status === 'failed' ? 'danger' : 'pending';
+  }
+
+  currentDeployment(item: ContractWorkspaceSummary, network: string) {
+    return item.currentDeployments?.find(deployment => deployment.network === network) ?? null;
   }
 
   contractName(contractId: string | null | undefined): string {
@@ -149,7 +225,7 @@ export class ContractsComponent implements OnInit {
     const generation = this.generation;
     const name = this.name.trim();
     this.saving = true;
-    this.error = '';
+    this.createError = '';
     if (this.createAttempt?.name !== name) this.createAttempt = { name, key: crypto.randomUUID() };
     const key = this.createAttempt.key;
     try {
@@ -158,13 +234,14 @@ export class ContractsComponent implements OnInit {
       await firstValueFrom(this.api.createContract(projectId, name, key));
       if (generation !== this.generation) return;
       this.name = '';
+      this.clearFilters();
       this.creating = false;
       this.createAttempt = null;
       this.saving = false;
       this.load();
     } catch (error) {
       if (generation === this.generation)
-        this.error = this.errors.format(error, 'Could not create contract.');
+        this.createError = this.errors.format(error, 'Could not create contract.');
     } finally {
       if (generation === this.generation) this.saving = false;
     }

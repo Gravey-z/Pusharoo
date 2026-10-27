@@ -1,0 +1,201 @@
+.contract-workspace {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.contract-breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-subtle);
+  font-size: var(--font-size-label);
+}
+
+.contract-breadcrumbs li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.contract-breadcrumbs a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.contract-breadcrumbs a:hover,
+.contract-breadcrumbs [aria-current] {
+  color: var(--text);
+}
+
+.contract-header {
+  padding: var(--space-5) var(--space-5) 0;
+}
+
+.contract-heading,
+.contract-controls,
+.rename-fields {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.contract-heading {
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-6);
+}
+
+.contract-intro {
+  min-width: 0;
+}
+
+.eyebrow,
+.contract-switcher,
+.rename-form > label {
+  color: var(--text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+}
+
+.eyebrow {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h2 {
+  margin: var(--space-2) 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-display);
+  font-size: 23px;
+}
+
+.contract-intro p {
+  max-width: 600px;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+.contract-controls {
+  align-items: flex-end;
+  flex: 0 0 auto;
+}
+
+.contract-switcher {
+  display: grid;
+  gap: var(--space-1);
+}
+
+select {
+  width: 220px;
+  min-height: 40px;
+  text-overflow: ellipsis;
+}
+
+.contract-tabs {
+  display: flex;
+  gap: var(--space-5);
+  margin-top: var(--space-5);
+  border-top: 1px solid var(--line);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.contract-tabs a {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 48px;
+  padding: var(--space-2) 2px;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-bold);
+  text-decoration: none;
+}
+
+.contract-tabs a:hover {
+  color: var(--text);
+}
+
+.contract-tabs a.active {
+  border-bottom-color: var(--accent);
+  color: var(--brand-neon);
+}
+
+a:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: -2px;
+  border-radius: 2px;
+}
+
+.rename-form {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-4);
+}
+
+.rename-fields input {
+  width: min(100%, 360px);
+  min-width: 0;
+}
+
+.workspace-message {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  color: var(--text-muted);
+}
+
+.workspace-message p {
+  margin: 0;
+}
+
+.skeleton {
+  width: min(100%, 280px);
+  height: 24px;
+}
+
+@media (max-width: 780px) {
+  .contract-heading {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .contract-controls {
+    width: 100%;
+  }
+
+  .contract-switcher {
+    flex: 1;
+    min-width: 0;
+  }
+
+  select {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .contract-header {
+    padding: var(--space-4) var(--space-4) 0;
+  }
+
+  .rename-fields {
+    flex-wrap: wrap;
+  }
+
+  .rename-fields input {
+    width: 100%;
+  }
+}
