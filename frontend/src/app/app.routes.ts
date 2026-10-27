@@ -1,3 +1,4 @@
+import { legacyContractRedirectGuard } from './guards/legacy-contract-redirect.guard';
 import { Routes } from '@angular/router';
 import { projectDeploymentAccessGuard } from './guards/project-deployment-access.guard';
 
@@ -27,6 +28,8 @@ export const routes: Routes = [
   },
   {
     path: 'projects/:projectId/upload',
+    data: { contractDestination: 'upload' },
+    canActivate: [legacyContractRedirectGuard],
     loadComponent: () =>
       import('./pages/artifact-upload/artifact-upload.component').then(
         component => component.ArtifactUploadComponent
@@ -34,6 +37,8 @@ export const routes: Routes = [
   },
   {
     path: 'projects/:projectId/compare',
+    data: { contractDestination: 'compare' },
+    canActivate: [legacyContractRedirectGuard],
     loadComponent: () =>
       import('./pages/artifact-compare/artifact-compare.component').then(
         component => component.ArtifactCompareComponent
@@ -41,7 +46,8 @@ export const routes: Routes = [
   },
   {
     path: 'projects/:projectId/deployments/new',
-    canActivate: [projectDeploymentAccessGuard],
+    data: { contractDestination: 'deployments/new' },
+    canActivate: [legacyContractRedirectGuard],
     loadComponent: () =>
       import('./pages/deployment-create/deployment-create.component').then(
         component => component.DeploymentCreateComponent
@@ -49,6 +55,8 @@ export const routes: Routes = [
   },
   {
     path: 'projects/:projectId/deployments/recovery',
+    data: { contractDestination: 'deployments/recovery' },
+    canActivate: [legacyContractRedirectGuard],
     loadComponent: () =>
       import('./pages/deployment-recovery/deployment-recovery.component').then(
         component => component.DeploymentRecoveryComponent
@@ -141,19 +149,21 @@ export const routes: Routes = [
       },
       {
         path: 'artifacts',
+        canActivate: [legacyContractRedirectGuard],
         loadComponent: () =>
           import('./pages/project-overview/project-overview.component').then(
             component => component.ProjectOverviewComponent
           ),
-        data: { releaseTab: 'artifacts', preload: true }
+        data: { releaseTab: 'artifacts', contractDestination: 'artifacts', preload: true }
       },
       {
         path: 'deployments',
+        canActivate: [legacyContractRedirectGuard],
         loadComponent: () =>
           import('./pages/project-overview/project-overview.component').then(
             component => component.ProjectOverviewComponent
           ),
-        data: { releaseTab: 'deployments', preload: true }
+        data: { releaseTab: 'deployments', contractDestination: 'deployments', preload: true }
       },
       {
         path: 'authorized-deployers',
@@ -165,7 +175,8 @@ export const routes: Routes = [
       },
       {
         path: 'console',
-        data: { preload: true },
+        canActivate: [legacyContractRedirectGuard],
+        data: { preload: true, contractDestination: 'console' },
         loadComponent: () =>
           import('./pages/contract-console/contract-console.component').then(
             component => component.ContractConsoleComponent

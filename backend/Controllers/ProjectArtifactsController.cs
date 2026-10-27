@@ -12,7 +12,9 @@ public sealed class ProjectArtifactsController(
     CurrentWalletSessionAccessor walletSession,
     ProjectAuthorizationService authorization,
     ArtifactUploadReader uploadReader,
-    ArtifactUploadService uploads
+    ArtifactUploadService uploads,
+    ContractArtifactService scopedUploads,
+    LegacyContractResolver resolver
 ) : ControllerBase
 {
     [HttpPost]
@@ -38,14 +40,28 @@ public sealed class ProjectArtifactsController(
             return StatusCode(access.StatusCode, new { error = access.Error });
         }
 
+        var contractId = await resolver.ResolveOperationAsync(project.Id, cancellationToken);
+        if (contractId is not null)
+            await scopedUploads.LoadForUploadAsync(
+                project.Id,
+                contractId,
+                walletSession.Current!.Address,
+                cancellationToken
+            );
         var input = await uploadReader.ReadAsync(
             Request,
             project.Id,
-            null,
+            contractId,
             walletSession.Current!.Address,
             cancellationToken
         );
-        var result = await uploads.SaveAsync(input, cancellationToken);
+        var result = contractId is null
+            ? await uploads.SaveAsync(input, cancellationToken)
+            : await scopedUploads.UploadAsync(
+                input,
+                walletSession.Current!.Address,
+                cancellationToken
+            );
         return result.Created
             ? Created($"/api/artifacts/{result.Artifact.Id}", result.Artifact.ToResponse())
             : Ok(result.Artifact.ToResponse());
@@ -112,12 +128,21 @@ public sealed class ProjectArtifactsController(
             return BadRequest(new { error = "The to version is required." });
         }
 
-        var comparison = await artifactService.CompareVersionsAsync(
-            projectId,
-            fromVersion,
-            toVersion,
-            cancellationToken
-        );
+        var contractId = await resolver.ResolveOperationAsync(project.Id, cancellationToken);
+        var comparison = contractId is null
+            ? await artifactService.CompareVersionsAsync(
+                projectId,
+                fromVersion,
+                toVersion,
+                cancellationToken
+            )
+            : await artifactService.CompareContractVersionsAsync(
+                projectId,
+                contractId,
+                fromVersion,
+                toVersion,
+                cancellationToken
+            );
 
         return comparison is null
             ? NotFound(new { error = "One or both artifact versions were not found." })

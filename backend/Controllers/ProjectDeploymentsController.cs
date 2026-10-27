@@ -7,8 +7,7 @@ namespace backend.Controllers;
 [ApiController]
 [Route("api/projects/{projectId}/deployments")]
 public sealed class ProjectDeploymentsController(
-    DeploymentLifecycleService lifecycle,
-    DeploymentRecoveryService recovery,
+    ProjectDeploymentCompatibilityService lifecycle,
     CurrentWalletSessionAccessor currentWallet
 ) : ControllerBase
 {
@@ -169,7 +168,7 @@ public sealed class ProjectDeploymentsController(
     ) =>
         Respond(
             projectId,
-            await recovery.RecoverAsync(
+            await lifecycle.RecoverAsync(
                 projectId,
                 request,
                 currentWallet.Current!,

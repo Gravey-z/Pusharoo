@@ -7,6 +7,9 @@
       >
     }
   </header>
+  @if (destination) {
+    <p role="status">Choose a contract to continue to {{ destinationLabel }}.</p>
+  }
   @if (creating && canManage) {
     <form class="surface-panel" (ngSubmit)="create()">
       <label
@@ -27,8 +30,8 @@
   }
   @if (summary; as data) {
     <p
-      >{{ data.contracts.length }} contracts ? {{ data.artifactCount }} artifact versions ?
-      {{ data.deploymentCount }} deployment attempts</p
+      >{{ data.contracts.length }} contracts &middot; {{ data.artifactCount }} artifact versions
+      &middot; {{ data.deploymentCount }} deployment attempts</p
     >
     <label
       >Search contracts
@@ -38,11 +41,13 @@
       @for (item of visibleContracts; track item.contract.id) {
         <article class="surface-panel">
           <h3
-            ><a [routerLink]="['/projects', data.project.id, 'contracts', item.contract.id]">{{
-              item.contract.name
-            }}</a></h3
+            ><a
+              [routerLink]="contractDestination(item.contract.id)"
+              [queryParams]="destinationQuery"
+              >{{ item.contract.name }}</a
+            ></h3
           >
-          <p>{{ item.artifactCount }} versions ? {{ item.deploymentCount }} attempts</p>
+          <p>{{ item.artifactCount }} versions &middot; {{ item.deploymentCount }} attempts</p>
           <p>Latest upload: {{ item.latestArtifact?.version ?? 'No artifact' }}</p>
           @for (network of ['neo3:testnet', 'neo3:mainnet']; track network) {
             <div
@@ -92,8 +97,8 @@
         } @else {
           <span>Unlinked legacy contract</span>
         }
-        ? {{ wallet.networkLabel(deployment.network) }} ?
-        {{ deployment.version || 'Recovered deployment' }} ? {{ deployment.status }}
+        &middot; {{ wallet.networkLabel(deployment.network) }} &middot;
+        {{ deployment.version || 'Recovered deployment' }} &middot; {{ deployment.status }}
       </p>
     } @empty {
       <p>No deployment activity yet.</p>

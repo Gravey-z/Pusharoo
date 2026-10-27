@@ -1,6 +1,6 @@
 import { Component, DestroyRef, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink, Params } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
 import { ProjectWorkspaceSummary } from '../../models/pusharoo.models';
@@ -9,7 +9,7 @@ import { ProjectOwnershipService } from '../../services/project-ownership.servic
 import { WalletService } from '../../services/wallet.service';
 import { WalletAuthService } from '../../services/wallet-auth.service';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
-import { workspaceRoute } from '../../services/workspace-route';
+import { contractLink, workspaceRoute } from '../../services/workspace-route';
 
 @Component({
   selector: 'app-contracts',
@@ -19,6 +19,8 @@ import { workspaceRoute } from '../../services/workspace-route';
 })
 export class ContractsComponent implements OnInit {
   summary: ProjectWorkspaceSummary | null = null;
+  destination = '';
+  destinationQuery: Params = {};
   search = '';
   page = 1;
   readonly pageSize = 12;
@@ -44,6 +46,24 @@ export class ContractsComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(query => {
+      const destination = query.get('contractDestination') ?? '';
+      const destinations = [
+        'artifacts',
+        'upload',
+        'compare',
+        'deployments',
+        'deployments/new',
+        'deployments/recovery',
+        'console'
+      ];
+      this.destination = destinations.includes(destination) ? destination : '';
+      this.destinationQuery = Object.fromEntries(
+        query.keys
+          .filter(key => key !== 'contractDestination' && key !== 'contractId')
+          .map(key => [key, query.getAll(key)])
+      );
+    });
     workspaceRoute(this.route)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(scope => {
@@ -56,6 +76,23 @@ export class ContractsComponent implements OnInit {
         this.createAttempt = null;
         this.load();
       });
+  }
+
+  get destinationLabel(): string {
+    const labels: Record<string, string> = {
+      artifacts: 'artifacts',
+      upload: 'upload an artifact',
+      compare: 'compare versions',
+      deployments: 'deployment history',
+      'deployments/new': 'deploy a contract',
+      'deployments/recovery': 'recover a deployment',
+      console: 'the contract console'
+    };
+    return labels[this.destination] ?? '';
+  }
+
+  contractDestination(contractId: string): string[] {
+    return contractLink(this.projectId, contractId, ...this.destination.split('/').filter(Boolean));
   }
 
   get canManage(): boolean {

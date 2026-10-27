@@ -2,10 +2,14 @@ import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Subject, firstValueFrom, takeUntil, timeout } from 'rxjs';
-import { Observable } from 'rxjs';
+import { Subject, firstValueFrom, takeUntil, timeout, Observable, forkJoin } from 'rxjs';
+import { workspaceRoute } from '../../services/workspace-route';
 import {
-  Artifact,
+  WebhookContractTargetsService,
+  WebhookDeploymentOption
+} from '../../services/webhook-contract-targets.service';
+import {
+  ProjectContract,
   EventRelayStatus,
   CreateWebhookSubscriptionRequest,
   Deployment,
@@ -26,13 +30,6 @@ import { PageShellComponent } from '../page-shell/page-shell.component';
 import { RelayHealthPanelComponent } from '../../components/relay-health-panel/relay-health-panel.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
 import { ProjectWorkspaceContextService } from '../../services/project-workspace-context.service';
-
-interface DeploymentOption {
-  label: string;
-  contractHash: string;
-  network: string;
-  artifact: Artifact;
-}
 
 @Component({
   selector: 'app-event-webhooks',
@@ -67,11 +64,13 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   get recoveryEventOptions(): string[] {
     const manifestNames =
       this.deploymentOptions
-        .find(x => x.contractHash === this.recoveryContract)
-        ?.artifact.manifest.abi.events.map(x => x.name) ?? [];
+        .find(x => this.contractTargets.sameHash(x.contractHash, this.recoveryContract))
+        ?.artifact?.manifest.abi.events.map(x => x.name) ?? [];
     const subscriptions = this.subscriptions.filter(
       x =>
-        x.isEnabled && x.network === this.webhookNetwork && x.contractHash === this.recoveryContract
+        x.isEnabled &&
+        x.network === this.webhookNetwork &&
+        this.contractTargets.sameHash(x.contractHash, this.recoveryContract)
     );
     return [
       ...new Set([
@@ -88,7 +87,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       x =>
         x.isEnabled &&
         x.network === this.webhookNetwork &&
-        x.contractHash === this.recoveryContract &&
+        this.contractTargets.sameHash(x.contractHash, this.recoveryContract) &&
         (!x.eventName ? names.length > 0 : names.includes(x.eventName))
     );
   }
@@ -108,6 +107,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     }
   }
   async refreshRecovery(): Promise<void> {
+    const generation = this.contextGeneration;
     const network = this.webhookNetwork;
     if (this.recoveryBusyByNetwork[network]) return;
     this.recoveryBusyByNetwork[network] = true;
@@ -117,12 +117,15 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       );
       this.recoveryErrors[network] = '';
     } catch (error) {
+      if (!this.isCurrent(generation)) return;
       this.recoveryErrors[network] = this.errors.format(error, 'Could not load recovery progress.');
     } finally {
+      if (!this.isCurrent(generation)) return;
       this.recoveryBusyByNetwork[network] = false;
     }
   }
   async startRecovery(): Promise<void> {
+    const generation = this.contextGeneration;
     const network = this.webhookNetwork;
     if (this.recoveryBusyByNetwork[network]) return;
     this.recoveryErrors[network] = '';
@@ -155,12 +158,15 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       this.recoveryMessages[network] =
         'Recovery queued. The block range is scanned once for the selected events.';
     } catch (error) {
+      if (!this.isCurrent(generation)) return;
       this.recoveryErrors[network] = this.errors.format(error, 'Could not start recovery.');
     } finally {
+      if (!this.isCurrent(generation)) return;
       this.recoveryBusyByNetwork[network] = false;
     }
   }
   async controlRecovery(job: RelayReplayJob, action: 'pause' | 'resume' | 'cancel'): Promise<void> {
+    const generation = this.contextGeneration;
     const network = job.network;
     if (this.recoveryBusyByNetwork[network]) return;
     this.recoveryBusyByNetwork[network] = true;
@@ -173,8 +179,10 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       );
       this.recoveryErrors[network] = '';
     } catch (error) {
+      if (!this.isCurrent(generation)) return;
       this.recoveryErrors[network] = this.errors.format(error, 'Could not update recovery.');
     } finally {
+      if (!this.isCurrent(generation)) return;
       this.recoveryBusyByNetwork[network] = false;
     }
   }
@@ -182,11 +190,32 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     return job.selectedEventNames?.join(', ') || job.eventName || 'All events';
   }
   overview: ProjectOverviewViewModel | null = null;
+  contracts: ProjectContract[] = [];
+  contractFilter = '';
+  selectedDeploymentKey = '';
+  private readonly contractTargets = inject(WebhookContractTargetsService);
+
+  get filteredSubscriptions(): WebhookSubscription[] {
+    if (!this.contractFilter) return this.subscriptions;
+    return this.subscriptions.filter(subscription => {
+      const contract = this.subscriptionContract(subscription);
+      return this.contractFilter === 'unlinked' ? !contract : contract?.id === this.contractFilter;
+    });
+  }
+
+  subscriptionContract(subscription: WebhookSubscription): ProjectContract | null {
+    return this.contractTargets.association(
+      subscription,
+      this.overview?.deployments ?? [],
+      this.contracts
+    );
+  }
+
   subscriptions: WebhookSubscription[] = [];
   readonly subscriptionsByNetwork: Record<string, WebhookSubscription[]> = {};
-  private allDeploymentOptions: DeploymentOption[] = [];
+  private allDeploymentOptions: WebhookDeploymentOption[] = [];
   eventOptions: string[] = [];
-  relayNetwork = '';
+  relayNetwork = 'neo3:testnet';
   webhookNetwork = 'neo3:testnet';
   relayDetails: Partial<Record<string, EventRelayStatus>> = {};
   relayStatuses: Record<string, 'ok' | 'degraded' | 'offline'> = {};
@@ -200,6 +229,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   secret = '';
   private readonly savingByNetwork: Record<string, boolean> = {};
   editingSubscriptionId = '';
+  private editingSubscription: WebhookSubscription | null = null;
   private readonly deliveryHistoryByNetwork: Record<string, WebhookDelivery[]> = {};
   private readonly deliveryHistoryForByNetwork: Record<string, string> = {};
   private readonly loadingDeliveryHistoryForByNetwork: Record<string, string> = {};
@@ -209,6 +239,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   private readonly workspace = inject(ProjectWorkspaceContextService, { optional: true });
   private readonly destroy$ = new Subject<void>();
   private destroyed = false;
+  private contextGeneration = 0;
   private deliveryRefreshTimer?: ReturnType<typeof setTimeout>;
   private readonly deliveryRefreshErrors: Record<string, string> = {};
 
@@ -269,14 +300,14 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     return 'Event Webhooks';
   }
 
-  get selectedDeployment(): DeploymentOption | null {
+  get selectedDeployment(): WebhookDeploymentOption | null {
     return (
-      this.deploymentOptions.find(deployment => deployment.contractHash === this.contractHash) ??
+      this.deploymentOptions.find(deployment => deployment.key === this.selectedDeploymentKey) ??
       null
     );
   }
 
-  get deploymentOptions(): DeploymentOption[] {
+  get deploymentOptions(): WebhookDeploymentOption[] {
     return this.allDeploymentOptions.filter(
       deployment => deployment.network === this.webhookNetwork
     );
@@ -303,12 +334,48 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     private readonly ownership: ProjectOwnershipService,
     readonly auth: WalletAuthService,
     private readonly wallet: WalletService
-  ) {
-    this.projectId = (this.route.parent ?? this.route).snapshot.paramMap.get('projectId') ?? '';
-  }
+  ) {}
 
   ngOnInit(): void {
-    this.load();
+    workspaceRoute(this.route)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(scope => {
+        this.contextGeneration++;
+        this.projectId = scope.projectId;
+        this.overview = null;
+        this.contracts = [];
+        this.allDeploymentOptions = [];
+        this.subscriptions = [];
+        this.contractFilter = '';
+        this.selectedDeploymentKey = '';
+        this.contractHash = '';
+        this.eventName = '';
+        this.eventOptions = [];
+        this.resetForm();
+        this.recoveryOpen = false;
+        this.recoveryContract = '';
+        this.recoveryEvents = Object.create(null);
+        this.recoveryFrom = this.recoveryTo = null;
+        for (const state of [
+          this.subscriptionsByNetwork,
+          this.relayUsageByNetwork,
+          this.savingByNetwork,
+          this.deliveryHistoryByNetwork,
+          this.deliveryHistoryForByNetwork,
+          this.loadingDeliveryHistoryForByNetwork,
+          this.sendingForByNetwork,
+          this.formStatusByNetwork,
+          this.errorMessageByNetwork,
+          this.deliveryRefreshErrors,
+          this.recoveryJobsByNetwork,
+          this.recoveryBusyByNetwork,
+          this.recoveryMessages,
+          this.recoveryErrors
+        ]) {
+          for (const key of Object.keys(state)) delete state[key];
+        }
+        void this.load();
+      });
     this.scheduleDeliveryRefresh();
   }
 
@@ -327,6 +394,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   }
 
   private async refreshDeliveryStatus(): Promise<void> {
+    const generation = this.contextGeneration;
     if (
       this.destroyed ||
       !this.isRelayConnected ||
@@ -357,7 +425,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
             .pipe(timeout(10000), takeUntil(this.destroy$))
         )
       ]);
-      if (this.destroyed || !this.isRelayConnected) return;
+      if (!this.isCurrent(generation) || !this.isRelayConnected) return;
       this.subscriptionsByNetwork[network] = subscriptions;
       if (network === this.relayNetwork) this.subscriptions = subscriptions;
       this.relayUsageByNetwork[network] = usage;
@@ -366,6 +434,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       }
       this.deliveryRefreshErrors[network] = '';
     } catch {
+      if (!this.isCurrent(generation)) return;
       if (!this.destroyed) {
         this.deliveryRefreshErrors[network] =
           'Could not refresh delivery status. Retrying automatically.';
@@ -374,6 +443,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   }
 
   async save(): Promise<void> {
+    const generation = this.contextGeneration;
     this.errorMessage = '';
     this.formStatus = '';
 
@@ -387,7 +457,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.selectedDeployment) {
+    if (!this.selectedDeployment && !this.editingSubscription) {
       this.errorMessage = 'Choose a deployment monitored by Pusharoo Relay.';
       return;
     }
@@ -397,28 +467,29 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.isSaving = true;
+    const network = this.editingSubscription?.network ?? this.selectedDeployment!.network;
+    const editingId = this.editingSubscriptionId;
+    this.savingByNetwork[network] = true;
 
     try {
       const subscriptionRequest = {
         name: this.name.trim(),
-        contractHash: this.contractHash,
-        network: this.selectedDeployment.network,
+        contractHash: this.editingSubscription?.contractHash ?? this.contractHash,
+        network: this.editingSubscription?.network ?? this.selectedDeployment!.network,
         eventName: this.eventName || null,
         webhookUrl: this.webhookUrl.trim(),
         payloadVersion: 2,
         projectId: this.projectId,
         secret: this.secret.trim() || null,
-        headers: {},
-        isEnabled: true
+        headers: this.editingSubscription?.headers ?? {},
+        isEnabled: this.editingSubscription?.isEnabled ?? true
       };
-      const network = this.selectedDeployment.network;
       if (this.editingSubscriptionId) {
         await this.executeWebhookRequest(() =>
           this.api.updateWebhookSubscription(
             this.projectId,
             network,
-            this.editingSubscriptionId,
+            editingId,
             subscriptionRequest
           )
         );
@@ -428,13 +499,18 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
         );
       }
 
-      this.formStatus = this.editingSubscriptionId ? 'Webhook updated.' : 'Webhook created.';
-      this.resetForm();
+      this.formStatusByNetwork[network] = editingId ? 'Webhook updated.' : 'Webhook created.';
+      if (network === this.webhookNetwork) this.resetForm();
       await this.loadSubscriptions(network);
     } catch (error) {
-      this.errorMessage = this.errors.format(error, 'Could not create the webhook subscription.');
+      if (!this.isCurrent(generation)) return;
+      this.errorMessageByNetwork[network] = this.errors.format(
+        error,
+        'Could not create the webhook subscription.'
+      );
     } finally {
-      this.isSaving = false;
+      if (!this.isCurrent(generation)) return;
+      this.savingByNetwork[network] = false;
     }
   }
 
@@ -449,6 +525,11 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     this.editingSubscriptionId = subscription.id;
     this.name = subscription.name;
     this.contractHash = subscription.contractHash;
+    const candidates = this.deploymentOptions.filter(item =>
+      this.contractTargets.sameHash(item.contractHash, subscription.contractHash)
+    );
+    this.selectedDeploymentKey = candidates.length === 1 ? candidates[0].key : '';
+    this.editingSubscription = subscription;
     this.eventName = subscription.eventName ?? '';
     this.webhookUrl = subscription.webhookUrl;
     this.secret = '';
@@ -470,6 +551,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   }
 
   async remove(subscription: WebhookSubscription): Promise<void> {
+    const generation = this.contextGeneration;
     if (!confirm(`Delete webhook “${subscription.name}”?`)) {
       return;
     }
@@ -485,6 +567,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       }
       await this.loadSubscriptions(subscription.network);
     } catch (error) {
+      if (!this.isCurrent(generation)) return;
       this.errorMessage = this.errors.format(error, 'Could not delete the webhook.');
     }
   }
@@ -498,6 +581,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   }
 
   async showDeliveryHistory(subscription: WebhookSubscription): Promise<void> {
+    const generation = this.contextGeneration;
     const network = subscription.network;
     this.errorMessage = '';
     this.loadingDeliveryHistoryForByNetwork[network] = subscription.id;
@@ -508,6 +592,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       this.deliveryHistoryByNetwork[network] = history;
       this.deliveryHistoryForByNetwork[network] = subscription.id;
     } catch (error) {
+      if (!this.isCurrent(generation)) return;
       this.deliveryHistoryByNetwork[network] = [];
       this.deliveryHistoryForByNetwork[network] = '';
       this.errorMessageByNetwork[network] = this.errors.format(
@@ -515,6 +600,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
         'Could not load webhook delivery history.'
       );
     } finally {
+      if (!this.isCurrent(generation)) return;
       this.loadingDeliveryHistoryForByNetwork[network] = '';
     }
   }
@@ -532,6 +618,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   }
 
   async connectRelay(): Promise<void> {
+    const generation = this.contextGeneration;
     this.errorMessage = '';
     this.formStatus = '';
     if (!this.canManageProject) {
@@ -542,10 +629,12 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     try {
       await this.auth.ensureAuthenticated();
       await this.loadUsage(this.webhookNetwork);
-      if (this.deploymentOptions.length) await this.loadSubscriptions(this.webhookNetwork);
+      await this.loadSubscriptions(this.webhookNetwork);
     } catch (error) {
+      if (!this.isCurrent(generation)) return;
       this.errorMessage = this.errors.format(error, 'Could not open the Relay workspace.');
     } finally {
+      if (!this.isCurrent(generation)) return;
       this.connectingRelay = false;
     }
   }
@@ -567,25 +656,27 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
   }
 
   private async load(): Promise<void> {
+    this.useRelay(this.webhookNetwork);
+    const generation = this.contextGeneration;
     void this.loadRelayStatuses();
     const sessionReady = this.auth.restore();
     try {
-      const cachedOverview = this.workspace?.getFreshOverview(this.projectId);
-      this.overview =
-        cachedOverview?.project.id === this.projectId
-          ? cachedOverview
-          : await firstValueFrom(this.projectApi.getProjectOverview(this.projectId));
-      if (this.workspace && this.overview) {
-        this.workspace.overview = this.overview;
-      }
+      const { overview, summary } = await firstValueFrom(
+        forkJoin({
+          overview: this.projectApi.getProjectOverview(this.projectId),
+          summary: this.projectApi.getProjectSummary(this.projectId)
+        })
+      );
+      if (!this.isCurrent(generation)) return;
+      this.overview = overview;
+      this.contracts = summary.contracts.map(item => item.contract);
+      if (this.workspace) this.workspace.overview = overview;
       this.allDeploymentOptions = this.toDeploymentOptions(this.overview?.deployments ?? []);
+      this.selectedDeploymentKey = this.deploymentOptions[0]?.key ?? '';
       this.contractHash = this.deploymentOptions[0]?.contractHash ?? '';
       this.selectDeployment();
       await sessionReady;
-
-      if (!this.deploymentOptions.length) {
-        return;
-      }
+      if (!this.isCurrent(generation)) return;
 
       if (!this.isWalletConnected || !this.auth.canUseSession() || !this.canManageProject) {
         return;
@@ -597,18 +688,22 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
         ...networks.map(network => this.loadUsage(network))
       ]);
     } catch (error) {
+      if (!this.isCurrent(generation)) return;
       this.errorMessage = this.errors.format(error, 'Could not load webhook subscriptions.');
     }
   }
 
   async loadRelayStatuses(): Promise<void> {
+    const generation = this.contextGeneration;
     await Promise.all(
       ['neo3:testnet', 'neo3:mainnet'].map(async network => {
         try {
           const detail = await firstValueFrom(this.api.getEventRelayStatus(network));
+          if (!this.isCurrent(generation)) return;
           this.relayDetails[network] = detail;
           this.relayStatuses[network] = detail.status === 'ok' ? 'ok' : 'degraded';
         } catch (error: unknown) {
+          if (!this.isCurrent(generation)) return;
           const failure = error as { status?: number; error?: EventRelayStatus };
           this.relayDetails[network] =
             failure.error?.network === network ? failure.error : undefined;
@@ -638,6 +733,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     subscription: WebhookSubscription,
     changes: Partial<CreateWebhookSubscriptionRequest>
   ): Promise<void> {
+    const generation = this.contextGeneration;
     this.errorMessage = '';
     const request = {
       name: subscription.name,
@@ -663,12 +759,14 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       this.formStatus = request.isEnabled ? 'Webhook enabled.' : 'Webhook disabled.';
       await this.loadSubscriptions(subscription.network);
     } catch (error) {
+      if (!this.isCurrent(generation)) return;
       this.errorMessage = this.errors.format(error, 'Could not update the webhook.');
     }
   }
 
   private resetForm(): void {
     this.editingSubscriptionId = '';
+    this.editingSubscription = null;
     this.name = '';
     this.webhookUrl = '';
     this.secret = '';
@@ -680,6 +778,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     status: string,
     action: () => Observable<WebhookDelivery>
   ): Promise<void> {
+    const generation = this.contextGeneration;
     this.errorMessage = '';
     this.formStatus = status;
     this.sendingFor = `${subscription.id}:${deliveryId ?? 'test'}`;
@@ -689,21 +788,24 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
       await this.loadSubscriptions(subscription.network);
       await this.showDeliveryHistory(subscription);
     } catch (error) {
+      if (!this.isCurrent(generation)) return;
       this.errorMessage = this.errors.format(
         error,
         deliveryId ? 'Could not redeliver the event.' : 'Could not send a test event.'
       );
     } finally {
+      if (!this.isCurrent(generation)) return;
       this.sendingFor = '';
     }
   }
 
   selectDeployment(): void {
+    if (!this.editingSubscription) this.contractHash = this.selectedDeployment?.contractHash ?? '';
     if (this.selectedDeployment) {
       this.useRelay(this.selectedDeployment.network);
     }
     this.eventOptions =
-      this.selectedDeployment?.artifact.manifest.abi.events.map(event => event.name) ?? [];
+      this.selectedDeployment?.artifact?.manifest.abi.events.map(event => event.name) ?? [];
     this.eventName = this.eventOptions[0] ?? '';
   }
 
@@ -714,10 +816,12 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     this.recoveryFrom = this.recoveryTo = null;
     this.webhookNetwork = network;
     this.useRelay(network);
+    this.selectedDeploymentKey = this.deploymentOptions[0]?.key ?? '';
     this.contractHash = this.deploymentOptions[0]?.contractHash ?? '';
     this.eventOptions = [];
     this.eventName = '';
     this.editingSubscriptionId = '';
+    this.editingSubscription = null;
     this.secret = '';
     if (this.contractHash) {
       this.selectDeployment();
@@ -726,7 +830,7 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     if (!this.isRelayConnected) {
       return;
     }
-    if (!this.subscriptionsByNetwork[network] && this.deploymentOptions.length) {
+    if (!this.subscriptionsByNetwork[network]) {
       await this.loadSubscriptions(network);
       await this.loadUsage(network);
     }
@@ -737,25 +841,22 @@ export class EventWebhooksComponent implements OnInit, OnDestroy {
     this.webhookNetwork = network;
   }
 
-  private async executeWebhookRequest<T>(request: () => Observable<T>): Promise<T> {
-    await this.auth.ensureAuthenticated();
-    return firstValueFrom(request());
+  private isCurrent(generation: number): boolean {
+    return !this.destroyed && generation === this.contextGeneration;
   }
 
-  private toDeploymentOptions(deployments: Deployment[]): DeploymentOption[] {
-    return this.deploymentHistory
-      .latestConfirmedByNetwork(deployments)
-      .map(deployment => {
-        const artifact = this.overview?.artifacts.find(item => item.id === deployment.artifactId);
-        return artifact
-          ? {
-              label: `${this.networkLabel(deployment.network)} - ${deployment.version}`,
-              contractHash: deployment.contractHash ?? '',
-              network: deployment.network,
-              artifact
-            }
-          : null;
-      })
-      .filter((deployment): deployment is DeploymentOption => deployment !== null);
+  private async executeWebhookRequest<T>(request: () => Observable<T>): Promise<T> {
+    const generation = this.contextGeneration;
+    await this.auth.ensureAuthenticated();
+    if (!this.isCurrent(generation)) throw new Error('The selected project changed.');
+    const response = await firstValueFrom(request().pipe(takeUntil(this.destroy$)));
+    if (!this.isCurrent(generation)) throw new Error('The selected project changed.');
+    return response;
+  }
+
+  private toDeploymentOptions(deployments: Deployment[]): WebhookDeploymentOption[] {
+    return this.overview
+      ? this.contractTargets.options({ ...this.overview, deployments }, this.contracts)
+      : [];
   }
 }

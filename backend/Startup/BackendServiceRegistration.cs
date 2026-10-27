@@ -68,6 +68,8 @@ public static class BackendServiceRegistration
         services.AddScoped<IContractRepository, ContractRepository>();
         services.AddScoped<ProjectContractLoader>();
         services.AddScoped<ContractService>();
+        services.AddScoped<LegacyContractResolver>();
+        services.AddScoped<ProjectDeploymentCompatibilityService>();
         services.AddScoped<WorkspaceReadRepository>();
         services.AddScoped<WorkspaceReadService>();
         services.AddScoped<ContractWriteGuard>();

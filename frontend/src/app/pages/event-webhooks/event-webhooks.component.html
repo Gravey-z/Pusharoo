@@ -13,7 +13,10 @@
     <div class="webhook-workspace-intro">
       <span class="eyebrow">Event delivery</span>
       <h2>Event webhooks</h2>
-      <p>Monitor contract events and send matching activity to your endpoint.</p>
+      <p
+        >Monitor contract events and send matching activity to your endpoint. All contracts share
+        this project's allowance on the selected network.</p
+      >
     </div>
 
     <div class="webhook-workspace-controls">
@@ -106,7 +109,7 @@
             webhooks.</p
           >
         </section>
-      } @else if (deploymentOptions.length) {
+      } @else if (overview) {
         <section class="webhook-layout">
           <form class="webhook-form surface-panel" (ngSubmit)="save()">
             <header class="webhook-form-header">
@@ -135,21 +138,37 @@
                 <span>Contract</span>
                 <select
                   name="contractHash"
-                  [(ngModel)]="contractHash"
+                  [(ngModel)]="selectedDeploymentKey"
+                  [disabled]="!!editingSubscriptionId"
                   (change)="selectDeployment()"
                 >
-                  @for (deployment of deploymentOptions; track deployment.contractHash) {
-                    <option [value]="deployment.contractHash">
-                      {{ deployment.label }} - {{ shortHash(deployment.contractHash) }}
+                  @for (deployment of deploymentOptions; track deployment.key) {
+                    <option [value]="deployment.key">
+                      {{ deployment.label }} - {{ deployment.contractHash }}
                     </option>
                   }
                 </select>
               </label>
 
+              @if (editingSubscriptionId) {
+                <p
+                  >Editing the existing network/hash target: {{ contractHash }}. Its target remains
+                  unchanged.</p
+                >
+              }
+              @if (!selectedDeployment?.artifact) {
+                <p role="status"
+                  >The selected deployment has no unambiguous uploaded artifact. Event names are
+                  unavailable; All events remains available.</p
+                >
+              }
               <label>
                 <span>Event</span>
                 <select name="eventName" [(ngModel)]="eventName">
                   <option value="">All events</option>
+                  @if (editingSubscriptionId && eventName && !eventOptions.includes(eventName)) {
+                    <option [value]="eventName">{{ eventName }} (existing filter)</option>
+                  }
                   @for (event of eventOptions; track event) {
                     <option [value]="event">{{ event }}</option>
                   }
@@ -238,8 +257,18 @@
             @if (deliveryRefreshError) {
               <p role="status">{{ deliveryRefreshError }}</p>
             }
-            @if (subscriptions.length) {
-              @for (subscription of subscriptions; track subscription.id) {
+            <label
+              >Contract filter
+              <select name="contractFilter" [(ngModel)]="contractFilter">
+                <option value="">All contracts</option
+                ><option value="unlinked">Unlinked</option>
+                @for (contract of contracts; track contract.id) {
+                  <option [value]="contract.id">{{ contract.name }}</option>
+                }
+              </select></label
+            >
+            @if (filteredSubscriptions.length) {
+              @for (subscription of filteredSubscriptions; track subscription.id) {
                 @let delivery = latestDelivery(subscription.id);
                 <article
                   class="subscription-card"
@@ -270,7 +299,10 @@
                     <dl class="subscription-metadata">
                       <div>
                         <dt>Contract</dt>
-                        <dd>{{ shortHash(subscription.contractHash) }}</dd>
+                        <dd
+                          >{{ subscriptionContract(subscription)?.name ?? 'Unlinked' }} ?
+                          {{ shortHash(subscription.contractHash) }}</dd
+                        >
                       </div>
                       <div>
                         <dt>Endpoint</dt>
@@ -421,8 +453,12 @@
               }
             } @else {
               <div class="empty-webhooks">
-                <strong>No webhooks yet</strong>
-                <p>Create one to send matching Neo contract events to your endpoint.</p>
+                <strong>{{ contractFilter ? 'No matching webhooks' : 'No webhooks yet' }}</strong>
+                <p>{{
+                  contractFilter
+                    ? 'No subscriptions match this contract filter.'
+                    : 'Create one to send matching Neo contract events to your endpoint.'
+                }}</p>
               </div>
             }
             <section
@@ -453,7 +489,7 @@
                       (ngModelChange)="selectRecoveryContract()"
                       [disabled]="recoveryBusy"
                     >
-                      @for (deployment of deploymentOptions; track deployment.contractHash) {
+                      @for (deployment of deploymentOptions; track deployment.key) {
                         <option [value]="deployment.contractHash"
                           >{{ deployment.label }} · {{ shortHash(deployment.contractHash) }}</option
                         >
@@ -616,7 +652,7 @@
             found</strong
           >
           <p
-            >Deploy this project to
+            >Deploy a contract in this project to
             {{ webhookNetwork === 'neo3:testnet' ? 'N3:Testnet' : 'N3:Mainnet' }} before creating
             event webhooks for this relay.</p
           >
