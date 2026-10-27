@@ -191,9 +191,22 @@ export class PusharooApiService {
       .pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
-  recoverDeployment(projectId: string, request: RecoverDeploymentRequest): Observable<Deployment> {
+  getProjectContract(
+    projectId: string,
+    contractId: string
+  ): Observable<{ id: string; projectId: string; name: string }> {
+    return this.http.get<{ id: string; projectId: string; name: string }>(
+      `${this.apiBaseUrl}/projects/${encodeURIComponent(projectId)}/contracts/${encodeURIComponent(contractId)}`
+    );
+  }
+
+  recoverDeployment(
+    projectId: string,
+    request: RecoverDeploymentRequest,
+    contractId?: string | null
+  ): Observable<Deployment> {
     return this.http
-      .post<Deployment>(`${this.apiBaseUrl}/projects/${projectId}/deployments/recover`, request, {
+      .post<Deployment>(`${this.deploymentBaseUrl(projectId, contractId)}/recover`, request, {
         context: this.walletSessionContext()
       })
       .pipe(tap(() => this.invalidateProjectCache(projectId)));
@@ -204,9 +217,13 @@ export class PusharooApiService {
     request: StartDeploymentAttemptRequest
   ): Observable<Deployment> {
     return this.http
-      .post<Deployment>(`${this.apiBaseUrl}/projects/${projectId}/deployments/attempts`, request, {
-        context: this.walletSessionContext()
-      })
+      .post<Deployment>(
+        `${this.deploymentBaseUrl(projectId, request.contractId)}/attempts`,
+        request,
+        {
+          context: this.walletSessionContext()
+        }
+      )
       .pipe(tap(() => this.invalidateProjectCache(projectId)));
   }
 
@@ -215,15 +232,19 @@ export class PusharooApiService {
     request: DeploymentReviewRequest
   ): Observable<DeploymentReview> {
     return this.http.post<DeploymentReview>(
-      `${this.apiBaseUrl}/projects/${projectId}/deployments/review`,
+      `${this.deploymentBaseUrl(projectId, request.contractId)}/review`,
       request,
       { context: this.walletSessionContext() }
     );
   }
 
-  resumeDeploymentAttempt(projectId: string, deploymentId: string): Observable<Deployment> {
+  resumeDeploymentAttempt(
+    projectId: string,
+    deploymentId: string,
+    contractId?: string | null
+  ): Observable<Deployment> {
     return this.http.post<Deployment>(
-      `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/resume`,
+      `${this.deploymentBaseUrl(projectId, contractId)}/${deploymentId}/resume`,
       {},
       { context: this.walletSessionContext() }
     );
@@ -233,11 +254,12 @@ export class PusharooApiService {
     projectId: string,
     deploymentId: string,
     transactionId: string,
-    attemptCapability: string
+    attemptCapability: string,
+    contractId?: string | null
   ): Observable<Deployment> {
     return this.http
       .post<Deployment>(
-        `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/submitted`,
+        `${this.deploymentBaseUrl(projectId, contractId)}/${deploymentId}/submitted`,
         { transactionId, attemptCapability },
         { context: this.walletSessionContext() }
       )
@@ -247,11 +269,12 @@ export class PusharooApiService {
   confirmDeploymentAttempt(
     projectId: string,
     deploymentId: string,
-    attemptCapability: string
+    attemptCapability: string,
+    contractId?: string | null
   ): Observable<Deployment> {
     return this.http
       .post<Deployment>(
-        `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/confirm`,
+        `${this.deploymentBaseUrl(projectId, contractId)}/${deploymentId}/confirm`,
         { attemptCapability },
         { context: this.walletSessionContext() }
       )
@@ -263,11 +286,12 @@ export class PusharooApiService {
     deploymentId: string,
     attemptCapability: string,
     stage: 'preparing' | 'wallet' | 'confirmation' | 'record',
-    reason: string
+    reason: string,
+    contractId?: string | null
   ): Observable<Deployment> {
     return this.http
       .post<Deployment>(
-        `${this.apiBaseUrl}/projects/${projectId}/deployments/${deploymentId}/failed`,
+        `${this.deploymentBaseUrl(projectId, contractId)}/${deploymentId}/failed`,
         { attemptCapability, stage, reason },
         { context: this.walletSessionContext() }
       )
@@ -278,6 +302,26 @@ export class PusharooApiService {
     return this.cachedGet(`project:${projectId}:deployments`, () =>
       this.http.get<Deployment[]>(`${this.apiBaseUrl}/projects/${projectId}/deployments`)
     );
+  }
+
+  markDeploymentWalletOpened(
+    projectId: string,
+    deploymentId: string,
+    attemptCapability: string,
+    contractId?: string | null
+  ): Observable<Deployment> {
+    return this.http.post<Deployment>(
+      `${this.deploymentBaseUrl(projectId, contractId)}/${deploymentId}/wallet-opened`,
+      { attemptCapability },
+      { context: this.walletSessionContext() }
+    );
+  }
+
+  private deploymentBaseUrl(projectId: string, contractId?: string | null): string {
+    const project = `${this.apiBaseUrl}/projects/${encodeURIComponent(projectId)}`;
+    return contractId
+      ? `${project}/contracts/${encodeURIComponent(contractId)}/deployments`
+      : `${project}/deployments`;
   }
 
   private walletSessionContext(): HttpContext {

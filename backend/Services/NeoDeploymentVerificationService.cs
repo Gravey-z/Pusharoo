@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace backend.Services;
 
-public sealed class NeoDeploymentVerificationService(
+public sealed partial class NeoDeploymentVerificationService(
     NeoRpcClient neoRpc,
     IOptions<NeoRpcOptions> options
 )
@@ -62,10 +62,25 @@ public sealed class NeoDeploymentVerificationService(
         CancellationToken cancellationToken
     )
     {
+        if (attempt.RecoveryEvidence is not null)
+        {
+            var error = DeploymentRecoveryPolicy.ValidateRecoveryEvidence(attempt);
+            return error is not null || attempt.ProjectId != project.Id
+                ? Task.FromResult(InspectFail(error ?? "The recovery project does not match."))
+                : InspectRecoveredDeployAsync(
+                    project,
+                    attempt.Network,
+                    attempt.TransactionId!,
+                    attempt.RecoveryEvidence.SignerScriptHash,
+                    cancellationToken
+                );
+        }
+
         if (
             attempt.ProjectId != project.Id
             || (
                 attempt.ContractId is not null
+                && !DeploymentRecoveryPolicy.IsLegacyMapped(attempt)
                 && (
                     attempt.AuthorizationSnapshot?.AuthorizationSchemaVersion != 4
                     || attempt.AuthorizationSnapshot.ContractId != attempt.ContractId
@@ -152,21 +167,20 @@ public sealed class NeoDeploymentVerificationService(
             return InspectFail($"No Neo RPC endpoint is configured for {network}.");
         }
 
-        var expectedAction =
-            attempt?.AuthorizationSnapshot?.AuthorizationSchemaVersion >= 2
-                ? string.Equals(attempt.Operation, "update", StringComparison.Ordinal)
-                    ? "Update"
-                    : "Deploy"
-                : HasExistingNetworkDeployment(existingDeployments, network)
-                    ? "Update"
-                    : "Deploy";
+        var expectedAction = attempt is not null
+            ? string.Equals(attempt.Operation, "update", StringComparison.Ordinal)
+                ? "Update"
+                : "Deploy"
+            : HasExistingNetworkDeployment(existingDeployments, network)
+                ? "Update"
+                : "Deploy";
 
         try
         {
             var transaction = await neoRpc.SendAsync(
                 networkOptions.Endpoint,
                 "getrawtransaction",
-                [transactionId.Trim(), 1],
+                [RpcTransactionId(transactionId), 1],
                 cancellationToken
             );
 
@@ -187,7 +201,7 @@ public sealed class NeoDeploymentVerificationService(
             var applicationLog = await neoRpc.SendAsync(
                 networkOptions.Endpoint,
                 "getapplicationlog",
-                [transactionId.Trim()],
+                [RpcTransactionId(transactionId)],
                 cancellationToken
             );
 
@@ -254,6 +268,14 @@ public sealed class NeoDeploymentVerificationService(
                 $"Neo RPC returned an unexpected deployment verification response: {ex.Message}"
             );
         }
+    }
+
+    private static string RpcTransactionId(string transactionId)
+    {
+        var hash = transactionId.Trim();
+        return hash.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+            ? hash.ToLowerInvariant()
+            : "0x" + hash.ToLowerInvariant();
     }
 
     private static bool HasExistingNetworkDeployment(

@@ -65,7 +65,10 @@ public sealed class DeploymentAttemptValidator(
 
         var snapshot = attempt.AuthorizationSnapshot;
 
-        if (snapshot is null || string.IsNullOrWhiteSpace(snapshot.InitiatorWalletAddress))
+        if (
+            (snapshot is null || string.IsNullOrWhiteSpace(snapshot.InitiatorWalletAddress))
+            && attempt.RecoveryEvidence is null
+        )
         {
             return DeploymentWorkflowResult<ProjectDeploymentAttemptContext>.Forbidden(
                 "Deployment attempt authorization is missing. Start a new attempt."
@@ -83,7 +86,7 @@ public sealed class DeploymentAttemptValidator(
         {
             var access = projectAuthorization.CanDeployToNetwork(
                 projectResult.Value,
-                snapshot.InitiatorWalletAddress,
+                snapshot?.InitiatorWalletAddress ?? attempt.RecoveryEvidence!.WalletAddress,
                 attempt.Network
             );
 
@@ -98,30 +101,34 @@ public sealed class DeploymentAttemptValidator(
         }
 
         if (contractId is not null)
-        {
             await contractLoader.LoadAsync(projectId, contractId, cancellationToken);
-            var error = await ValidateSnapshotAsync(
-                projectResult.Value,
-                attempt,
-                cancellationToken,
-                requireCurrentTarget: attempt.Status == "awaiting_wallet"
-            );
-            if (error is not null)
-                return DeploymentWorkflowResult<ProjectDeploymentAttemptContext>.Conflict(error);
-        }
+        var error = await ValidateSnapshotAsync(
+            projectResult.Value,
+            attempt,
+            cancellationToken,
+            requireCurrentTarget: attempt.Status == "awaiting_wallet"
+                && !attempt.BroadcastOutcomeUnknown
+                && !DeploymentRecoveryPolicy.IsLegacyMapped(attempt)
+        );
+        if (error is not null)
+            return DeploymentWorkflowResult<ProjectDeploymentAttemptContext>.Conflict(error);
 
         return DeploymentWorkflowResult<ProjectDeploymentAttemptContext>.Success(
             new ProjectDeploymentAttemptContext(projectResult.Value, attempt)
         );
     }
 
-    internal static bool MatchesInitiator(
-        DeploymentDocument attempt,
-        WalletSessionIdentity actor
-    ) =>
-        attempt.AuthorizationSnapshot is { } snapshot
-        && string.Equals(snapshot.InitiatorWalletAddress, actor.Address, StringComparison.Ordinal)
-        && HashesMatch(snapshot.InitiatorScriptHash, actor.ScriptHash);
+    internal static bool MatchesInitiator(DeploymentDocument attempt, WalletSessionIdentity actor)
+    {
+        if (attempt.AuthorizationSnapshot is { } snapshot)
+            return attempt.DeployedBy == actor.Address
+                && snapshot.InitiatorWalletAddress == actor.Address
+                && HashesMatch(snapshot.InitiatorScriptHash, actor.ScriptHash);
+        return attempt.RecoveryEvidence is { } evidence
+            && DeploymentRecoveryPolicy.ValidateRecoveryEvidence(attempt) is null
+            && evidence.WalletAddress == actor.Address
+            && HashesMatch(evidence.SignerScriptHash, actor.ScriptHash);
+    }
 
     public async Task<string?> ValidateSnapshotAsync(
         ProjectDocument project,
@@ -130,6 +137,18 @@ public sealed class DeploymentAttemptValidator(
         bool requireCurrentTarget = true
     )
     {
+        if (attempt.RecoveryEvidence is not null)
+        {
+            if (attempt.ProjectId != project.Id)
+                return "The recovery project does not match its stored parent.";
+            await contractLoader.LoadAsync(
+                project.Id,
+                attempt.ContractId ?? string.Empty,
+                cancellationToken
+            );
+            return DeploymentRecoveryPolicy.ValidateRecoveryEvidence(attempt);
+        }
+
         var snapshot = attempt.AuthorizationSnapshot;
 
         if (snapshot is null)
@@ -161,7 +180,11 @@ public sealed class DeploymentAttemptValidator(
 
         if (
             attempt.ProjectId != project.Id
-            || (attempt.ContractId is not null && authorizationSchemaVersion != 4)
+            || (
+                attempt.ContractId is not null
+                && authorizationSchemaVersion != 4
+                && !DeploymentRecoveryPolicy.IsLegacyMapped(attempt)
+            )
             || (
                 authorizationSchemaVersion == 4
                 && (
@@ -182,6 +205,13 @@ public sealed class DeploymentAttemptValidator(
             )
         )
             return "The deployment contract authorization parent is incomplete or inconsistent.";
+
+        if (
+            DeploymentRecoveryPolicy.IsLegacyMapped(attempt)
+            && attempt.Operation == "update"
+            && string.IsNullOrWhiteSpace(snapshot.ExpectedTargetContractHash)
+        )
+            return "The legacy update target requires explicit reconciliation from its original evidence.";
 
         if (attempt.ContractId is not null)
             await contractLoader.LoadAsync(project.Id, attempt.ContractId, cancellationToken);

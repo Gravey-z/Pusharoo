@@ -35,7 +35,7 @@ public sealed class DeploymentAuthorizationService(
                 item.ProjectId == project.Id
                 && item.ContractId == artifact.ContractId
                 && string.Equals(item.Network, network.Trim(), StringComparison.Ordinal)
-                && string.Equals(item.Status, "confirmed", StringComparison.Ordinal)
+                && DeploymentRecoveryPolicy.IsConfirmed(item)
                 && !string.IsNullOrWhiteSpace(item.ContractHash)
             )
             .OrderByDescending(item => item.CreatedAt)
@@ -95,6 +95,12 @@ public sealed class DeploymentAuthorizationService(
             return Fail(
                 StatusCodes.Status400BadRequest,
                 "Artifact and contract parent identities do not match."
+            );
+
+        if (request.BroadcastTrackingVersion is not (0 or 1))
+            return Fail(
+                StatusCodes.Status400BadRequest,
+                "The wallet broadcast tracking format is not supported."
             );
 
         var permission = authorization.CanDeployToNetwork(project, actor.Address, request.Network);

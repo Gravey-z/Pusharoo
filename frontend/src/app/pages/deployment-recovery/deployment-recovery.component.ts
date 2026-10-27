@@ -1,10 +1,13 @@
-import { Component, OnInit, computed } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { firstValueFrom, forkJoin } from 'rxjs';
-import { ProjectAuthorizedDeployer, ProjectOverviewViewModel } from '../../models/pusharoo.models';
+import { combineLatest, firstValueFrom, forkJoin, of, Subscription } from 'rxjs';
+import {
+  Deployment,
+  ProjectAuthorizedDeployer,
+  ProjectOverviewViewModel
+} from '../../models/pusharoo.models';
 import { ProjectDeploymentAccessService } from '../../services/project-deployment-access.service';
-import { DeploymentHistoryService } from '../../services/deployment-history.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
@@ -19,7 +22,7 @@ import { ProjectReleaseNavComponent } from '../../components/project-release-nav
   templateUrl: './deployment-recovery.component.html',
   styleUrl: './deployment-recovery.component.scss'
 })
-export class DeploymentRecoveryComponent implements OnInit {
+export class DeploymentRecoveryComponent implements OnInit, OnDestroy {
   overview: ProjectOverviewViewModel | null = null;
   transactionId = '';
   errorMessage = '';
@@ -28,7 +31,11 @@ export class DeploymentRecoveryComponent implements OnInit {
   isLoading = true;
   loadError = '';
   authorizedDeployers: ProjectAuthorizedDeployer[] = [];
-  readonly projectId: string;
+  projectId = '';
+  contractId: string | null = null;
+  contractName = '';
+  private generation = 0;
+  private routeSubscription: Subscription | null = null;
   readonly walletAddress = computed(() => this.wallet.account()?.address ?? '');
   readonly walletNetwork = computed(() => this.wallet.session()?.network ?? '');
 
@@ -48,29 +55,32 @@ export class DeploymentRecoveryComponent implements OnInit {
     );
   }
 
-  get hasConfirmedDeploymentOnConnectedNetwork(): boolean {
-    return (
-      !this.hasUnrecordedAttempt &&
-      Boolean(
-        this.deploymentHistory.latestForNetwork(
-          this.overview?.deployments ?? [],
-          this.walletNetwork()
-        )
-      )
-    );
-  }
-
   get hasUnrecordedAttempt(): boolean {
     return Boolean(
       this.walletAddress() &&
         this.walletNetwork() &&
-        this.overview?.deployments.some(
+        this.selectedDeployments.some(
           deployment =>
             deployment.network === this.walletNetwork() &&
             deployment.deployedBy === this.walletAddress() &&
-            ['preparing', 'awaiting_wallet'].includes(deployment.status) &&
-            !deployment.transactionId
+            [
+              'preparing',
+              'awaiting_wallet',
+              'submitted',
+              'confirming',
+              'record_failed',
+              'failed',
+              'confirmed'
+            ].includes(deployment.status)
         )
+    );
+  }
+
+  private get selectedDeployments(): Deployment[] {
+    return (this.overview?.deployments ?? []).filter(
+      deployment =>
+        deployment.projectId === this.projectId &&
+        (deployment.contractId ?? null) === this.contractId
     );
   }
 
@@ -89,17 +99,30 @@ export class DeploymentRecoveryComponent implements OnInit {
     private readonly router: Router,
     private readonly api: PusharooApiService,
     private readonly errors: ApiErrorFormatterService,
-    private readonly deploymentHistory: DeploymentHistoryService,
     private readonly deploymentAccess: ProjectDeploymentAccessService,
     private readonly auth: WalletAuthService,
     private readonly attemptCapabilities: DeploymentAttemptCapabilityService,
     readonly wallet: WalletService
-  ) {
-    this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
-  }
+  ) {}
 
   ngOnInit(): void {
-    this.loadProject();
+    this.routeSubscription = combineLatest([
+      (this.route.parent ?? this.route).paramMap,
+      this.route.paramMap,
+      this.route.queryParamMap
+    ]).subscribe(([parent, params, query]) => {
+      this.projectId = params.get('projectId') ?? parent.get('projectId') ?? '';
+      this.contractId = params.get('contractId') ?? query.get('contractId');
+      this.transactionId = '';
+      this.errorMessage = '';
+      this.statusMessage = '';
+      this.loadProject();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.generation++;
+    this.routeSubscription?.unsubscribe();
   }
 
   retryLoad(): void {
@@ -109,16 +132,33 @@ export class DeploymentRecoveryComponent implements OnInit {
   private loadProject(): void {
     this.isLoading = true;
     this.loadError = '';
+    this.overview = null;
+    this.contractName = '';
+    const generation = ++this.generation;
+    const projectId = this.projectId;
+    const contractId = this.contractId;
     forkJoin({
+      contract: contractId ? this.api.getProjectContract(projectId, contractId) : of(null),
       overview: this.api.getProjectOverview(this.projectId),
       authorizedDeployers: this.api.getAuthorizedDeployers(this.projectId)
     }).subscribe({
-      next: ({ overview, authorizedDeployers }) => {
+      next: ({ overview, authorizedDeployers, contract }) => {
+        if (generation !== this.generation) return;
+        if (
+          overview.project.id !== projectId ||
+          (contract && (contract.id !== contractId || contract.projectId !== projectId))
+        ) {
+          this.loadError = 'The selected contract does not belong to this project.';
+          this.isLoading = false;
+          return;
+        }
+        this.contractName = contract?.name ?? '';
         this.overview = overview;
         this.authorizedDeployers = authorizedDeployers;
         this.isLoading = false;
       },
       error: error => {
+        if (generation !== this.generation) return;
         this.overview = null;
         this.authorizedDeployers = [];
         this.loadError = this.errors.format(error, 'Could not load this project.');
@@ -131,12 +171,6 @@ export class DeploymentRecoveryComponent implements OnInit {
     this.errorMessage = '';
     this.statusMessage = '';
 
-    if (this.hasConfirmedDeploymentOnConnectedNetwork) {
-      this.errorMessage =
-        'This project already has a confirmed deployment on the connected network.';
-      return;
-    }
-
     const transactionId = this.transactionId.trim().toLowerCase();
     if (!/^0x[0-9a-f]{64}$/.test(transactionId)) {
       this.errorMessage = 'Enter a 0x-prefixed Neo N3 transaction hash.';
@@ -148,30 +182,63 @@ export class DeploymentRecoveryComponent implements OnInit {
     }
 
     this.isRecovering = true;
+    const generation = this.generation;
+    const projectId = this.projectId;
+    const contractId = this.contractId;
     try {
       const walletAddress = this.walletAddress();
       const network = this.walletNetwork();
       await this.auth.ensureAuthenticated();
-      if (this.walletAddress() !== walletAddress || this.walletNetwork() !== network) {
+      if (
+        generation !== this.generation ||
+        this.walletAddress() !== walletAddress ||
+        this.walletNetwork() !== network
+      ) {
         throw new Error('The connected wallet or network changed. Try recovery again.');
       }
       this.statusMessage = 'Checking the transaction on Neo...';
       const recovered = await firstValueFrom(
-        this.api.recoverDeployment(this.projectId, {
-          network,
-          transactionId
-        })
+        this.api.recoverDeployment(projectId, { network, transactionId }, contractId)
       );
-      this.attemptCapabilities.remove(recovered.id);
-      await this.router.navigate(['/projects', this.projectId, 'deployments']);
+      if (
+        recovered.projectId !== projectId ||
+        (recovered.contractId ?? null) !== contractId ||
+        recovered.network !== network ||
+        recovered.deployedBy !== walletAddress ||
+        !this.attemptCapabilities.matchesTransaction(recovered.transactionId, transactionId)
+      ) {
+        throw new Error(
+          'The recovery response does not match the selected contract or transaction.'
+        );
+      }
+      this.attemptCapabilities.complete(recovered);
+      if (generation === this.generation)
+        await this.router.navigate(['/projects', projectId, 'deployments']);
     } catch (error) {
+      if (generation !== this.generation) return;
+      const pending = (error as { error?: { deployment?: Deployment } } | null)?.error?.deployment;
+      if (
+        pending &&
+        pending.projectId === projectId &&
+        (pending.contractId ?? null) === contractId &&
+        pending.network === this.walletNetwork() &&
+        pending.deployedBy === this.walletAddress() &&
+        this.attemptCapabilities.matchesTransaction(pending.transactionId, transactionId)
+      ) {
+        try {
+          this.attemptCapabilities.setTransactionId(pending, transactionId);
+          this.attemptCapabilities.setBroadcastPending(pending);
+          if (pending.attemptCapability)
+            this.attemptCapabilities.set(pending, pending.attemptCapability);
+        } catch {}
+      }
       this.statusMessage = '';
       this.errorMessage = this.errors.format(
         error,
         'Could not recover this deployment transaction.'
       );
     } finally {
-      this.isRecovering = false;
+      if (generation === this.generation) this.isRecovering = false;
     }
   }
 }

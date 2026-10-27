@@ -6,7 +6,8 @@ public sealed class ContractDeploymentService(
     DeploymentLifecycleService lifecycle,
     DeploymentService deployments,
     ProjectContractLoader loader,
-    ContractDeploymentCoordinator coordinator
+    ContractDeploymentCoordinator coordinator,
+    ContractRecoveryService recovery
 )
 {
     public async Task<DeploymentWorkflowResult<DeploymentReviewResponse>> ReviewAsync(
@@ -51,6 +52,45 @@ public sealed class ContractDeploymentService(
             () =>
                 lifecycle.StartAttemptAsync(
                     projectId,
+                    request,
+                    actor,
+                    cancellationToken,
+                    contractId
+                ),
+            cancellationToken
+        );
+
+    public Task<DeploymentWorkflowResult<DeploymentResponse>> RecoverAsync(
+        string projectId,
+        string contractId,
+        RecoverDeploymentRequest request,
+        WalletSessionIdentity actor,
+        CancellationToken cancellationToken
+    ) =>
+        coordinator.ExecuteAsync(
+            projectId,
+            contractId,
+            request.Network,
+            () => recovery.RecoverAsync(projectId, contractId, request, actor, cancellationToken),
+            cancellationToken
+        );
+
+    public Task<DeploymentWorkflowResult<DeploymentResponse>> MarkWalletOpenedAsync(
+        string projectId,
+        string contractId,
+        string deploymentId,
+        ConfirmDeploymentAttemptRequest request,
+        WalletSessionIdentity actor,
+        CancellationToken cancellationToken
+    ) =>
+        ExecuteAttemptAsync(
+            projectId,
+            contractId,
+            deploymentId,
+            () =>
+                lifecycle.MarkWalletOpenedAsync(
+                    projectId,
+                    deploymentId,
                     request,
                     actor,
                     cancellationToken,

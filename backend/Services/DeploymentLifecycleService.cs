@@ -172,6 +172,15 @@ public sealed class DeploymentLifecycleService(
             contractId,
             cancellationToken
         );
+        if (
+            existingDeployments.Any(item =>
+                item.Network == request.Network && DeploymentRecoveryPolicy.IsUnresolved(item)
+            )
+        )
+            return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
+                "Another unresolved attempt exists for this contract and network. Reconcile it before starting a new release."
+            );
+
         var authorization = deploymentAuthorization.ValidateSessionStart(
             projectResult.Value,
             artifact,
@@ -218,6 +227,40 @@ public sealed class DeploymentLifecycleService(
         }
     }
 
+    public async Task<DeploymentWorkflowResult<DeploymentResponse>> MarkWalletOpenedAsync(
+        string projectId,
+        string deploymentId,
+        ConfirmDeploymentAttemptRequest request,
+        WalletSessionIdentity actor,
+        CancellationToken cancellationToken,
+        string? contractId = null
+    )
+    {
+        var context = await attemptValidator.LoadAsync(
+            projectId,
+            deploymentId,
+            request.AttemptCapability,
+            actor,
+            false,
+            cancellationToken,
+            contractId: contractId
+        );
+        if (!context.IsSuccess || context.Value is null)
+            return DeploymentWorkflowResult<DeploymentResponse>.Failure(context);
+        var attempt = context.Value.Attempt;
+        if (
+            attempt.Status != "awaiting_wallet"
+            || attempt.BroadcastTrackingVersion != 1
+            || attempt.BroadcastOutcomeUnknown
+            || attempt.TransactionId is not null
+        )
+            return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
+                "This attempt may already have opened a wallet transaction. Reconcile it before opening another."
+            );
+        var updated = await deploymentService.MarkWalletOpenedAsync(attempt, cancellationToken);
+        return DeploymentWorkflowResult<DeploymentResponse>.Success(updated.ToResponse());
+    }
+
     public async Task<DeploymentWorkflowResult<DeploymentResponse>> MarkSubmittedAsync(
         string projectId,
         string deploymentId,
@@ -258,6 +301,8 @@ public sealed class DeploymentLifecycleService(
             attempt,
             cancellationToken,
             requireCurrentTarget: attempt.Status == "awaiting_wallet"
+                && !attempt.BroadcastOutcomeUnknown
+                && !DeploymentRecoveryPolicy.IsLegacyMapped(attempt)
         );
 
         if (snapshotError is not null)
@@ -265,7 +310,7 @@ public sealed class DeploymentLifecycleService(
             return DeploymentWorkflowResult<DeploymentResponse>.Conflict(snapshotError);
         }
 
-        if (attempt.Status == "submitted" || attempt.Status == "confirmed")
+        if (attempt.Status == "submitted" || DeploymentRecoveryPolicy.IsConfirmed(attempt))
         {
             return string.Equals(
                 attempt.TransactionId,
@@ -348,7 +393,12 @@ public sealed class DeploymentLifecycleService(
         var project = context.Value.Project;
         var attempt = context.Value.Attempt;
 
-        if (attempt.Status == "confirmed")
+        if (attempt.Status == "failed" && attempt.ChainFailureVerified)
+            return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
+                "This transaction has a verified failure. Start a freshly reviewed release instead."
+            );
+
+        if (DeploymentRecoveryPolicy.IsConfirmed(attempt))
         {
             return DeploymentWorkflowResult<DeploymentResponse>.Success(attempt.ToResponse());
         }
@@ -360,12 +410,32 @@ public sealed class DeploymentLifecycleService(
             );
         }
 
-        attempt = await deploymentService.MarkConfirmingAsync(attempt, cancellationToken);
         var deployments = await deploymentService.GetForScopeAsync(
             projectId,
             contractId,
             cancellationToken
         );
+        if (
+            deployments.Any(item =>
+                item.Id != attempt.Id
+                && item.Network == attempt.Network
+                && DeploymentRecoveryPolicy.IsUnresolved(item)
+            )
+        )
+            return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
+                "Another unresolved attempt exists for this contract and network. Reconcile it before retrying this transaction."
+            );
+        try
+        {
+            attempt = await deploymentService.MarkConfirmingAsync(attempt, cancellationToken);
+        }
+        catch (MongoWriteException error)
+            when (error.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
+                "Another attempt already owns this contract and network."
+            );
+        }
         var verification = await deploymentVerification.RecoverAsync(
             project,
             deployments.Where(deployment => deployment.Id != attempt.Id).ToArray(),
@@ -377,22 +447,9 @@ public sealed class DeploymentLifecycleService(
         {
             var isFinalFailure =
                 verification.Error.StartsWith(
-                    "Deployment transaction finished",
+                    "Deployment transaction finished with FAULT",
                     StringComparison.Ordinal
-                )
-                || verification.Error.Contains("was not signed", StringComparison.Ordinal)
-                || verification.Error.Contains(
-                    "does not contain the expected",
-                    StringComparison.Ordinal
-                )
-                || verification.Error.Contains(
-                    "did not include a contract hash",
-                    StringComparison.Ordinal
-                )
-                || verification.Error.StartsWith(
-                    "Pusharoo could not verify the submitted invocation",
-                    StringComparison.Ordinal
-                );
+                ) || verification.Error.Contains("was not signed", StringComparison.Ordinal);
 
             if (isFinalFailure)
             {
@@ -400,7 +457,8 @@ public sealed class DeploymentLifecycleService(
                     attempt,
                     "confirmation",
                     verification.Error,
-                    cancellationToken
+                    cancellationToken,
+                    verifiedFinalFailure: true
                 );
 
                 return DeploymentWorkflowResult<DeploymentResponse>.BadRequest(
@@ -436,12 +494,32 @@ public sealed class DeploymentLifecycleService(
                 attempt,
                 "confirmation",
                 "Deployment update returned a contract hash other than the authorized target.",
-                cancellationToken
+                cancellationToken,
+                verifiedFinalFailure: true
             );
 
             return DeploymentWorkflowResult<DeploymentResponse>.BadRequest(
                 failed.FailureReason,
                 failed.ToResponse()
+            );
+        }
+
+        var lineageError = DeploymentRecoveryPolicy.ValidateLineage(
+            deployments,
+            attempt,
+            verification.ContractHash
+        );
+        if (lineageError is not null)
+        {
+            var blocked = await deploymentService.MarkFailedAsync(
+                attempt,
+                "record",
+                lineageError,
+                cancellationToken
+            );
+            return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
+                lineageError,
+                blocked.ToResponse()
             );
         }
 
@@ -478,7 +556,12 @@ public sealed class DeploymentLifecycleService(
 
         var attempt = context.Value.Attempt;
 
-        if (attempt.Status == "confirmed")
+        if (attempt.Status == "failed" && attempt.ChainFailureVerified)
+            return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
+                "This transaction has a verified failure. Start a freshly reviewed release instead."
+            );
+
+        if (DeploymentRecoveryPolicy.IsConfirmed(attempt))
         {
             return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
                 "A confirmed deployment cannot be marked failed."
@@ -524,25 +607,31 @@ public sealed class DeploymentLifecycleService(
                 "Sign in with the wallet that started this deployment attempt."
             );
 
-        if (contractId is not null)
-        {
-            var snapshotError = await attemptValidator.ValidateSnapshotAsync(
-                projectResult.Value,
-                attempt,
-                cancellationToken,
-                requireCurrentTarget: attempt.Status == "awaiting_wallet"
+        var snapshotError = await attemptValidator.ValidateSnapshotAsync(
+            projectResult.Value,
+            attempt,
+            cancellationToken,
+            requireCurrentTarget: attempt.Status == "awaiting_wallet"
+                && !attempt.BroadcastOutcomeUnknown
+                && !DeploymentRecoveryPolicy.IsLegacyMapped(attempt)
+        );
+        if (snapshotError is not null)
+            return DeploymentWorkflowResult<DeploymentResponse>.Conflict(snapshotError);
+
+        if (DeploymentRecoveryPolicy.NeedsFreshLegacyReview(attempt))
+            return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
+                "This legacy attempt requires broadcast reconciliation and a fresh review before a new wallet transaction. Recover a known transaction using its original evidence."
             );
-            if (snapshotError is not null)
-                return DeploymentWorkflowResult<DeploymentResponse>.Conflict(snapshotError);
-        }
 
         var retryableFailure =
             attempt.Status == "failed"
+            && !attempt.ChainFailureVerified
             && attempt.FailureStage == "confirmation"
             && !string.IsNullOrWhiteSpace(attempt.TransactionId);
 
         if (
-            attempt.Status is not ("awaiting_wallet" or "submitted" or "confirming")
+            attempt.Status
+                is not ("awaiting_wallet" or "submitted" or "confirming" or "record_failed")
             && !retryableFailure
         )
             return DeploymentWorkflowResult<DeploymentResponse>.Conflict(

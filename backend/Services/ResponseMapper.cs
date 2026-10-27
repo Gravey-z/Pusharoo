@@ -69,7 +69,14 @@ public static class ResponseMapper
                 ?.DeploymentDataFormatVersion,
             AuthorizationSchemaVersion: deployment.AuthorizationSnapshot?.AuthorizationSchemaVersion
                 ?? 1,
-            ContractId: deployment.ContractId
+            ContractId: deployment.ContractId,
+            BroadcastOutcomeUnknown: deployment.BroadcastOutcomeUnknown,
+            BroadcastTrackingVersion: deployment.BroadcastTrackingVersion,
+            ChainFailureVerified: deployment.ChainFailureVerified,
+            LegacyContractMappingVerified: DeploymentRecoveryPolicy.IsLegacyMapped(deployment),
+            RecoveryStatus: deployment.RecoveryEvidence is null ? null
+                : deployment.RecoveryEvidence.VerifiedAtUtc is null ? "pending"
+                : "verified"
         );
     }
 

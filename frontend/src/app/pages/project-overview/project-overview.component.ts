@@ -355,24 +355,53 @@ export class ProjectOverviewComponent implements OnInit {
     const retryableFailure =
       deployment.status === 'failed' &&
       deployment.failureStage === 'confirmation' &&
-      deployment.failureReason?.startsWith('Pusharoo could not verify the submitted invocation:');
+      !deployment.chainFailureVerified;
+    if (!this.matchesDeploymentContext(deployment)) return false;
     const locallySubmitted =
-      deployment.status === 'awaiting_wallet' &&
-      Boolean(this.attemptCapabilities.getTransactionId(deployment.id));
+      ['awaiting_wallet', 'record_failed'].includes(deployment.status) &&
+      Boolean(this.attemptCapabilities.getTransactionId(deployment));
     return Boolean(
-      (deployment.transactionId || this.attemptCapabilities.getTransactionId(deployment.id)) &&
-        (['submitted', 'confirming'].includes(deployment.status) ||
+      (deployment.transactionId || this.attemptCapabilities.getTransactionId(deployment)) &&
+        (['submitted', 'confirming', 'record_failed'].includes(deployment.status) ||
           retryableFailure ||
           locallySubmitted) &&
         this.wallet.account()?.address === deployment.deployedBy
     );
   }
 
+  hasUncertainBroadcast(deployment: Deployment): boolean {
+    return (
+      this.matchesDeploymentContext(deployment) &&
+      deployment.status !== 'confirmed' &&
+      (this.attemptCapabilities.hasUnknownBroadcast(deployment) ||
+        (deployment.broadcastTrackingVersion !== 1 &&
+          ['preparing', 'awaiting_wallet', 'record_failed'].includes(deployment.status))) &&
+      !deployment.transactionId &&
+      !this.attemptCapabilities.getTransactionId(deployment)
+    );
+  }
+
+  private matchesDeploymentContext(deployment: Deployment): boolean {
+    const selectedContract = this.route.snapshot.paramMap.get('contractId');
+    return (
+      deployment.projectId === this.projectId &&
+      (!selectedContract || deployment.contractId === selectedContract) &&
+      this.attemptCapabilities.matchesParent(deployment)
+    );
+  }
+
   canCancelAttempt(deployment: Deployment): boolean {
     return (
+      this.matchesDeploymentContext(deployment) &&
       deployment.status === 'awaiting_wallet' &&
+      deployment.broadcastTrackingVersion === 1 &&
+      !(
+        this.attemptCapabilities.hasUnknownBroadcast(deployment) ||
+        (deployment.broadcastTrackingVersion !== 1 &&
+          ['preparing', 'awaiting_wallet', 'record_failed'].includes(deployment.status))
+      ) &&
       !deployment.transactionId &&
-      !this.attemptCapabilities.getTransactionId(deployment.id) &&
+      !this.attemptCapabilities.getTransactionId(deployment) &&
       this.wallet.account()?.address === deployment.deployedBy
     );
   }
@@ -391,22 +420,25 @@ export class ProjectOverviewComponent implements OnInit {
     try {
       await this.auth.ensureAuthenticated();
       const renewed = await firstValueFrom(
-        this.api.resumeDeploymentAttempt(overview.project.id, deployment.id)
+        this.api.resumeDeploymentAttempt(overview.project.id, deployment.id, deployment.contractId)
       );
       if (!renewed.attemptCapability)
         throw new Error('Pusharoo could not renew the attempt. Refresh and try again.');
-      await firstValueFrom(
+      this.attemptCapabilities.assertParent(deployment, renewed);
+      const failed = await firstValueFrom(
         this.api.markDeploymentFailed(
           overview.project.id,
           deployment.id,
           renewed.attemptCapability,
           'wallet',
-          'Canceled before transaction submission.'
+          'Canceled before transaction submission.',
+          deployment.contractId
         )
       );
-      this.attemptCapabilities.remove(deployment.id);
+      this.attemptCapabilities.assertParent(deployment, failed);
+      this.attemptCapabilities.discardUnbroadcast(failed);
       if (this.workspace) this.workspace.overview = null;
-      this.loadOverview(overview.project.id);
+      if (this.projectId === overview.project.id) this.loadOverview(overview.project.id);
     } catch (error) {
       this.confirmationErrorDeploymentId = deployment.id;
       this.confirmationError = this.errors.format(
@@ -414,7 +446,7 @@ export class ProjectOverviewComponent implements OnInit {
         'Could not cancel this deployment attempt.'
       );
     } finally {
-      this.confirmingDeploymentId = '';
+      if (this.confirmingDeploymentId === deployment.id) this.confirmingDeploymentId = '';
     }
   }
 
@@ -431,15 +463,31 @@ export class ProjectOverviewComponent implements OnInit {
     this.confirmationError = '';
     try {
       await this.auth.ensureAuthenticated();
+      const savedTransaction = this.attemptCapabilities.getTransactionId(deployment);
+      if (!deployment.transactionId && savedTransaction) {
+        const recovered = await firstValueFrom(
+          this.api.recoverDeployment(
+            overview.project.id,
+            { network: deployment.network, transactionId: savedTransaction },
+            deployment.contractId
+          )
+        );
+        this.attemptCapabilities.assertParent(deployment, recovered);
+        this.attemptCapabilities.complete(recovered);
+        if (this.workspace) this.workspace.overview = null;
+        if (this.projectId === overview.project.id) this.loadOverview(overview.project.id);
+        return;
+      }
       const renewed = await firstValueFrom(
-        this.api.resumeDeploymentAttempt(overview.project.id, deployment.id)
+        this.api.resumeDeploymentAttempt(overview.project.id, deployment.id, deployment.contractId)
       );
+      this.attemptCapabilities.assertParent(deployment, renewed);
       let capability = renewed.attemptCapability;
       if (!capability)
         throw new Error('Pusharoo could not renew the attempt. Refresh and try again.');
-      this.attemptCapabilities.set(deployment.id, capability);
+      this.attemptCapabilities.set(deployment, capability);
       const transactionId =
-        renewed.transactionId ?? this.attemptCapabilities.getTransactionId(deployment.id);
+        renewed.transactionId ?? this.attemptCapabilities.getTransactionId(deployment);
       if (!transactionId)
         throw new Error('The submitted transaction ID is missing. Recover it by transaction hash.');
       if (!renewed.transactionId) {
@@ -448,27 +496,35 @@ export class ProjectOverviewComponent implements OnInit {
             overview.project.id,
             deployment.id,
             transactionId,
-            capability
+            capability,
+            deployment.contractId
           )
         );
+        this.attemptCapabilities.assertParent(deployment, submitted);
         capability = submitted.attemptCapability;
         if (!capability)
           throw new Error(
             'Pusharoo could not renew the submitted attempt. Try Resume Confirmation again.'
           );
-        this.attemptCapabilities.set(deployment.id, capability);
+        this.attemptCapabilities.set(deployment, capability);
       }
-      await firstValueFrom(
-        this.api.confirmDeploymentAttempt(overview.project.id, deployment.id, capability)
+      const confirmed = await firstValueFrom(
+        this.api.confirmDeploymentAttempt(
+          overview.project.id,
+          deployment.id,
+          capability,
+          deployment.contractId
+        )
       );
-      this.attemptCapabilities.remove(deployment.id);
+      this.attemptCapabilities.assertParent(deployment, confirmed);
+      this.attemptCapabilities.complete(confirmed);
       if (this.workspace) this.workspace.overview = null;
-      this.loadOverview(overview.project.id);
+      if (this.projectId === overview.project.id) this.loadOverview(overview.project.id);
     } catch (error) {
       this.confirmationErrorDeploymentId = deployment.id;
       this.confirmationError = this.errors.format(error, 'Could not confirm this deployment.');
     } finally {
-      this.confirmingDeploymentId = '';
+      if (this.confirmingDeploymentId === deployment.id) this.confirmingDeploymentId = '';
     }
   }
 

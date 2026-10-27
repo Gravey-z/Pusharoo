@@ -341,6 +341,14 @@
                   }}
                 </button>
               }
+              @if (hasUncertainBroadcast(deployment)) {
+                <a
+                  [routerLink]="['/projects', deployment.projectId, 'deployments', 'recovery']"
+                  [queryParams]="{ contractId: deployment.contractId }"
+                >
+                  Wallet outcome uncertain. Recover by transaction hash.
+                </a>
+              }
               @if (canCancelAttempt(deployment)) {
                 <button
                   class="resume-button"

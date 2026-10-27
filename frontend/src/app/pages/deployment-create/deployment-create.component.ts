@@ -280,6 +280,7 @@ export class DeploymentCreateComponent implements OnInit {
     let attemptCapability = '';
     let transactionId = '';
     let walletReturnedInvalidHash = false;
+    let walletMayHaveBroadcast = false;
 
     try {
       const deploymentNotes = this.notes.trim() || null;
@@ -294,6 +295,8 @@ export class DeploymentCreateComponent implements OnInit {
       attempt = await firstValueFrom(
         this.api.startDeploymentAttempt(this.projectId, {
           artifactId: this.artifactId,
+          broadcastTrackingVersion: 1,
+          contractId: reviewed.contractId,
           network: session.network,
           notes: deploymentNotes,
           expectedOperation: reviewed.operation,
@@ -314,8 +317,9 @@ export class DeploymentCreateComponent implements OnInit {
           'Pusharoo did not return a deployment attempt capability. Start the release again.'
         );
       }
-      this.attemptCapabilities.set(attempt.id, attemptCapability);
       if (
+        attempt.projectId !== this.projectId ||
+        (attempt.contractId ?? null) !== (artifact.contractId ?? null) ||
         attempt.artifactId !== artifact.id ||
         attempt.network !== session.network ||
         attempt.deployedBy !== this.walletAddress() ||
@@ -339,6 +343,24 @@ export class DeploymentCreateComponent implements OnInit {
         );
       }
 
+      this.attemptCapabilities.set(attempt, attemptCapability);
+      this.attemptCapabilities.setBroadcastPending(attempt);
+      walletMayHaveBroadcast = true;
+      const walletOpened = await firstValueFrom(
+        this.api.markDeploymentWalletOpened(
+          this.projectId,
+          attempt.id,
+          attemptCapability,
+          attempt.contractId
+        )
+      );
+      this.attemptCapabilities.assertParent(attempt, walletOpened);
+      if (!walletOpened.broadcastOutcomeUnknown) {
+        throw new Error(
+          'Pusharoo did not retain the wallet transaction marker. The wallet was not opened.'
+        );
+      }
+
       const manifestJson = JSON.stringify(artifact.manifest);
       const walletTransactionId = await this.deployOrUpdateContract(
         session.network,
@@ -355,7 +377,7 @@ export class DeploymentCreateComponent implements OnInit {
         walletReturnedInvalidHash = true;
         throw error;
       }
-      this.attemptCapabilities.setTransactionId(attempt.id, transactionId);
+      this.attemptCapabilities.setTransactionId(attempt, transactionId);
 
       this.deployStatus = 'Saving submitted transaction...';
       const submitted = await firstValueFrom(
@@ -363,23 +385,36 @@ export class DeploymentCreateComponent implements OnInit {
           this.projectId,
           attempt.id,
           transactionId,
-          attemptCapability
+          attemptCapability,
+          attempt.contractId
         )
       );
+      this.attemptCapabilities.assertParent(attempt, submitted);
+      if (!this.attemptCapabilities.matchesTransaction(submitted.transactionId, transactionId)) {
+        throw new Error(
+          'The recorded transaction does not match the wallet response. Recovery information was retained.'
+        );
+      }
       attemptCapability = submitted.attemptCapability ?? '';
       if (!attemptCapability) {
         throw new Error(
           'Pusharoo did not return the next deployment attempt capability. Start the release again.'
         );
       }
-      this.attemptCapabilities.set(attempt.id, attemptCapability);
+      this.attemptCapabilities.set(attempt, attemptCapability);
 
       this.deployStatus = 'Confirming the transaction on Neo...';
       await this.waitForTransaction(session.network, transactionId, attempt.operation);
-      await firstValueFrom(
-        this.api.confirmDeploymentAttempt(this.projectId, attempt.id, attemptCapability)
+      const confirmed = await firstValueFrom(
+        this.api.confirmDeploymentAttempt(
+          this.projectId,
+          attempt.id,
+          attemptCapability,
+          attempt.contractId
+        )
       );
-      this.attemptCapabilities.remove(attempt.id);
+      this.attemptCapabilities.assertParent(attempt, confirmed);
+      this.attemptCapabilities.complete(confirmed);
 
       await this.router.navigate(['/projects', this.projectId]);
     } catch (error) {
@@ -387,22 +422,34 @@ export class DeploymentCreateComponent implements OnInit {
         transactionId && attempt
           ? `Transaction ${transactionId} was submitted. Open Deployments and choose Resume Confirmation. ${this.getErrorMessage(error)}`
           : this.getErrorMessage(error);
-      if (attempt && !transactionId && !walletReturnedInvalidHash && attemptCapability) {
-        const stage = this.deployStatus.includes('wallet') ? 'wallet' : 'preparing';
-        void firstValueFrom(
-          this.api.markDeploymentFailed(
-            this.projectId,
-            attempt.id,
-            attemptCapability,
-            stage,
-            this.errorMessage
-          )
-        )
-          .then(() => this.attemptCapabilities.remove(attempt!.id))
-          .catch(() => {
-            this.errorMessage +=
-              ' If this attempt remains active, open Deployments and cancel it with the same wallet.';
-          });
+      if (walletMayHaveBroadcast && !transactionId) {
+        this.errorMessage +=
+          ' The wallet outcome is uncertain. Recover the transaction by hash; this attempt was retained.';
+      }
+      if (
+        attempt &&
+        !transactionId &&
+        !walletMayHaveBroadcast &&
+        !walletReturnedInvalidHash &&
+        attemptCapability
+      ) {
+        try {
+          const failed = await firstValueFrom(
+            this.api.markDeploymentFailed(
+              this.projectId,
+              attempt.id,
+              attemptCapability,
+              'preparing',
+              this.errorMessage,
+              attempt.contractId
+            )
+          );
+          this.attemptCapabilities.assertParent(attempt, failed);
+          this.attemptCapabilities.discardUnbroadcast(failed);
+        } catch {
+          this.errorMessage +=
+            ' Open Deployments to reconcile the retained attempt with the same wallet.';
+        }
       }
     } finally {
       this.isSaving = false;
@@ -464,12 +511,14 @@ export class DeploymentCreateComponent implements OnInit {
       const authorizationPreview = await firstValueFrom(
         this.api.reviewDeployment(this.projectId, {
           artifactId: artifact.id,
+          contractId: artifact.contractId,
           network: session.network,
           notes: this.notes.trim() || null,
           ...(this.operation === 'deploy' ? { deploymentData } : {})
         })
       );
       if (
+        (authorizationPreview.contractId ?? null) !== (artifact.contractId ?? null) ||
         authorizationPreview.artifactId !== artifact.id ||
         authorizationPreview.network !== session.network
       ) {

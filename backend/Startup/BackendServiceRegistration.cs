@@ -81,6 +81,7 @@ public static class BackendServiceRegistration
         services.AddScoped<DeploymentLifecycleService>();
         services.AddScoped<ContractDeploymentCoordinator>();
         services.AddScoped<ContractDeploymentService>();
+        services.AddScoped<ContractRecoveryService>();
         services.AddScoped<DeploymentRecoveryService>();
         services.AddHttpClient<NeoRpcClient>(client => client.Timeout = TimeSpan.FromSeconds(15));
     }

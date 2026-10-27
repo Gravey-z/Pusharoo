@@ -10,6 +10,12 @@ public interface IDeploymentRepository
         CancellationToken cancellationToken
     );
 
+    Task<DeploymentDocument?> MarkWalletOpenedAsync(
+        DeploymentDocument attempt,
+        DateTime updatedAtUtc,
+        CancellationToken cancellationToken
+    );
+
     Task InsertAsync(DeploymentDocument deployment, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<DeploymentDocument>> GetByProjectIdAsync(

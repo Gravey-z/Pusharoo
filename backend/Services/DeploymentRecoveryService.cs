@@ -8,7 +8,8 @@ public sealed class DeploymentRecoveryService(
     DeploymentService deploymentService,
     DeploymentWorkflowService deploymentWorkflow,
     NeoDeploymentVerificationService deploymentVerification,
-    ProjectAuthorizationService projectAuthorization
+    ProjectAuthorizationService projectAuthorization,
+    DeploymentAttemptValidator attemptValidator
 )
 {
     public async Task<DeploymentWorkflowResult<DeploymentResponse>> RecoverAsync(
@@ -59,10 +60,10 @@ public sealed class DeploymentRecoveryService(
 
         if (existing?.ContractId is not null)
             return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
-                "Contract-scoped recovery requires the next implementation phase."
+                "This transaction belongs to a contract. Select its stored contract before recovering it."
             );
 
-        if (existing?.Status == "confirmed")
+        if (existing is not null && DeploymentRecoveryPolicy.IsConfirmed(existing))
             return DeploymentWorkflowResult<DeploymentResponse>.Success(existing.ToResponse());
 
         if (
@@ -78,7 +79,7 @@ public sealed class DeploymentRecoveryService(
         var deployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
         if (existing is null && deployments.Any(deployment => deployment.ContractId is not null))
             return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
-                "Choose a contract after contract-scoped recovery is implemented."
+                "Select a contract before recovering an unrecorded transaction in this project."
             );
 
         var active = existing is null
@@ -130,6 +131,40 @@ public sealed class DeploymentRecoveryService(
         }
 
         var trackedAttempt = existing ?? active;
+        if (trackedAttempt is not null)
+        {
+            if (trackedAttempt.ChainFailureVerified)
+                return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
+                    "The recorded transaction has a verified failure. Start a freshly reviewed release instead."
+                );
+            var snapshotError = await attemptValidator.ValidateSnapshotAsync(
+                project,
+                trackedAttempt,
+                cancellationToken,
+                requireCurrentTarget: false
+            );
+            if (snapshotError is not null)
+                return DeploymentWorkflowResult<DeploymentResponse>.Conflict(snapshotError);
+            if (trackedAttempt.TransactionId is null || trackedAttempt.ActiveAttemptKey is null)
+            {
+                try
+                {
+                    trackedAttempt = await deploymentService.AttachRecoveryTransactionAsync(
+                        trackedAttempt,
+                        transactionId,
+                        cancellationToken
+                    );
+                }
+                catch (MongoWriteException error)
+                    when (error.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+                {
+                    return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
+                        "The transaction or active attempt is already recorded. Reload before retrying."
+                    );
+                }
+            }
+        }
+
         var inspection = trackedAttempt is null
             ? await deploymentVerification.InspectRecoveredDeployAsync(
                 project,
@@ -143,14 +178,17 @@ public sealed class DeploymentRecoveryService(
                 deployments.Where(item => item.Id != trackedAttempt.Id).ToArray(),
                 trackedAttempt with
                 {
-                    TransactionId = transactionId,
+                    TransactionId = trackedAttempt.TransactionId ?? transactionId,
                 },
                 cancellationToken
             );
 
         if (!inspection.IsValid || string.IsNullOrWhiteSpace(inspection.ContractHash))
         {
-            return DeploymentWorkflowResult<DeploymentResponse>.Conflict(inspection.Error);
+            return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
+                inspection.Error,
+                trackedAttempt?.ToResponse()
+            );
         }
 
         if (
@@ -166,12 +204,24 @@ public sealed class DeploymentRecoveryService(
             );
         }
 
+        var lineage = DeploymentRecoveryPolicy.ValidateLineage(
+            deployments,
+            trackedAttempt
+                ?? new DeploymentDocument { ProjectId = projectId, Network = request.Network },
+            inspection.ContractHash
+        );
+        if (lineage is not null)
+            return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
+                lineage,
+                trackedAttempt?.ToResponse()
+            );
+
         if (trackedAttempt is not null)
         {
             var confirmed = await deploymentService.MarkConfirmedAsync(
                 trackedAttempt with
                 {
-                    TransactionId = transactionId,
+                    TransactionId = trackedAttempt.TransactionId ?? transactionId,
                 },
                 inspection.ContractHash,
                 cancellationToken

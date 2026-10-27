@@ -68,6 +68,26 @@ public sealed record DeploymentDocument
     [BsonIgnoreIfNull]
     public DateTime? AttemptCapabilityExpiresAtUtc { get; init; }
 
+    [BsonElement("recoveryEvidence")]
+    [BsonIgnoreIfNull]
+    public DeploymentRecoveryEvidence? RecoveryEvidence { get; init; }
+
+    [BsonElement("legacyContractMappingVerified")]
+    [BsonIgnoreIfDefault]
+    public bool LegacyContractMappingVerified { get; init; }
+
+    [BsonElement("chainFailureVerified")]
+    [BsonIgnoreIfDefault]
+    public bool ChainFailureVerified { get; init; }
+
+    [BsonElement("broadcastTrackingVersion")]
+    [BsonIgnoreIfDefault]
+    public int BroadcastTrackingVersion { get; init; }
+
+    [BsonElement("broadcastOutcomeUnknown")]
+    [BsonIgnoreIfDefault]
+    public bool BroadcastOutcomeUnknown { get; init; }
+
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; init; }
 

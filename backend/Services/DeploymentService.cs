@@ -85,6 +85,87 @@ public sealed class DeploymentService(
         return deployment;
     }
 
+    public async Task<DeploymentDocument> CreateRecoveryPendingAsync(
+        string projectId,
+        string contractId,
+        RecoverDeploymentRequest request,
+        WalletSessionIdentity actor,
+        string capability,
+        CancellationToken cancellationToken
+    )
+    {
+        var now = clock.GetUtcNow().UtcDateTime;
+        var attempt = new DeploymentDocument
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            ProjectId = projectId,
+            ContractId = contractId,
+            ArtifactId = string.Empty,
+            Version = "Recovered",
+            Network = request.Network,
+            TransactionId = request.TransactionId.ToLowerInvariant(),
+            DeployedBy = actor.Address,
+            Status = "submitted",
+            Operation = "deploy",
+            BroadcastOutcomeUnknown = true,
+            BroadcastTrackingVersion = 1,
+            ActiveAttemptKey = BuildActiveAttemptKey(projectId, request.Network, contractId),
+            AttemptCapabilityHash = DeploymentAuthorizationService.HashAttemptCapability(
+                capability
+            ),
+            AttemptCapabilityExpiresAtUtc = now.AddMinutes(10),
+            CreatedAt = now,
+            UpdatedAt = now,
+            RecoveryEvidence = new DeploymentRecoveryEvidence
+            {
+                ProjectId = projectId,
+                ContractId = contractId,
+                Network = request.Network,
+                TransactionId = request.TransactionId.ToLowerInvariant(),
+                WalletAddress = actor.Address,
+                SignerScriptHash = actor.ScriptHash,
+                RequestedAtUtc = now,
+            },
+        };
+        await deployments.InsertAsync(attempt, cancellationToken);
+        return attempt;
+    }
+
+    public async Task<DeploymentDocument> AttachRecoveryTransactionAsync(
+        DeploymentDocument attempt,
+        string transactionId,
+        CancellationToken cancellationToken
+    )
+    {
+        var updated = attempt with
+        {
+            TransactionId = attempt.TransactionId ?? transactionId.ToLowerInvariant(),
+            Status = "submitted",
+            BroadcastOutcomeUnknown = true,
+            ActiveAttemptKey =
+                attempt.ActiveAttemptKey
+                ?? BuildActiveAttemptKey(attempt.ProjectId, attempt.Network, attempt.ContractId),
+            UpdatedAt = clock.GetUtcNow().UtcDateTime,
+        };
+        await deployments.ReplaceAsync(updated, cancellationToken);
+        return updated;
+    }
+
+    public async Task<DeploymentDocument> MarkWalletOpenedAsync(
+        DeploymentDocument attempt,
+        CancellationToken cancellationToken
+    ) =>
+        await deployments.MarkWalletOpenedAsync(
+            attempt,
+            clock.GetUtcNow().UtcDateTime,
+            cancellationToken
+        )
+        ?? throw new ContractOperationException(
+            409,
+            "wallet_already_opened",
+            "This attempt changed or may already have opened a wallet transaction. Reconcile it before retrying."
+        );
+
     public Task<DeploymentDocument?> GetByIdAsync(
         string deploymentId,
         CancellationToken cancellationToken
@@ -149,6 +230,7 @@ public sealed class DeploymentService(
             Notes = TrimToNull(request.Notes),
             Operation = operation,
             Status = "awaiting_wallet",
+            BroadcastTrackingVersion = request.BroadcastTrackingVersion,
             ActiveAttemptKey = BuildActiveAttemptKey(
                 projectId,
                 request.Network,
@@ -179,6 +261,7 @@ public sealed class DeploymentService(
         {
             TransactionId = transactionId.Trim().ToLowerInvariant(),
             Status = "submitted",
+            BroadcastOutcomeUnknown = true,
             FailureStage = null,
             FailureReason = null,
             AttemptCapabilityHash = DeploymentAuthorizationService.HashAttemptCapability(
@@ -214,6 +297,15 @@ public sealed class DeploymentService(
         {
             ContractHash = contractHash.Trim(),
             Status = "confirmed",
+            BroadcastOutcomeUnknown = false,
+            ChainFailureVerified = false,
+            RecoveryEvidence = deployment.RecoveryEvidence is null
+                ? null
+                : deployment.RecoveryEvidence with
+                {
+                    ContractHash = contractHash.Trim(),
+                    VerifiedAtUtc = clock.GetUtcNow().UtcDateTime,
+                },
             FailureStage = null,
             FailureReason = null,
             ActiveAttemptKey = null,
@@ -232,6 +324,14 @@ public sealed class DeploymentService(
         var updated = deployment with
         {
             Status = "confirming",
+            ChainFailureVerified = false,
+            ActiveAttemptKey =
+                deployment.ActiveAttemptKey
+                ?? BuildActiveAttemptKey(
+                    deployment.ProjectId,
+                    deployment.Network,
+                    deployment.ContractId
+                ),
             FailureStage = null,
             FailureReason = null,
             UpdatedAt = clock.GetUtcNow().UtcDateTime,
@@ -245,15 +345,36 @@ public sealed class DeploymentService(
         DeploymentDocument deployment,
         string stage,
         string reason,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool verifiedFinalFailure = false
     )
     {
+        var uncertain =
+            !verifiedFinalFailure
+            && (
+                deployment.BroadcastOutcomeUnknown
+                || !string.IsNullOrWhiteSpace(deployment.TransactionId)
+                || DeploymentRecoveryPolicy.IsLegacyMapped(deployment)
+                || (
+                    deployment.BroadcastTrackingVersion == 0
+                    && deployment.Status is "preparing" or "awaiting_wallet"
+                )
+            );
         var updated = deployment with
         {
-            Status = stage == "record" ? "record_failed" : "failed",
+            Status = uncertain || stage == "record" ? "record_failed" : "failed",
+            BroadcastOutcomeUnknown = uncertain,
+            ChainFailureVerified = verifiedFinalFailure,
             FailureStage = stage,
             FailureReason = TrimToNull(reason),
-            ActiveAttemptKey = null,
+            ActiveAttemptKey = uncertain
+                ? deployment.ActiveAttemptKey
+                    ?? BuildActiveAttemptKey(
+                        deployment.ProjectId,
+                        deployment.Network,
+                        deployment.ContractId
+                    )
+                : null,
             UpdatedAt = clock.GetUtcNow().UtcDateTime,
         };
         await deployments.ReplaceAsync(updated, cancellationToken);

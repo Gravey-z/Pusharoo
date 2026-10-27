@@ -112,6 +112,7 @@ export interface NeoPermission {
 export interface Artifact {
   id: string;
   projectId: string;
+  contractId?: string | null;
   version: string;
   notes?: string | null;
   contractName: string;
@@ -126,6 +127,12 @@ export interface Artifact {
 export interface Deployment {
   id: string;
   projectId: string;
+  contractId?: string | null;
+  broadcastOutcomeUnknown?: boolean;
+  chainFailureVerified?: boolean;
+  legacyContractMappingVerified?: boolean;
+  broadcastTrackingVersion?: number;
+  recoveryStatus?: 'pending' | 'verified' | null;
   artifactId: string;
   version: string;
   network: string;
@@ -169,6 +176,8 @@ export interface RecoverDeploymentRequest {
 
 export interface StartDeploymentAttemptRequest {
   artifactId: string;
+  broadcastTrackingVersion?: number;
+  contractId?: string | null;
   network: string;
   notes?: string | null;
   expectedOperation: 'deploy' | 'update';
@@ -192,6 +201,7 @@ export type DeploymentDataValue =
 
 export interface DeploymentReviewRequest {
   artifactId: string;
+  contractId?: string | null;
   network: string;
   notes?: string | null;
   deploymentData?: DeploymentDataValue | null;
@@ -199,6 +209,7 @@ export interface DeploymentReviewRequest {
 
 export interface DeploymentReview {
   artifactId: string;
+  contractId?: string | null;
   network: string;
   operation: 'deploy' | 'update';
   expectedTargetContractHash?: string | null;

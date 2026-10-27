@@ -63,6 +63,28 @@ public sealed class ContractDeploymentsController(
             )
         );
 
+    [HttpPost("{deploymentId}/wallet-opened")]
+    [RequireWalletSession]
+    public async Task<ActionResult<DeploymentResponse>> MarkWalletOpenedAsync(
+        string projectId,
+        string contractId,
+        string deploymentId,
+        ConfirmDeploymentAttemptRequest request,
+        CancellationToken cancellationToken
+    ) =>
+        Respond(
+            projectId,
+            contractId,
+            await lifecycle.MarkWalletOpenedAsync(
+                projectId,
+                contractId,
+                deploymentId,
+                request,
+                currentWallet.Current!,
+                cancellationToken
+            )
+        );
+
     [HttpPost("{deploymentId}/submitted")]
     [RequireWalletSession]
     public async Task<ActionResult<DeploymentResponse>> MarkSubmittedAsync(
@@ -144,6 +166,26 @@ public sealed class ContractDeploymentsController(
                 projectId,
                 contractId,
                 deploymentId,
+                currentWallet.Current!,
+                cancellationToken
+            )
+        );
+
+    [HttpPost("recover")]
+    [RequireWalletSession]
+    public async Task<ActionResult<DeploymentResponse>> RecoverAsync(
+        string projectId,
+        string contractId,
+        RecoverDeploymentRequest request,
+        CancellationToken cancellationToken
+    ) =>
+        Respond(
+            projectId,
+            contractId,
+            await lifecycle.RecoverAsync(
+                projectId,
+                contractId,
+                request,
                 currentWallet.Current!,
                 cancellationToken
             )

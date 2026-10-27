@@ -21,6 +21,31 @@ public sealed class DeploymentRepository(MongoDbContext db) : IDeploymentReposit
             .ThenByDescending(deployment => deployment.Id)
             .ToListAsync(cancellationToken);
 
+    public async Task<DeploymentDocument?> MarkWalletOpenedAsync(
+        DeploymentDocument attempt,
+        DateTime updatedAtUtc,
+        CancellationToken cancellationToken
+    ) =>
+        await db.Deployments.FindOneAndUpdateAsync(
+            item =>
+                item.Id == attempt.Id
+                && item.ProjectId == attempt.ProjectId
+                && item.ContractId == attempt.ContractId
+                && item.Status == "awaiting_wallet"
+                && item.BroadcastTrackingVersion == 1
+                && !item.BroadcastOutcomeUnknown
+                && item.TransactionId == null
+                && item.AttemptCapabilityHash == attempt.AttemptCapabilityHash,
+            Builders<DeploymentDocument>
+                .Update.Set(item => item.BroadcastOutcomeUnknown, true)
+                .Set(item => item.UpdatedAt, updatedAtUtc),
+            new FindOneAndUpdateOptions<DeploymentDocument>
+            {
+                ReturnDocument = ReturnDocument.After,
+            },
+            cancellationToken
+        );
+
     public async Task InsertAsync(
         DeploymentDocument deployment,
         CancellationToken cancellationToken
@@ -77,11 +102,49 @@ public sealed class DeploymentRepository(MongoDbContext db) : IDeploymentReposit
         CancellationToken cancellationToken
     )
     {
+        var filter = Builders<DeploymentDocument>.Filter.Where(item =>
+            item.Id == deployment.Id
+            && item.ProjectId == deployment.ProjectId
+            && item.ContractId == deployment.ContractId
+        );
+        if (deployment.TransactionId is null)
+            filter &= Builders<DeploymentDocument>.Filter.Eq(item => item.TransactionId, null);
+        else
+        {
+            var hash = deployment.TransactionId.Trim();
+            if (hash.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                hash = hash[2..];
+            var sameTransaction = new BsonRegularExpression($"^(?:0x)?{Regex.Escape(hash)}$", "i");
+            filter &=
+                Builders<DeploymentDocument>.Filter.Eq(item => item.TransactionId, null)
+                | Builders<DeploymentDocument>.Filter.Regex(
+                    item => item.TransactionId,
+                    sameTransaction
+                );
+        }
+        if (!DeploymentRecoveryPolicy.IsConfirmed(deployment))
+            filter &=
+                Builders<DeploymentDocument>.Filter.Ne(item => item.Status, "confirmed")
+                & Builders<DeploymentDocument>.Filter.Not(
+                    Builders<DeploymentDocument>.Filter.Regex(
+                        item => item.Status,
+                        new BsonRegularExpression(@"^\s*$")
+                    )
+                );
+
+        if (
+            deployment.Status == "failed"
+            && deployment.TransactionId is null
+            && !deployment.BroadcastOutcomeUnknown
+        )
+            filter &= Builders<DeploymentDocument>.Filter.Where(item =>
+                !item.BroadcastOutcomeUnknown
+                && item.TransactionId == null
+                && item.AttemptCapabilityHash == deployment.AttemptCapabilityHash
+                && (item.Status == "awaiting_wallet" || item.Status == "preparing")
+            );
         var result = await db.Deployments.ReplaceOneAsync(
-            item =>
-                item.Id == deployment.Id
-                && item.ProjectId == deployment.ProjectId
-                && item.ContractId == deployment.ContractId,
+            filter,
             deployment,
             cancellationToken: cancellationToken
         );

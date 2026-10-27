@@ -60,186 +60,51 @@ public sealed partial class ContractWriteGuard
         CancellationToken cancellationToken
     )
     {
-        return await db
-            .Deployments.Aggregate<BsonDocument>(
-                new BsonDocument[]
-                {
-                    new("$match", new BsonDocument("projectId", projectId)),
-                    new(
-                        "$lookup",
-                        new BsonDocument
-                        {
-                            { "from", db.Contracts.CollectionNamespace.CollectionName },
-                            { "localField", "contractId" },
-                            { "foreignField", "_id" },
-                            { "as", "contractParent" },
-                        }
-                    ),
-                    new(
-                        "$lookup",
-                        new BsonDocument
-                        {
-                            { "from", db.ContractArtifacts.CollectionNamespace.CollectionName },
-                            { "localField", "artifactId" },
-                            { "foreignField", "_id" },
-                            { "as", "artifactParent" },
-                        }
-                    ),
-                    new(
-                        "$match",
-                        new BsonDocument(
-                            "$or",
-                            new BsonArray
-                            {
-                                new BsonDocument(
-                                    "contractParent.projectId",
-                                    new BsonDocument("$ne", projectId)
-                                ),
-                                new BsonDocument(
-                                    "artifactParent.projectId",
-                                    new BsonDocument("$ne", projectId)
-                                ),
-                                new BsonDocument(
-                                    "authorizationSnapshot.authorizationSchemaVersion",
-                                    new BsonDocument("$ne", 4)
-                                ),
-                                new BsonDocument(
-                                    "authorizationSnapshot.projectId",
-                                    new BsonDocument("$ne", projectId)
-                                ),
-                                new BsonDocument(
-                                    "$expr",
-                                    new BsonDocument(
-                                        "$or",
-                                        new BsonArray
-                                        {
-                                            new BsonDocument(
-                                                "$ne",
-                                                new BsonArray
-                                                {
-                                                    new BsonDocument(
-                                                        "$ifNull",
-                                                        new BsonArray
-                                                        {
-                                                            "$authorizationSnapshot.contractId",
-                                                            BsonNull.Value,
-                                                        }
-                                                    ),
-                                                    "$contractId",
-                                                }
-                                            ),
-                                            new BsonDocument(
-                                                "$ne",
-                                                new BsonArray
-                                                {
-                                                    new BsonDocument(
-                                                        "$ifNull",
-                                                        new BsonArray
-                                                        {
-                                                            "$authorizationSnapshot.artifactId",
-                                                            BsonNull.Value,
-                                                        }
-                                                    ),
-                                                    "$artifactId",
-                                                }
-                                            ),
-                                            new BsonDocument(
-                                                "$ne",
-                                                new BsonArray
-                                                {
-                                                    new BsonDocument(
-                                                        "$ifNull",
-                                                        new BsonArray
-                                                        {
-                                                            "$authorizationSnapshot.network",
-                                                            BsonNull.Value,
-                                                        }
-                                                    ),
-                                                    "$network",
-                                                }
-                                            ),
-                                            new BsonDocument(
-                                                "$ne",
-                                                new BsonArray
-                                                {
-                                                    new BsonDocument(
-                                                        "$ifNull",
-                                                        new BsonArray
-                                                        {
-                                                            "$authorizationSnapshot.operation",
-                                                            BsonNull.Value,
-                                                        }
-                                                    ),
-                                                    "$operation",
-                                                }
-                                            ),
-                                        }
-                                    )
-                                ),
-                                new BsonDocument(
-                                    "$expr",
-                                    new BsonDocument(
-                                        "$ne",
-                                        new BsonArray
-                                        {
-                                            new BsonDocument(
-                                                "$arrayElemAt",
-                                                new BsonArray { "$artifactParent.contractId", 0 }
-                                            ),
-                                            "$contractId",
-                                        }
-                                    )
-                                ),
-                                new BsonDocument(
-                                    "$expr",
-                                    new BsonDocument(
-                                        "$and",
-                                        new BsonArray
-                                        {
-                                            new BsonDocument(
-                                                "$ne",
-                                                new BsonArray
-                                                {
-                                                    new BsonDocument(
-                                                        "$ifNull",
-                                                        new BsonArray
-                                                        {
-                                                            "$activeAttemptKey",
-                                                            BsonNull.Value,
-                                                        }
-                                                    ),
-                                                    BsonNull.Value,
-                                                }
-                                            ),
-                                            new BsonDocument(
-                                                "$ne",
-                                                new BsonArray
-                                                {
-                                                    "$activeAttemptKey",
-                                                    new BsonDocument(
-                                                        "$concat",
-                                                        new BsonArray
-                                                        {
-                                                            "$projectId",
-                                                            ":",
-                                                            "$contractId",
-                                                            ":",
-                                                            "$network",
-                                                        }
-                                                    ),
-                                                }
-                                            ),
-                                        }
-                                    )
-                                ),
-                            }
-                        )
-                    ),
-                    new("$limit", 1),
-                    new("$project", new BsonDocument("_id", 1)),
-                }
+        var contracts = await db
+            .Contracts.Find(contract => contract.ProjectId == projectId)
+            .Project(contract => contract.Id)
+            .ToListAsync(cancellationToken);
+        var artifacts = await db
+            .ContractArtifacts.Find(artifact => artifact.ProjectId == projectId)
+            .Project(artifact => new { artifact.Id, artifact.ContractId })
+            .ToListAsync(cancellationToken);
+        var projection = Builders<DeploymentDocument>
+            .Projection.Include(attempt => attempt.ProjectId)
+            .Include(attempt => attempt.ContractId)
+            .Include(attempt => attempt.ArtifactId)
+            .Include(attempt => attempt.Network)
+            .Include(attempt => attempt.Operation)
+            .Include(attempt => attempt.Status)
+            .Include(attempt => attempt.ContractHash)
+            .Include(attempt => attempt.TransactionId)
+            .Include(attempt => attempt.DeployedBy)
+            .Include(attempt => attempt.ActiveAttemptKey)
+            .Include(attempt => attempt.LegacyContractMappingVerified)
+            .Include(attempt => attempt.RecoveryEvidence)
+            .Include("authorizationSnapshot.authorizationSchemaVersion")
+            .Include("authorizationSnapshot.projectId")
+            .Include("authorizationSnapshot.contractId")
+            .Include("authorizationSnapshot.artifactId")
+            .Include("authorizationSnapshot.network")
+            .Include("authorizationSnapshot.operation");
+        var deployments = await db
+            .Deployments.Find(attempt => attempt.ProjectId == projectId)
+            .Project<DeploymentDocument>(projection)
+            .ToListAsync(cancellationToken);
+        var contractIds = contracts.ToHashSet(StringComparer.Ordinal);
+        var artifactParents = artifacts.ToDictionary(
+            artifact => artifact.Id,
+            artifact => artifact.ContractId,
+            StringComparer.Ordinal
+        );
+        return deployments.Any(attempt =>
+            !DeploymentRecoveryPolicy.HasMappedHistory(
+                attempt,
+                projectId,
+                contractIds,
+                artifactParents
             )
-            .AnyAsync(cancellationToken);
+        );
     }
 
     private async Task EnsureArtifactIndexesAsync(CancellationToken cancellationToken)

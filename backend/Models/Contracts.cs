@@ -117,7 +117,8 @@ public sealed record StartSessionDeploymentAttemptRequest(
     string NotesSha256,
     string DeploymentDataSha256,
     DeploymentDataValue? DeploymentData = null,
-    string? ContractId = null
+    string? ContractId = null,
+    int BroadcastTrackingVersion = 0
 );
 
 public sealed record ResumeDeploymentAttemptRequest();
@@ -155,7 +156,12 @@ public sealed record DeploymentResponse(
     string? DeploymentDataSha256 = null,
     string? DeploymentDataFormatVersion = null,
     int AuthorizationSchemaVersion = 1,
-    string? ContractId = null
+    string? ContractId = null,
+    bool BroadcastOutcomeUnknown = false,
+    string? RecoveryStatus = null,
+    int BroadcastTrackingVersion = 0,
+    bool ChainFailureVerified = false,
+    bool LegacyContractMappingVerified = false
 );
 
 public sealed record CreateContractRequest(string Name, string? Description);

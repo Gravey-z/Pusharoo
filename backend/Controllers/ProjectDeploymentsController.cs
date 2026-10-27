@@ -67,6 +67,25 @@ public sealed class ProjectDeploymentsController(
             )
         );
 
+    [HttpPost("{deploymentId}/wallet-opened")]
+    [RequireWalletSession]
+    public async Task<ActionResult<DeploymentResponse>> MarkWalletOpenedAsync(
+        string projectId,
+        string deploymentId,
+        ConfirmDeploymentAttemptRequest request,
+        CancellationToken cancellationToken
+    ) =>
+        Respond(
+            projectId,
+            await lifecycle.MarkWalletOpenedAsync(
+                projectId,
+                deploymentId,
+                request,
+                currentWallet.Current!,
+                cancellationToken
+            )
+        );
+
     [HttpPost("{deploymentId}/submitted")]
     [RequireWalletSession]
     public async Task<ActionResult<DeploymentResponse>> MarkSubmittedAsync(
