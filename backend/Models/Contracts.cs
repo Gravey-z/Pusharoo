@@ -27,7 +27,8 @@ public sealed record ArtifactUploadInput(
     byte[] Nef,
     string ManifestJson,
     string? IdempotencyKey,
-    string? IdempotencyPayloadHash
+    string? IdempotencyPayloadHash,
+    string? ContractId = null
 );
 
 public sealed record ProjectResponse(
@@ -166,4 +167,18 @@ public sealed record ContractResponse(
     string? Description,
     DateTime CreatedAt,
     DateTime UpdatedAt
+);
+
+public sealed record ArtifactListItemResponse(
+    string Id,
+    string ProjectId,
+    string? ContractId,
+    string Version,
+    string? Notes,
+    string ContractName,
+    string NefFileName,
+    long NefSize,
+    ArtifactSummary Summary,
+    IReadOnlyList<string> Warnings,
+    DateTime CreatedAt
 );

@@ -103,14 +103,34 @@ public sealed class MongoDbContext
             new CreateIndexModel<ArtifactDocument>(
                 Builders<ArtifactDocument>
                     .IndexKeys.Ascending(artifact => artifact.ProjectId)
+                    .Ascending(artifact => artifact.ContractId)
                     .Ascending(artifact => artifact.Version),
-                new CreateIndexOptions { Unique = true }
+                new CreateIndexOptions { Name = "artifact_project_contract_version", Unique = true }
             ),
             new CreateIndexModel<ArtifactDocument>(
                 Builders<ArtifactDocument>.IndexKeys.Ascending(artifact => artifact.IdempotencyKey),
                 new CreateIndexOptions { Unique = true, Sparse = true }
             ),
         ]);
+        ContractArtifacts.Indexes.CreateOne(
+            new CreateIndexModel<ArtifactDocument>(
+                Builders<ArtifactDocument>
+                    .IndexKeys.Ascending(artifact => artifact.ProjectId)
+                    .Ascending(artifact => artifact.ContractId)
+                    .Descending(artifact => artifact.CreatedAt)
+                    .Descending(artifact => artifact.Id),
+                new CreateIndexOptions { Name = "artifact_contract_history" }
+            )
+        );
+        ContractArtifacts.Indexes.CreateOne(
+            new CreateIndexModel<ArtifactDocument>(
+                Builders<ArtifactDocument>
+                    .IndexKeys.Ascending(artifact => artifact.ProjectId)
+                    .Descending(artifact => artifact.CreatedAt)
+                    .Descending(artifact => artifact.Id),
+                new CreateIndexOptions { Name = "artifact_project_history" }
+            )
+        );
         Deployments.Indexes.CreateMany([
             new CreateIndexModel<DeploymentDocument>(
                 Builders<DeploymentDocument>.IndexKeys.Ascending(deployment =>

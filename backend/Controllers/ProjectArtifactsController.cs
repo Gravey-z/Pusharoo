@@ -1,8 +1,6 @@
-using System.Text.Json;
 using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Mvc;
-using MongoDB.Driver;
 
 namespace backend.Controllers;
 
@@ -12,12 +10,15 @@ public sealed class ProjectArtifactsController(
     ProjectService projectService,
     ArtifactService artifactService,
     CurrentWalletSessionAccessor walletSession,
-    ProjectAuthorizationService authorization
+    ProjectAuthorizationService authorization,
+    ArtifactUploadReader uploadReader,
+    ArtifactUploadService uploads
 ) : ControllerBase
 {
     [HttpPost]
     [RequireWalletSession]
     [Consumes("multipart/form-data")]
+    [DisableFormValueModelBinding]
     public async Task<ActionResult<ArtifactResponse>> UploadAsync(
         string projectId,
         CancellationToken cancellationToken
@@ -37,155 +38,17 @@ public sealed class ProjectArtifactsController(
             return StatusCode(access.StatusCode, new { error = access.Error });
         }
 
-        if (!Request.HasFormContentType)
-        {
-            return StatusCode(
-                StatusCodes.Status415UnsupportedMediaType,
-                new { error = "Expected multipart/form-data." }
-            );
-        }
-
-        var form = await Request.ReadFormAsync(cancellationToken);
-        var version = form["version"].FirstOrDefault();
-        var notes = form["notes"].FirstOrDefault();
-
-        if (string.IsNullOrWhiteSpace(version) || version.Trim().Length > 64)
-        {
-            return BadRequest(
-                new { error = "Version is required and must be at most 64 characters." }
-            );
-        }
-
-        if (notes?.Length > 2_000)
-        {
-            return BadRequest(new { error = "Notes must be at most 2000 characters." });
-        }
-
-        var idempotencyKey = ReadIdempotencyKey();
-
-        if (idempotencyKey is null && Request.Headers.ContainsKey("Idempotency-Key"))
-        {
-            return BadRequest(
-                new { error = "Idempotency-Key must be between 1 and 128 characters." }
-            );
-        }
-
-        var scopedIdempotencyKey = idempotencyKey is null
-            ? null
-            : WorkspaceIdempotency.Scope(
-                walletSession.Current!.Address,
-                projectId,
-                "artifact.upload",
-                idempotencyKey
-            );
-
-        var nefFile = FindNefFile(form.Files);
-
-        if (nefFile is null)
-        {
-            return BadRequest(new { error = "A .nef file is required." });
-        }
-
-        var manifestFile = FindManifestFile(form.Files);
-
-        if (manifestFile is null)
-        {
-            return BadRequest(new { error = "A contract manifest JSON file is required." });
-        }
-
-        if (nefFile.Length is 0 or > 8 * 1024 * 1024 || manifestFile.Length is 0 or > 1024 * 1024)
-        {
-            return BadRequest(
-                new { error = "NEF files must be at most 8 MB and manifest files at most 1 MB." }
-            );
-        }
-
-        var nefBytes = await ReadBytesAsync(nefFile, cancellationToken);
-        var manifestJson = await ReadTextAsync(manifestFile, cancellationToken);
-        var payloadHash = WorkspaceIdempotency.Hash(
-            version.Trim(),
-            string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
-            Path.GetFileName(nefFile.FileName),
-            WorkspaceIdempotency.HashBytes(nefBytes),
-            manifestJson
+        var input = await uploadReader.ReadAsync(
+            Request,
+            project.Id,
+            null,
+            walletSession.Current!.Address,
+            cancellationToken
         );
-
-        if (scopedIdempotencyKey is not null)
-        {
-            var existing = await artifactService.GetByIdempotencyKeyAsync(
-                scopedIdempotencyKey,
-                cancellationToken
-            );
-
-            if (existing is not null)
-            {
-                return existing.IdempotencyPayloadHash == payloadHash
-                    ? Ok(existing.ToResponse())
-                    : Conflict(
-                        new
-                        {
-                            error = "Idempotency-Key was already used with different artifact data.",
-                        }
-                    );
-            }
-        }
-
-        try
-        {
-            var artifact = await artifactService.CreateAsync(
-                new ArtifactUploadInput(
-                    projectId,
-                    version,
-                    notes,
-                    nefFile.FileName,
-                    nefBytes,
-                    manifestJson,
-                    scopedIdempotencyKey,
-                    payloadHash
-                ),
-                cancellationToken
-            );
-
-            return Created($"/api/artifacts/{artifact.Id}", artifact.ToResponse());
-        }
-        catch (JsonException)
-        {
-            return BadRequest(new { error = "The manifest file must contain valid JSON." });
-        }
-        catch (ArtifactValidationException exception)
-        {
-            return BadRequest(new { error = exception.Message });
-        }
-        catch (MongoWriteException exception)
-            when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
-        {
-            if (scopedIdempotencyKey is not null)
-            {
-                var existing = await artifactService.GetByIdempotencyKeyAsync(
-                    scopedIdempotencyKey,
-                    cancellationToken
-                );
-
-                if (existing is not null)
-                {
-                    return existing.IdempotencyPayloadHash == payloadHash
-                        ? Ok(existing.ToResponse())
-                        : Conflict(
-                            new
-                            {
-                                error = "Idempotency-Key was already used with different artifact data.",
-                            }
-                        );
-                }
-            }
-
-            return Conflict(
-                new
-                {
-                    error = "An artifact with this project version or idempotency key already exists.",
-                }
-            );
-        }
+        var result = await uploads.SaveAsync(input, cancellationToken);
+        return result.Created
+            ? Created($"/api/artifacts/{result.Artifact.Id}", result.Artifact.ToResponse())
+            : Ok(result.Artifact.ToResponse());
     }
 
     [HttpGet]
@@ -205,6 +68,23 @@ public sealed class ProjectArtifactsController(
         var response = artifacts.Select(artifact => artifact.ToResponse()).ToArray();
 
         return Ok(response);
+    }
+
+    [HttpGet("history")]
+    public async Task<ActionResult<IReadOnlyList<ArtifactListItemResponse>>> GetHistoryAsync(
+        string projectId,
+        CancellationToken cancellationToken,
+        int skip = 0,
+        int take = 50
+    )
+    {
+        var project = await projectService.GetByIdAsync(projectId, cancellationToken);
+        if (project is null)
+            return NotFound(new { error = "Project was not found." });
+
+        return Ok(
+            await artifactService.GetHistoryAsync(project.Id, null, skip, take, cancellationToken)
+        );
     }
 
     [HttpGet("compare")]
@@ -242,53 +122,5 @@ public sealed class ProjectArtifactsController(
         return comparison is null
             ? NotFound(new { error = "One or both artifact versions were not found." })
             : Ok(comparison);
-    }
-
-    private static IFormFile? FindNefFile(IFormFileCollection files)
-    {
-        return files.FirstOrDefault(file =>
-            file.FileName.EndsWith(".nef", StringComparison.OrdinalIgnoreCase)
-        );
-    }
-
-    private static IFormFile? FindManifestFile(IFormFileCollection files)
-    {
-        return files.FirstOrDefault(file =>
-                file.FileName.EndsWith(".manifest.json", StringComparison.OrdinalIgnoreCase)
-            )
-            ?? files.FirstOrDefault(file =>
-                file.FileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
-            );
-    }
-
-    private static async Task<byte[]> ReadBytesAsync(
-        IFormFile file,
-        CancellationToken cancellationToken
-    )
-    {
-        await using var stream = file.OpenReadStream();
-        using var memoryStream = new MemoryStream();
-
-        await stream.CopyToAsync(memoryStream, cancellationToken);
-
-        return memoryStream.ToArray();
-    }
-
-    private static async Task<string> ReadTextAsync(
-        IFormFile file,
-        CancellationToken cancellationToken
-    )
-    {
-        await using var stream = file.OpenReadStream();
-        using var reader = new StreamReader(stream);
-
-        return await reader.ReadToEndAsync(cancellationToken);
-    }
-
-    private string? ReadIdempotencyKey()
-    {
-        var value = Request.Headers["Idempotency-Key"].FirstOrDefault()?.Trim();
-
-        return string.IsNullOrWhiteSpace(value) || value.Length > 128 ? null : value;
     }
 }

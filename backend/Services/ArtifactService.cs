@@ -27,6 +27,7 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
         {
             Id = ObjectId.GenerateNewId().ToString(),
             ProjectId = upload.ProjectId,
+            ContractId = upload.ContractId,
             Version = NormalizeVersion(upload.Version),
             Notes = string.IsNullOrWhiteSpace(upload.Notes) ? null : upload.Notes.Trim(),
             ContractName = string.IsNullOrWhiteSpace(manifest.Name)
@@ -40,7 +41,9 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
             Warnings = [],
             IdempotencyKey = upload.IdempotencyKey,
             IdempotencyPayloadHash = upload.IdempotencyPayloadHash,
-            CreatedAt = DateTime.UtcNow,
+            CreatedAt = DateTimeOffset
+                .FromUnixTimeMilliseconds(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+                .UtcDateTime,
         };
 
         await artifacts.InsertAsync(artifact, cancellationToken);
@@ -76,6 +79,13 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
         CancellationToken cancellationToken
     )
     {
+        if (await artifacts.HasContractArtifactsAsync(projectId, cancellationToken))
+            throw new ContractOperationException(
+                409,
+                "contract_required",
+                "Choose a contract to compare artifact versions."
+            );
+
         var fromArtifact = await GetByVersionAsync(projectId, fromVersion, cancellationToken);
         var toArtifact = await GetByVersionAsync(projectId, toVersion, cancellationToken);
 
@@ -85,6 +95,50 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
         }
 
         return CompareManifests(fromArtifact.Manifest, toArtifact.Manifest);
+    }
+
+    public Task<IReadOnlyList<ArtifactListItemResponse>> GetHistoryAsync(
+        string projectId,
+        string? contractId,
+        int skip,
+        int take,
+        CancellationToken cancellationToken
+    )
+    {
+        if (skip < 0 || skip > 1_000_000 || take < 1 || take > 100)
+            throw new ContractOperationException(
+                400,
+                "invalid_pagination",
+                "Skip must be between 0 and 1000000; take must be between 1 and 100."
+            );
+
+        return artifacts.GetHistoryAsync(projectId, contractId, skip, take, cancellationToken);
+    }
+
+    public async Task<ArtifactComparisonResponse?> CompareContractVersionsAsync(
+        string projectId,
+        string contractId,
+        string fromVersion,
+        string toVersion,
+        CancellationToken cancellationToken
+    )
+    {
+        var fromArtifact = await artifacts.GetByContractAndVersionAsync(
+            projectId,
+            contractId,
+            NormalizeVersion(fromVersion),
+            cancellationToken
+        );
+        var toArtifact = await artifacts.GetByContractAndVersionAsync(
+            projectId,
+            contractId,
+            NormalizeVersion(toVersion),
+            cancellationToken
+        );
+
+        return fromArtifact is null || toArtifact is null
+            ? null
+            : CompareManifests(fromArtifact.Manifest, toArtifact.Manifest);
     }
 
     private static NeoContractManifest ParseManifest(string manifestJson)
@@ -106,7 +160,7 @@ public sealed class ArtifactService(IArtifactRepository artifacts, ArtifactValid
         );
     }
 
-    private static string NormalizeVersion(string version)
+    public static string NormalizeVersion(string version)
     {
         var normalized = version.Trim();
 

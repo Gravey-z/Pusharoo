@@ -9,6 +9,14 @@ public static class WorkspaceIdempotency
     public static string Scope(string actor, string project, string action, string key) =>
         Hash(actor, project, action, key);
 
+    public static string Scope(
+        string actor,
+        string project,
+        string contract,
+        string action,
+        string key
+    ) => Hash(actor, project, contract, action, key);
+
     public static string Hash(params string?[] parts)
     {
         var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(parts));

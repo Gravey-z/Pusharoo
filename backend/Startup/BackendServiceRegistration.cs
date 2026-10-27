@@ -71,6 +71,9 @@ public static class BackendServiceRegistration
         services.AddScoped<ContractWriteGuard>();
         services.AddScoped<ContractApiFilter>();
         services.AddScoped<ArtifactService>();
+        services.AddScoped<ArtifactUploadReader>();
+        services.AddScoped<ArtifactUploadService>();
+        services.AddScoped<ContractArtifactService>();
         services.AddSingleton<ArtifactValidator>();
         services.AddScoped<DeploymentService>();
         services.AddScoped<DeploymentWorkflowService>();
