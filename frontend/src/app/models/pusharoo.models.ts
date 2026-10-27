@@ -490,6 +490,9 @@ export interface ProjectCardViewModel {
 }
 
 export interface ProjectListItem {
+  contractCount: number;
+  artifactCount: number;
+  deploymentCount: number;
   project: Project;
   latestArtifact: { version: string; createdAt: string } | null;
   deploymentNetworks: string[];
@@ -522,4 +525,33 @@ export interface RelayReplayJob {
     kind: string;
     message: string;
   } | null;
+}
+
+export interface ProjectContract {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContractWorkspaceSummary {
+  contract: ProjectContract;
+  artifactCount: number;
+  deploymentCount: number;
+  latestArtifact: Omit<Artifact, 'manifest'> | null;
+  currentDeployments: Deployment[];
+}
+
+export interface ProjectWorkspaceSummary {
+  project: Project;
+  contracts: ContractWorkspaceSummary[];
+  artifactCount: number;
+  deploymentCount: number;
+  recentDeployments: Deployment[];
+}
+
+export interface ContractOverviewViewModel extends ProjectOverviewViewModel {
+  contract: ProjectContract;
 }

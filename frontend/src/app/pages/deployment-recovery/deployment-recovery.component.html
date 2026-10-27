@@ -4,13 +4,13 @@
     { label: 'Projects', link: '/projects' },
     {
       label: overview?.project?.name ?? 'Project',
-      link: overview ? ['/projects', projectId] : undefined
+      link: overview ? contractPath() : undefined
     },
-    { label: 'Deployments', link: overview ? ['/projects', projectId, 'deployments'] : undefined },
+    { label: 'Deployments', link: overview ? contractPath('deployments') : undefined },
     { label: pageTitle }
   ]"
 >
-  <a actions class="secondary-button" [routerLink]="['/projects', projectId, 'deployments']"
+  <a actions class="secondary-button" [routerLink]="contractPath('deployments')"
     >Back to Deployments</a
   >
 

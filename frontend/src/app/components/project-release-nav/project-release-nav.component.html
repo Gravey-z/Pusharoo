@@ -9,25 +9,7 @@
         [routerLinkActiveOptions]="{ exact: true }"
         [attr.aria-current]="overviewLink.isActive ? 'page' : null"
         (keydown)="onReleaseTabKeydown($event)"
-        >Overview</a
-      >
-      <a
-        #releaseTab
-        [routerLink]="['/projects', projectId, 'artifacts']"
-        routerLinkActive="active"
-        #artifactsLink="routerLinkActive"
-        [attr.aria-current]="artifactsLink.isActive ? 'page' : null"
-        (keydown)="onReleaseTabKeydown($event)"
-        >Artifacts</a
-      >
-      <a
-        #releaseTab
-        [routerLink]="['/projects', projectId, 'deployments']"
-        routerLinkActive="active"
-        #deploymentsLink="routerLinkActive"
-        [attr.aria-current]="deploymentsLink.isActive ? 'page' : null"
-        (keydown)="onReleaseTabKeydown($event)"
-        >Deployments</a
+        >Contracts</a
       >
       <a
         #releaseTab
@@ -40,21 +22,21 @@
       >
       <a
         #releaseTab
-        [routerLink]="['/projects', projectId, 'console']"
-        routerLinkActive="active"
-        #consoleLink="routerLinkActive"
-        [attr.aria-current]="consoleLink.isActive ? 'page' : null"
-        (keydown)="onReleaseTabKeydown($event)"
-        >Console</a
-      >
-      <a
-        #releaseTab
         [routerLink]="['/projects', projectId, 'webhooks']"
         routerLinkActive="active"
         #webhooksLink="routerLinkActive"
         [attr.aria-current]="webhooksLink.isActive ? 'page' : null"
         (keydown)="onReleaseTabKeydown($event)"
         >Webhooks</a
+      >
+      <a
+        #releaseTab
+        [routerLink]="['/projects', projectId, 'relay-billing']"
+        routerLinkActive="active"
+        #billingLink="routerLinkActive"
+        [attr.aria-current]="billingLink.isActive ? 'page' : null"
+        (keydown)="onReleaseTabKeydown($event)"
+        >Relay payments</a
       >
     </div>
     <span class="wallet-context" [class.mainnet]="wallet.session()?.network === 'neo3:mainnet'">

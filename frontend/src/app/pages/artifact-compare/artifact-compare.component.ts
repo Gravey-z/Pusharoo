@@ -1,6 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { DestroyRef, Component, inject, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { workspaceRoute, contractLink } from '../../services/workspace-route';
 import {
   Artifact,
   ArtifactComparison,
@@ -47,8 +49,15 @@ interface MethodDetails {
   styleUrl: './artifact-compare.component.scss'
 })
 export class ArtifactCompareComponent implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
+  private loadGeneration = 0;
+  contractId: string | null = null;
+  contractPath(...segments: string[]): string[] {
+    return contractLink(this.projectId, this.contractId, ...segments);
+  }
   overview: ProjectOverviewViewModel | null = null;
   artifacts: Artifact[] = [];
+  private comparisonGeneration = 0;
   comparison: ArtifactComparison | null = null;
   fromVersion = '';
   toVersion = '';
@@ -56,18 +65,29 @@ export class ArtifactCompareComponent implements OnInit {
   isProjectLoading = true;
   loadError = '';
   errorMessage = '';
-  readonly projectId: string;
+  projectId = '';
 
   constructor(
     private readonly route: ActivatedRoute,
     private readonly api: PusharooApiService,
     private readonly errors: ApiErrorFormatterService
-  ) {
-    this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
-  }
+  ) {}
 
   ngOnInit(): void {
-    this.loadProject();
+    workspaceRoute(this.route)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(scope => {
+        this.projectId = scope.projectId;
+        this.contractId = scope.contractId;
+        this.overview = null;
+        this.artifacts = [];
+        this.comparison = null;
+        this.fromVersion = '';
+        this.toVersion = '';
+        this.errorMessage = '';
+        this.isLoading = false;
+        this.loadProject();
+      });
   }
 
   retryLoad(): void {
@@ -75,10 +95,15 @@ export class ArtifactCompareComponent implements OnInit {
   }
 
   private loadProject(): void {
+    const generation = ++this.loadGeneration;
     this.isProjectLoading = true;
     this.loadError = '';
-    this.api.getProjectOverview(this.projectId).subscribe({
+    (this.contractId
+      ? this.api.getContractOverview(this.projectId, this.contractId)
+      : this.api.getProjectOverview(this.projectId)
+    ).subscribe({
       next: overview => {
+        if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
         this.overview = overview;
         this.artifacts = overview?.artifacts ?? [];
 
@@ -91,6 +116,7 @@ export class ArtifactCompareComponent implements OnInit {
         this.isProjectLoading = false;
       },
       error: error => {
+        if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
         this.overview = null;
         this.artifacts = [];
         this.loadError = this.errors.format(error, 'Could not load this project.');
@@ -100,6 +126,8 @@ export class ArtifactCompareComponent implements OnInit {
   }
 
   compare(): void {
+    const generation = this.loadGeneration;
+    const request = ++this.comparisonGeneration;
     this.errorMessage = '';
     this.comparison = null;
 
@@ -114,17 +142,31 @@ export class ArtifactCompareComponent implements OnInit {
     }
 
     this.isLoading = true;
-    this.api.compareArtifacts(this.projectId, this.fromVersion, this.toVersion).subscribe({
-      next: comparison => {
-        this.isLoading = false;
-        this.comparison = comparison;
-        this.errorMessage = comparison ? '' : 'Could not compare those artifact versions.';
-      },
-      error: () => {
-        this.isLoading = false;
-        this.errorMessage = 'Could not compare those artifact versions.';
-      }
-    });
+    this.api
+      .compareArtifacts(this.projectId, this.fromVersion, this.toVersion, this.contractId)
+      .subscribe({
+        next: comparison => {
+          if (
+            generation !== this.loadGeneration ||
+            request !== this.comparisonGeneration ||
+            this.destroyRef.destroyed
+          )
+            return;
+          this.isLoading = false;
+          this.comparison = comparison;
+          this.errorMessage = comparison ? '' : 'Could not compare those artifact versions.';
+        },
+        error: () => {
+          if (
+            generation !== this.loadGeneration ||
+            request !== this.comparisonGeneration ||
+            this.destroyRef.destroyed
+          )
+            return;
+          this.isLoading = false;
+          this.errorMessage = 'Could not compare those artifact versions.';
+        }
+      });
   }
 
   hasChanges(comparison: ArtifactComparison): boolean {

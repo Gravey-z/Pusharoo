@@ -44,7 +44,10 @@ public sealed record ProjectListItemResponse(
     ProjectResponse Project,
     ProjectListArtifactResponse? LatestArtifact,
     IReadOnlyList<string> DeploymentNetworks,
-    bool Deployed
+    bool Deployed,
+    int ContractCount = 0,
+    int ArtifactCount = 0,
+    int DeploymentCount = 0
 );
 
 public sealed record ProjectListArtifactResponse(string Version, DateTime CreatedAt);

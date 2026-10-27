@@ -4,11 +4,12 @@
     [breadcrumbs]="[
       { label: 'Projects', link: '/projects' },
       { label: projectName || 'Project', link: ['/projects', artifact.projectId] },
-      { label: 'v' + artifact.version, link: ['/projects', artifact.projectId, 'artifacts'] },
+      { label: contractName || artifact.contractName, link: artifactLink(artifact) },
+      { label: 'v' + artifact.version, link: artifactLink(artifact, 'artifacts') },
       { label: 'Manifest' }
     ]"
   >
-    <a actions class="secondary-button" [routerLink]="['/projects', artifact.projectId]">Back</a>
+    <a actions class="secondary-button" [routerLink]="artifactLink(artifact)">Back</a>
 
     <section class="viewer surface-panel surface-panel--flush">
       <div class="tabs" role="tablist" aria-label="Manifest sections">

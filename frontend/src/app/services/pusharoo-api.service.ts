@@ -2,6 +2,9 @@ import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { defer, forkJoin, map, Observable, shareReplay, tap } from 'rxjs';
 import {
+  ProjectContract,
+  ProjectWorkspaceSummary,
+  ContractOverviewViewModel,
   Artifact,
   ArtifactComparison,
   AddProjectAuthorizedDeployerRequest,
@@ -64,6 +67,77 @@ export class PusharooApiService {
     );
   }
 
+  getProjectSummary(projectId: string): Observable<ProjectWorkspaceSummary> {
+    return this.cachedGet(`project:${projectId}:summary`, () =>
+      this.http.get<ProjectWorkspaceSummary>(
+        `${this.apiBaseUrl}/projects/${encodeURIComponent(projectId)}/workspace`
+      )
+    );
+  }
+
+  getContractOverview(
+    projectId: string,
+    contractId: string
+  ): Observable<ContractOverviewViewModel> {
+    return this.cachedGet(`project:${projectId}:contract:${contractId}:overview`, () =>
+      this.http
+        .get<ContractOverviewViewModel>(
+          `${this.apiBaseUrl}/projects/${encodeURIComponent(projectId)}/contracts/${encodeURIComponent(contractId)}/overview`
+        )
+        .pipe(
+          tap(overview => {
+            if (
+              overview.project.id !== projectId ||
+              overview.contract.id !== contractId ||
+              overview.contract.projectId !== projectId ||
+              overview.artifacts.some(
+                item => item.projectId !== projectId || item.contractId !== contractId
+              ) ||
+              overview.deployments.some(
+                item => item.projectId !== projectId || item.contractId !== contractId
+              )
+            ) {
+              throw new Error('The workspace response does not match the selected contract.');
+            }
+          })
+        )
+    );
+  }
+
+  createContract(
+    projectId: string,
+    name: string,
+    idempotencyKey: string
+  ): Observable<ProjectContract> {
+    return this.http
+      .post<ProjectContract>(
+        `${this.apiBaseUrl}/projects/${encodeURIComponent(projectId)}/contracts`,
+        { name, description: null },
+        { context: this.walletSessionContext(), headers: { 'Idempotency-Key': idempotencyKey } }
+      )
+      .pipe(
+        tap({
+          next: () => this.invalidateProjectCache(projectId),
+          error: () => this.invalidateProjectCache(projectId)
+        })
+      );
+  }
+
+  renameContract(projectId: string, contractId: string, name: string): Observable<ProjectContract> {
+    return this.http
+      .patch<ProjectContract>(
+        `${this.apiBaseUrl}/projects/${encodeURIComponent(projectId)}/contracts/${encodeURIComponent(contractId)}`,
+        { name },
+        { context: this.walletSessionContext() }
+      )
+      .pipe(
+        tap({
+          next: () => this.invalidateProjectCache(projectId),
+          error: () => this.invalidateProjectCache(projectId)
+        })
+      );
+  }
+
   getArtifact(artifactId: string): Observable<Artifact> {
     return this.cachedGet(`artifact:${artifactId}`, () =>
       this.http.get<Artifact>(`${this.apiBaseUrl}/artifacts/${artifactId}`)
@@ -124,7 +198,12 @@ export class PusharooApiService {
         request,
         { context: this.walletSessionContext() }
       )
-      .pipe(tap(() => this.invalidateProjectCache(projectId)));
+      .pipe(
+        tap({
+          next: () => this.invalidateProjectCache(projectId),
+          error: () => this.invalidateProjectCache(projectId)
+        })
+      );
   }
 
   updateAuthorizedDeployer(
@@ -138,7 +217,12 @@ export class PusharooApiService {
         request,
         { context: this.walletSessionContext() }
       )
-      .pipe(tap(() => this.invalidateProjectCache(projectId)));
+      .pipe(
+        tap({
+          next: () => this.invalidateProjectCache(projectId),
+          error: () => this.invalidateProjectCache(projectId)
+        })
+      );
   }
 
   removeAuthorizedDeployer(projectId: string, walletAddress: string): Observable<void> {
@@ -147,7 +231,12 @@ export class PusharooApiService {
         `${this.apiBaseUrl}/projects/${projectId}/authorized-deployers/${encodeURIComponent(walletAddress)}`,
         { context: this.walletSessionContext() }
       )
-      .pipe(tap(() => this.invalidateProjectCache(projectId)));
+      .pipe(
+        tap({
+          next: () => this.invalidateProjectCache(projectId),
+          error: () => this.invalidateProjectCache(projectId)
+        })
+      );
   }
 
   uploadArtifact(
@@ -156,7 +245,8 @@ export class PusharooApiService {
     notes: string,
     nefFile: File,
     manifestFile: File,
-    idempotencyKey: string
+    idempotencyKey: string,
+    contractId?: string | null
   ): Observable<Artifact> {
     const formData = new FormData();
     formData.append('version', version);
@@ -165,30 +255,43 @@ export class PusharooApiService {
     formData.append('files', manifestFile, manifestFile.name);
 
     return this.http
-      .post<Artifact>(`${this.apiBaseUrl}/projects/${projectId}/artifacts`, formData, {
+      .post<Artifact>(`${this.artifactBaseUrl(projectId, contractId)}`, formData, {
         context: this.walletSessionContext(),
         headers: { 'Idempotency-Key': idempotencyKey }
       })
-      .pipe(tap(() => this.invalidateProjectCache(projectId)));
+      .pipe(
+        tap({
+          next: () => this.invalidateProjectCache(projectId),
+          error: () => this.invalidateProjectCache(projectId)
+        })
+      );
   }
 
   compareArtifacts(
     projectId: string,
     fromVersion: string,
-    toVersion: string
+    toVersion: string,
+    contractId?: string | null
   ): Observable<ArtifactComparison> {
-    return this.cachedGet(`project:${projectId}:comparison:${fromVersion}:${toVersion}`, () =>
-      this.http.get<ArtifactComparison>(
-        `${this.apiBaseUrl}/projects/${projectId}/artifacts/compare`,
-        { params: { from: fromVersion, to: toVersion } }
-      )
+    return this.cachedGet(
+      `project:${projectId}:contract:${contractId ?? 'legacy'}:comparison:${fromVersion}:${toVersion}`,
+      () =>
+        this.http.get<ArtifactComparison>(
+          `${this.artifactBaseUrl(projectId, contractId)}/compare`,
+          { params: { from: fromVersion, to: toVersion } }
+        )
     );
   }
 
   createDeployment(projectId: string, request: CreateDeploymentRequest): Observable<Deployment> {
     return this.http
       .post<Deployment>(`${this.apiBaseUrl}/projects/${projectId}/deployments`, request)
-      .pipe(tap(() => this.invalidateProjectCache(projectId)));
+      .pipe(
+        tap({
+          next: () => this.invalidateProjectCache(projectId),
+          error: () => this.invalidateProjectCache(projectId)
+        })
+      );
   }
 
   getProjectContract(
@@ -209,7 +312,12 @@ export class PusharooApiService {
       .post<Deployment>(`${this.deploymentBaseUrl(projectId, contractId)}/recover`, request, {
         context: this.walletSessionContext()
       })
-      .pipe(tap(() => this.invalidateProjectCache(projectId)));
+      .pipe(
+        tap({
+          next: () => this.invalidateProjectCache(projectId),
+          error: () => this.invalidateProjectCache(projectId)
+        })
+      );
   }
 
   startDeploymentAttempt(
@@ -224,7 +332,12 @@ export class PusharooApiService {
           context: this.walletSessionContext()
         }
       )
-      .pipe(tap(() => this.invalidateProjectCache(projectId)));
+      .pipe(
+        tap({
+          next: () => this.invalidateProjectCache(projectId),
+          error: () => this.invalidateProjectCache(projectId)
+        })
+      );
   }
 
   reviewDeployment(
@@ -263,7 +376,12 @@ export class PusharooApiService {
         { transactionId, attemptCapability },
         { context: this.walletSessionContext() }
       )
-      .pipe(tap(() => this.invalidateProjectCache(projectId)));
+      .pipe(
+        tap({
+          next: () => this.invalidateProjectCache(projectId),
+          error: () => this.invalidateProjectCache(projectId)
+        })
+      );
   }
 
   confirmDeploymentAttempt(
@@ -278,7 +396,12 @@ export class PusharooApiService {
         { attemptCapability },
         { context: this.walletSessionContext() }
       )
-      .pipe(tap(() => this.invalidateProjectCache(projectId)));
+      .pipe(
+        tap({
+          next: () => this.invalidateProjectCache(projectId),
+          error: () => this.invalidateProjectCache(projectId)
+        })
+      );
   }
 
   markDeploymentFailed(
@@ -295,7 +418,12 @@ export class PusharooApiService {
         { attemptCapability, stage, reason },
         { context: this.walletSessionContext() }
       )
-      .pipe(tap(() => this.invalidateProjectCache(projectId)));
+      .pipe(
+        tap({
+          next: () => this.invalidateProjectCache(projectId),
+          error: () => this.invalidateProjectCache(projectId)
+        })
+      );
   }
 
   getDeployments(projectId: string): Observable<Deployment[]> {
@@ -315,6 +443,13 @@ export class PusharooApiService {
       { attemptCapability },
       { context: this.walletSessionContext() }
     );
+  }
+
+  private artifactBaseUrl(projectId: string, contractId?: string | null): string {
+    const project = `${this.apiBaseUrl}/projects/${encodeURIComponent(projectId)}`;
+    return contractId
+      ? `${project}/contracts/${encodeURIComponent(contractId)}/artifacts`
+      : `${project}/artifacts`;
   }
 
   private deploymentBaseUrl(projectId: string, contractId?: string | null): string {

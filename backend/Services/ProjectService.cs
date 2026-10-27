@@ -92,7 +92,17 @@ public sealed class ProjectService(
             ))
             .ToListAsync(cancellationToken);
 
-        await Task.WhenAll(artifactsTask, deploymentsTask);
+        var contractsTask = db
+            .Contracts.Find(contract => projectIds.Contains(contract.ProjectId))
+            .Project(contract => contract.ProjectId)
+            .ToListAsync(cancellationToken);
+        await Task.WhenAll(artifactsTask, deploymentsTask, contractsTask);
+        var contractCounts = (await contractsTask)
+            .GroupBy(id => id)
+            .ToDictionary(group => group.Key, group => group.Count());
+        var artifactCounts = (await artifactsTask)
+            .GroupBy(item => item.ProjectId)
+            .ToDictionary(group => group.Key, group => group.Count());
         var artifactsByProject = artifactsTask
             .Result.GroupBy(artifact => artifact.ProjectId)
             .ToDictionary(
@@ -113,6 +123,13 @@ public sealed class ProjectService(
                 deploymentsByProject.TryGetValue(project.Id, out var projectDeployments);
                 projectDeployments ??= [];
                 var deploymentNetworks = projectDeployments
+                    .Where(deployment =>
+                        !string.IsNullOrWhiteSpace(deployment.ContractHash)
+                        && (
+                            string.IsNullOrWhiteSpace(deployment.Status)
+                            || deployment.Status == "confirmed"
+                        )
+                    )
                     .Select(deployment => deployment.Network)
                     .Distinct()
                     .ToArray();
@@ -133,7 +150,10 @@ public sealed class ProjectService(
                             latestArtifact.CreatedAt
                         ),
                     deploymentNetworks,
-                    deployed
+                    deployed,
+                    contractCounts.GetValueOrDefault(project.Id),
+                    artifactCounts.GetValueOrDefault(project.Id),
+                    projectDeployments.Length
                 );
             })
             .ToArray();

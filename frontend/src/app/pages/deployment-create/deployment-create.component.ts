@@ -1,6 +1,8 @@
-import { Component, OnInit, computed, effect } from '@angular/core';
+import { DestroyRef, Component, inject, OnInit, computed, effect } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { workspaceRoute, contractLink } from '../../services/workspace-route';
 import type { NetworkType } from 'neo-n3-walletkit';
 import { firstValueFrom, forkJoin } from 'rxjs';
 import { isPusharooNetwork } from '../../config/wallet.config';
@@ -42,6 +44,12 @@ import { WalletAuthService } from '../../services/wallet-auth.service';
   styleUrl: './deployment-create.component.scss'
 })
 export class DeploymentCreateComponent implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
+  private loadGeneration = 0;
+  contractId: string | null = null;
+  contractPath(...segments: string[]): string[] {
+    return contractLink(this.projectId, this.contractId, ...segments);
+  }
   overview: ProjectOverviewViewModel | null = null;
   artifacts: Artifact[] = [];
   artifactId = '';
@@ -75,7 +83,7 @@ export class DeploymentCreateComponent implements OnInit {
     revision: number;
   } | null = null;
   private reviewGeneration = 0;
-  readonly projectId: string;
+  projectId = '';
   readonly walletAddress = computed(() => this.wallet.account()?.address ?? '');
   readonly walletNetwork = computed(() => this.wallet.session()?.network ?? '');
 
@@ -183,7 +191,6 @@ export class DeploymentCreateComponent implements OnInit {
     readonly wallet: WalletService,
     private readonly deploymentDataService: DeploymentDataService
   ) {
-    this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
     let previousWalletContext = `${this.walletAddress()}|${this.walletNetwork()}`;
     effect(() => {
       const walletContext = `${this.walletAddress()}|${this.walletNetwork()}`;
@@ -201,7 +208,26 @@ export class DeploymentCreateComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.loadProject();
+    this.destroyRef.onDestroy(() => this.editRelease());
+    workspaceRoute(this.route)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(scope => {
+        this.projectId = scope.projectId;
+        this.contractId = scope.contractId;
+        this.overview = null;
+        this.editRelease();
+        this.artifacts = [];
+        this.artifactId = '';
+        this.notes = '';
+        this.deploymentDataMode = 'none';
+        this.deploymentDataDraft = { type: 'Any', value: null };
+        this.deploymentDataError = '';
+        this.errorMessage = '';
+        this.deployStatus = '';
+        this.isSaving = false;
+        this.authorizedDeployers = [];
+        this.loadProject();
+      });
   }
 
   retryLoad(): void {
@@ -209,13 +235,17 @@ export class DeploymentCreateComponent implements OnInit {
   }
 
   private loadProject(): void {
+    const generation = ++this.loadGeneration;
     this.isLoading = true;
     this.loadError = '';
     forkJoin({
-      overview: this.api.getProjectOverview(this.projectId),
+      overview: this.contractId
+        ? this.api.getContractOverview(this.projectId, this.contractId)
+        : this.api.getProjectOverview(this.projectId),
       authorizedDeployers: this.api.getAuthorizedDeployers(this.projectId)
     }).subscribe({
       next: ({ overview, authorizedDeployers }) => {
+        if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
         this.overview = overview;
         this.authorizedDeployers = authorizedDeployers;
         this.artifacts = overview.artifacts ?? [];
@@ -223,6 +253,7 @@ export class DeploymentCreateComponent implements OnInit {
         this.isLoading = false;
       },
       error: error => {
+        if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
         this.overview = null;
         this.artifacts = [];
         this.authorizedDeployers = [];
@@ -233,6 +264,12 @@ export class DeploymentCreateComponent implements OnInit {
   }
 
   async save(): Promise<void> {
+    const generation = this.loadGeneration;
+    const projectId = this.projectId;
+    const contractId = this.contractId;
+    const preparedNefHex = this.preparedNefHex;
+    const originalReviewContext = this.reviewedContext;
+    const reviewed = this.authorizationPreview;
     this.errorMessage = '';
     this.deployStatus = '';
 
@@ -286,15 +323,19 @@ export class DeploymentCreateComponent implements OnInit {
       const deploymentNotes = this.notes.trim() || null;
       this.deployStatus = 'Checking Pusharoo login...';
       await this.auth.ensureAuthenticated();
-      if (!this.reviewedContextIsCurrent)
+      if (
+        generation !== this.loadGeneration ||
+        this.destroyRef.destroyed ||
+        !originalReviewContext ||
+        !this.contextMatches(originalReviewContext)
+      )
         throw new Error('The wallet or release changed. Review it again before deploying.');
-      const reviewed = this.authorizationPreview;
       if (!reviewed) throw new Error('Review this release before deploying.');
 
       this.deployStatus = 'Creating deployment attempt...';
       attempt = await firstValueFrom(
-        this.api.startDeploymentAttempt(this.projectId, {
-          artifactId: this.artifactId,
+        this.api.startDeploymentAttempt(projectId, {
+          artifactId: artifact.id,
           broadcastTrackingVersion: 1,
           contractId: reviewed.contractId,
           network: session.network,
@@ -306,9 +347,7 @@ export class DeploymentCreateComponent implements OnInit {
           artifactManifestSha256: reviewed.artifactManifestSha256,
           notesSha256: reviewed.notesSha256,
           deploymentDataSha256: reviewed.deploymentDataSha256,
-          ...(this.reviewedContext?.operation === 'deploy'
-            ? { deploymentData: this.authorizationPreview?.deploymentData }
-            : {})
+          ...(reviewed.operation === 'deploy' ? { deploymentData: reviewed.deploymentData } : {})
         })
       );
       attemptCapability = attempt.attemptCapability ?? '';
@@ -318,7 +357,7 @@ export class DeploymentCreateComponent implements OnInit {
         );
       }
       if (
-        attempt.projectId !== this.projectId ||
+        attempt.projectId !== projectId ||
         (attempt.contractId ?? null) !== (artifact.contractId ?? null) ||
         attempt.artifactId !== artifact.id ||
         attempt.network !== session.network ||
@@ -337,7 +376,13 @@ export class DeploymentCreateComponent implements OnInit {
           'The deployment attempt did not retain the data from the reviewed release. The attempt was stopped before opening the wallet.'
         );
       }
-      if (!this.reviewedContextIsCurrent || !this.auth.canUseSession()) {
+      if (
+        generation !== this.loadGeneration ||
+        this.destroyRef.destroyed ||
+        !originalReviewContext ||
+        !this.contextMatches(originalReviewContext) ||
+        !this.auth.canUseSession()
+      ) {
         throw new Error(
           'The wallet or Pusharoo login changed. The attempt was stopped before opening the wallet.'
         );
@@ -348,7 +393,7 @@ export class DeploymentCreateComponent implements OnInit {
       walletMayHaveBroadcast = true;
       const walletOpened = await firstValueFrom(
         this.api.markDeploymentWalletOpened(
-          this.projectId,
+          projectId,
           attempt.id,
           attemptCapability,
           attempt.contractId
@@ -361,11 +406,20 @@ export class DeploymentCreateComponent implements OnInit {
         );
       }
 
+      if (
+        generation !== this.loadGeneration ||
+        this.destroyRef.destroyed ||
+        !this.reviewedContextIsCurrent
+      )
+        throw new Error(
+          'The selected contract or release changed. Recovery information was retained.'
+        );
+
       const manifestJson = JSON.stringify(artifact.manifest);
       const walletTransactionId = await this.deployOrUpdateContract(
         session.network,
         artifact,
-        this.preparedNefHex,
+        preparedNefHex,
         manifestJson,
         attempt.deploymentData ?? { type: 'Any', value: null },
         attempt.operation,
@@ -379,10 +433,11 @@ export class DeploymentCreateComponent implements OnInit {
       }
       this.attemptCapabilities.setTransactionId(attempt, transactionId);
 
-      this.deployStatus = 'Saving submitted transaction...';
+      if (generation === this.loadGeneration && !this.destroyRef.destroyed)
+        this.deployStatus = 'Saving submitted transaction...';
       const submitted = await firstValueFrom(
         this.api.markDeploymentSubmitted(
-          this.projectId,
+          projectId,
           attempt.id,
           transactionId,
           attemptCapability,
@@ -403,11 +458,12 @@ export class DeploymentCreateComponent implements OnInit {
       }
       this.attemptCapabilities.set(attempt, attemptCapability);
 
-      this.deployStatus = 'Confirming the transaction on Neo...';
+      if (generation === this.loadGeneration && !this.destroyRef.destroyed)
+        this.deployStatus = 'Confirming the transaction on Neo...';
       await this.waitForTransaction(session.network, transactionId, attempt.operation);
       const confirmed = await firstValueFrom(
         this.api.confirmDeploymentAttempt(
-          this.projectId,
+          projectId,
           attempt.id,
           attemptCapability,
           attempt.contractId
@@ -416,8 +472,10 @@ export class DeploymentCreateComponent implements OnInit {
       this.attemptCapabilities.assertParent(attempt, confirmed);
       this.attemptCapabilities.complete(confirmed);
 
-      await this.router.navigate(['/projects', this.projectId]);
+      if (generation === this.loadGeneration && !this.destroyRef.destroyed)
+        await this.router.navigate(contractLink(projectId, contractId, 'deployments'));
     } catch (error) {
+      if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
       this.errorMessage =
         transactionId && attempt
           ? `Transaction ${transactionId} was submitted. Open Deployments and choose Resume Confirmation. ${this.getErrorMessage(error)}`
@@ -436,7 +494,7 @@ export class DeploymentCreateComponent implements OnInit {
         try {
           const failed = await firstValueFrom(
             this.api.markDeploymentFailed(
-              this.projectId,
+              projectId,
               attempt.id,
               attemptCapability,
               'preparing',
@@ -452,8 +510,10 @@ export class DeploymentCreateComponent implements OnInit {
         }
       }
     } finally {
-      this.isSaving = false;
-      this.deployStatus = '';
+      if (generation === this.loadGeneration && !this.destroyRef.destroyed) {
+        this.isSaving = false;
+        this.deployStatus = '';
+      }
     }
   }
 
@@ -694,7 +754,8 @@ export class DeploymentCreateComponent implements OnInit {
     return Boolean(
       this.deploymentHistory.latestForNetwork(
         this.overview?.deployments ?? [],
-        this.walletNetwork()
+        this.walletNetwork(),
+        this.contractId
       )
     );
   }
@@ -726,7 +787,11 @@ export class DeploymentCreateComponent implements OnInit {
   }
 
   private getExistingDeployment(network: string) {
-    return this.deploymentHistory.latestForNetwork(this.overview?.deployments ?? [], network);
+    return this.deploymentHistory.latestForNetwork(
+      this.overview?.deployments ?? [],
+      network,
+      this.contractId
+    );
   }
 
   private async deployOrUpdateContract(

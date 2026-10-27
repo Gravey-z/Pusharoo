@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
-import { ProjectOverviewViewModel } from '../models/pusharoo.models';
+import { ProjectOverviewViewModel, ProjectWorkspaceSummary } from '../models/pusharoo.models';
 
 export const PROJECT_DATA_CACHE_TTL_MS = 5 * 60_000;
 
 @Injectable()
 export class ProjectWorkspaceContextService {
+  summary: ProjectWorkspaceSummary | null = null;
   private cachedOverview: ProjectOverviewViewModel | null = null;
   private cachedAt = 0;
 

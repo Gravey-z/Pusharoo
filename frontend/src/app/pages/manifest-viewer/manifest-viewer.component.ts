@@ -1,3 +1,4 @@
+import { contractLink } from '../../services/workspace-route';
 import { Component, OnInit } from '@angular/core';
 import { AsyncPipe, JsonPipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -18,6 +19,7 @@ export class ManifestViewerComponent implements OnInit {
   artifact$!: Observable<Artifact | null>;
   activeTab: ManifestTab = 'overview';
   projectName = '';
+  contractName = '';
   readonly tabs: { id: ManifestTab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'methods', label: 'Methods' },
@@ -34,15 +36,28 @@ export class ManifestViewerComponent implements OnInit {
   ngOnInit(): void {
     this.artifact$ = this.route.paramMap.pipe(
       map(params => params.get('artifactId') ?? ''),
-      switchMap(artifactId => this.api.getArtifact(artifactId)),
+      switchMap(artifactId => {
+        this.projectName = '';
+        this.contractName = '';
+        return this.api.getArtifact(artifactId);
+      }),
       switchMap(artifact =>
-        this.api.getProjectOverview(artifact.projectId).pipe(
-          tap(overview => (this.projectName = overview.project.name)),
+        this.api.getProjectSummary(artifact.projectId).pipe(
+          tap(overview => {
+            this.projectName = overview.project.name;
+            this.contractName =
+              overview.contracts.find(item => item.contract.id === artifact.contractId)?.contract
+                .name ?? artifact.contractName;
+          }),
           map(() => artifact),
           catchError(() => of(artifact))
         )
       )
     );
+  }
+
+  artifactLink(artifact: Artifact, ...segments: string[]): string[] {
+    return contractLink(artifact.projectId, artifact.contractId ?? null, ...segments);
   }
 
   selectTab(tab: ManifestTab): void {

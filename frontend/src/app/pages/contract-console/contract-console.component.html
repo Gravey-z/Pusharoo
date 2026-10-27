@@ -5,7 +5,7 @@
     { label: overview?.project?.name ?? 'Project' }
   ]"
 >
-  <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
+  <a actions class="secondary-button" [routerLink]="contractPath()">Back</a>
 
   @if (isLoading) {
     <p class="missing" aria-live="polite">Loading project...</p>
@@ -17,7 +17,7 @@
   } @else if (overview) {
     <app-project-release-nav [projectId]="projectId" />
 
-    @if (targets.length && methods.length) {
+    @if (targets.length) {
       <section class="console-layout">
         <form class="call-panel surface-panel" (ngSubmit)="run()">
           <header class="call-panel-header">
@@ -54,6 +54,14 @@
               </div>
             }
 
+            @if (!selectedTarget?.artifact) {
+              <p role="status"
+                >The selected deployment has no uploaded artifact. Its ABI and methods are
+                unavailable.</p
+              >
+            } @else if (!methods.length) {
+              <p role="status">The deployed artifact has no ABI methods.</p>
+            }
             <label>
               <span>Method</span>
               <select name="method" [(ngModel)]="selectedMethodName" (change)="selectMethod()">
@@ -203,10 +211,10 @@
       <section class="empty-state">
         <strong>Console needs a deployed contract</strong>
         <p
-          >Deploy this project and upload an artifact with ABI methods before calling the
+          >Deploy this contract and upload an artifact with ABI methods before calling the
           contract.</p
         >
-        <a class="primary-button" [routerLink]="['/projects', projectId, 'deployments', 'new']">
+        <a class="primary-button" [routerLink]="contractPath('deployments', 'new')">
           Deploy Contract
         </a>
       </section>

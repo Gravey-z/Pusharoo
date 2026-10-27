@@ -14,11 +14,11 @@
     title="Compare Versions"
     [breadcrumbs]="[
       { label: 'Projects', link: '/projects' },
-      { label: overview.project.name, link: ['/projects', projectId] },
+      { label: overview.project.name, link: contractPath() },
       { label: 'Compare Versions' }
     ]"
   >
-    <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
+    <a actions class="secondary-button" [routerLink]="contractPath()">Back</a>
 
     <app-project-release-nav [projectId]="projectId" />
 

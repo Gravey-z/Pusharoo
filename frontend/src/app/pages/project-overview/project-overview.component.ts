@@ -1,5 +1,7 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { DestroyRef, Component, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { workspaceRoute, contractLink } from '../../services/workspace-route';
 import { firstValueFrom } from 'rxjs';
 import {
   Artifact,
@@ -38,6 +40,12 @@ interface ReleaseTimelineEvent {
   styleUrl: './project-overview.component.scss'
 })
 export class ProjectOverviewComponent implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
+  private loadGeneration = 0;
+  contractId: string | null = null;
+  contractPath(...segments: string[]): string[] {
+    return contractLink(this.projectId, this.contractId, ...segments);
+  }
   overview: ProjectOverviewViewModel | null = null;
 
   formatDeploymentData(value: DeploymentDataValue): string {
@@ -45,7 +53,7 @@ export class ProjectOverviewComponent implements OnInit {
   }
   isLoading = true;
   loadError = '';
-  private projectId = '';
+  projectId = '';
   copiedValue = '';
   confirmingDeploymentId = '';
   confirmationErrorDeploymentId = '';
@@ -70,9 +78,17 @@ export class ProjectOverviewComponent implements OnInit {
 
   ngOnInit(): void {
     this.releaseTab = this.route.snapshot.data['releaseTab'] ?? 'overview';
-    (this.route.parent ?? this.route).paramMap.subscribe(params =>
-      this.loadOverview(params.get('projectId') ?? '')
-    );
+    workspaceRoute(this.route)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(scope => {
+        this.projectId = scope.projectId;
+        this.contractId = scope.contractId;
+        this.confirmationError = '';
+        this.confirmationErrorDeploymentId = '';
+        this.confirmingDeploymentId = '';
+        this.authorizedDeployers = [];
+        this.loadOverview(this.projectId);
+      });
   }
 
   canManageProject(overview: ProjectOverviewViewModel): boolean {
@@ -126,7 +142,11 @@ export class ProjectOverviewComponent implements OnInit {
     overview: ProjectOverviewViewModel,
     network: string
   ): Deployment | null {
-    return this.deploymentHistory.latestForNetwork(overview.deployments, `neo3:${network}`);
+    return this.deploymentHistory.latestForNetwork(
+      overview.deployments,
+      `neo3:${network}`,
+      this.contractId
+    );
   }
 
   liveDeployments(overview: ProjectOverviewViewModel): Deployment[] {
@@ -138,7 +158,8 @@ export class ProjectOverviewComponent implements OnInit {
   hasConfirmedDeploymentOnConnectedNetwork(overview: ProjectOverviewViewModel): boolean {
     const network = this.wallet.session()?.network;
     return Boolean(
-      network && this.deploymentHistory.latestForNetwork(overview.deployments, network)
+      network &&
+        this.deploymentHistory.latestForNetwork(overview.deployments, network, this.contractId)
     );
   }
 
@@ -175,7 +196,12 @@ export class ProjectOverviewComponent implements OnInit {
     return overview.deployments.some(
       deployment =>
         deployment.network === `neo3:${network}` &&
-        ['preparing', 'awaiting_wallet', 'submitted', 'confirming'].includes(deployment.status)
+        (['preparing', 'awaiting_wallet', 'submitted', 'confirming', 'record_failed'].includes(
+          deployment.status
+        ) ||
+          (deployment.status !== 'confirmed' &&
+            !deployment.chainFailureVerified &&
+            Boolean(deployment.transactionId || deployment.broadcastOutcomeUnknown)))
     );
   }
 
@@ -382,7 +408,7 @@ export class ProjectOverviewComponent implements OnInit {
   }
 
   private matchesDeploymentContext(deployment: Deployment): boolean {
-    const selectedContract = this.route.snapshot.paramMap.get('contractId');
+    const selectedContract = this.contractId;
     return (
       deployment.projectId === this.projectId &&
       (!selectedContract || deployment.contractId === selectedContract) &&
@@ -407,6 +433,7 @@ export class ProjectOverviewComponent implements OnInit {
   }
 
   async cancelAttempt(overview: ProjectOverviewViewModel, deployment: Deployment): Promise<void> {
+    const generation = this.loadGeneration;
     if (
       !this.canCancelAttempt(deployment) ||
       !window.confirm(
@@ -419,6 +446,7 @@ export class ProjectOverviewComponent implements OnInit {
     this.confirmationError = '';
     try {
       await this.auth.ensureAuthenticated();
+      if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
       const renewed = await firstValueFrom(
         this.api.resumeDeploymentAttempt(overview.project.id, deployment.id, deployment.contractId)
       );
@@ -438,8 +466,14 @@ export class ProjectOverviewComponent implements OnInit {
       this.attemptCapabilities.assertParent(deployment, failed);
       this.attemptCapabilities.discardUnbroadcast(failed);
       if (this.workspace) this.workspace.overview = null;
-      if (this.projectId === overview.project.id) this.loadOverview(overview.project.id);
+      if (
+        !this.destroyRef.destroyed &&
+        this.projectId === overview.project.id &&
+        this.contractId === deployment.contractId
+      )
+        this.loadOverview(overview.project.id);
     } catch (error) {
+      if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
       this.confirmationErrorDeploymentId = deployment.id;
       this.confirmationError = this.errors.format(
         error,
@@ -454,6 +488,7 @@ export class ProjectOverviewComponent implements OnInit {
     overview: ProjectOverviewViewModel,
     deployment: Deployment
   ): Promise<void> {
+    const generation = this.loadGeneration;
     if (!this.canResumeConfirmation(deployment)) {
       return;
     }
@@ -463,6 +498,7 @@ export class ProjectOverviewComponent implements OnInit {
     this.confirmationError = '';
     try {
       await this.auth.ensureAuthenticated();
+      if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
       const savedTransaction = this.attemptCapabilities.getTransactionId(deployment);
       if (!deployment.transactionId && savedTransaction) {
         const recovered = await firstValueFrom(
@@ -475,7 +511,12 @@ export class ProjectOverviewComponent implements OnInit {
         this.attemptCapabilities.assertParent(deployment, recovered);
         this.attemptCapabilities.complete(recovered);
         if (this.workspace) this.workspace.overview = null;
-        if (this.projectId === overview.project.id) this.loadOverview(overview.project.id);
+        if (
+          !this.destroyRef.destroyed &&
+          this.projectId === overview.project.id &&
+          this.contractId === deployment.contractId
+        )
+          this.loadOverview(overview.project.id);
         return;
       }
       const renewed = await firstValueFrom(
@@ -519,8 +560,14 @@ export class ProjectOverviewComponent implements OnInit {
       this.attemptCapabilities.assertParent(deployment, confirmed);
       this.attemptCapabilities.complete(confirmed);
       if (this.workspace) this.workspace.overview = null;
-      if (this.projectId === overview.project.id) this.loadOverview(overview.project.id);
+      if (
+        !this.destroyRef.destroyed &&
+        this.projectId === overview.project.id &&
+        this.contractId === deployment.contractId
+      )
+        this.loadOverview(overview.project.id);
     } catch (error) {
+      if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
       this.confirmationErrorDeploymentId = deployment.id;
       this.confirmationError = this.errors.format(error, 'Could not confirm this deployment.');
     } finally {
@@ -530,7 +577,8 @@ export class ProjectOverviewComponent implements OnInit {
 
   loadOverview(projectId: string): void {
     this.projectId = projectId;
-    const cachedOverview = this.workspace?.getFreshOverview(projectId);
+    const generation = ++this.loadGeneration;
+    const cachedOverview = this.contractId ? null : this.workspace?.getFreshOverview(projectId);
     if (cachedOverview?.project.id === projectId) {
       this.overview = cachedOverview;
       this.isLoading = false;
@@ -542,16 +590,21 @@ export class ProjectOverviewComponent implements OnInit {
     this.isLoading = true;
     this.loadError = '';
     this.overview = null;
-    this.api.getProjectOverview(projectId).subscribe({
+    (this.contractId
+      ? this.api.getContractOverview(projectId, this.contractId)
+      : this.api.getProjectOverview(projectId)
+    ).subscribe({
       next: overview => {
+        if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
         this.overview = overview;
-        if (this.workspace) {
+        if (this.workspace && !this.contractId) {
           this.workspace.overview = overview;
         }
         this.loadAuthorizedDeployers(projectId);
         this.isLoading = false;
       },
       error: error => {
+        if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
         this.loadError = this.errors.format(error, 'Could not load this project.');
         this.isLoading = false;
       }
@@ -564,9 +617,14 @@ export class ProjectOverviewComponent implements OnInit {
 
   private loadAuthorizedDeployers(projectId: string): void {
     this.authorizedDeployerAccessError = '';
+    const generation = this.loadGeneration;
     this.api.getAuthorizedDeployers(projectId).subscribe({
-      next: authorizedDeployers => (this.authorizedDeployers = authorizedDeployers),
+      next: authorizedDeployers => {
+        if (generation === this.loadGeneration && !this.destroyRef.destroyed)
+          this.authorizedDeployers = authorizedDeployers;
+      },
       error: () => {
+        if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
         this.authorizedDeployers = [];
         this.authorizedDeployerAccessError =
           'Could not verify authorized-deployer access. Refresh before starting a deployment.';

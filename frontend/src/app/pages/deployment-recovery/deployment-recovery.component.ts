@@ -1,3 +1,4 @@
+import { workspaceRoute, contractLink } from '../../services/workspace-route';
 import { Component, OnDestroy, OnInit, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -38,6 +39,10 @@ export class DeploymentRecoveryComponent implements OnInit, OnDestroy {
   private routeSubscription: Subscription | null = null;
   readonly walletAddress = computed(() => this.wallet.account()?.address ?? '');
   readonly walletNetwork = computed(() => this.wallet.session()?.network ?? '');
+
+  contractPath(...segments: string[]): string[] {
+    return contractLink(this.projectId, this.contractId, ...segments);
+  }
 
   get pageTitle(): string {
     return 'Recover Deployment';
@@ -107,12 +112,12 @@ export class DeploymentRecoveryComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.routeSubscription = combineLatest([
-      (this.route.parent ?? this.route).paramMap,
-      this.route.paramMap,
+      workspaceRoute(this.route),
       this.route.queryParamMap
-    ]).subscribe(([parent, params, query]) => {
-      this.projectId = params.get('projectId') ?? parent.get('projectId') ?? '';
-      this.contractId = params.get('contractId') ?? query.get('contractId');
+    ]).subscribe(([scope, query]) => {
+      this.projectId = scope.projectId;
+      this.contractId = scope.contractId ?? query.get('contractId');
+      this.isRecovering = false;
       this.transactionId = '';
       this.errorMessage = '';
       this.statusMessage = '';
@@ -139,7 +144,9 @@ export class DeploymentRecoveryComponent implements OnInit, OnDestroy {
     const contractId = this.contractId;
     forkJoin({
       contract: contractId ? this.api.getProjectContract(projectId, contractId) : of(null),
-      overview: this.api.getProjectOverview(this.projectId),
+      overview: contractId
+        ? this.api.getContractOverview(projectId, contractId)
+        : this.api.getProjectOverview(projectId),
       authorizedDeployers: this.api.getAuthorizedDeployers(this.projectId)
     }).subscribe({
       next: ({ overview, authorizedDeployers, contract }) => {
@@ -213,7 +220,7 @@ export class DeploymentRecoveryComponent implements OnInit, OnDestroy {
       }
       this.attemptCapabilities.complete(recovered);
       if (generation === this.generation)
-        await this.router.navigate(['/projects', projectId, 'deployments']);
+        await this.router.navigate(contractLink(projectId, contractId, 'deployments'));
     } catch (error) {
       if (generation !== this.generation) return;
       const pending = (error as { error?: { deployment?: Deployment } } | null)?.error?.deployment;

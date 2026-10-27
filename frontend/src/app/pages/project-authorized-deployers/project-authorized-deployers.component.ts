@@ -59,7 +59,7 @@ export class ProjectAuthorizedDeployersComponent implements OnInit {
   }
 
   get project(): Project | null {
-    return this.workspace.overview?.project ?? null;
+    return this.workspace.summary?.project ?? null;
   }
 
   get isOwner(): boolean {

@@ -64,11 +64,80 @@ export const routes: Routes = [
     children: [
       {
         path: '',
-        data: { preload: true },
+        pathMatch: 'full',
         loadComponent: () =>
-          import('./pages/project-overview/project-overview.component').then(
-            component => component.ProjectOverviewComponent
+          import('./pages/contracts/contracts.component').then(
+            component => component.ContractsComponent
           )
+      },
+      {
+        path: 'contracts/:contractId',
+        loadComponent: () =>
+          import('./pages/contract-workspace/contract-workspace.component').then(
+            component => component.ContractWorkspaceComponent
+          ),
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            loadComponent: () =>
+              import('./pages/project-overview/project-overview.component').then(
+                component => component.ProjectOverviewComponent
+              )
+          },
+          {
+            path: 'artifacts',
+            data: { releaseTab: 'artifacts' },
+            loadComponent: () =>
+              import('./pages/project-overview/project-overview.component').then(
+                component => component.ProjectOverviewComponent
+              )
+          },
+          {
+            path: 'upload',
+            loadComponent: () =>
+              import('./pages/artifact-upload/artifact-upload.component').then(
+                component => component.ArtifactUploadComponent
+              )
+          },
+          {
+            path: 'compare',
+            loadComponent: () =>
+              import('./pages/artifact-compare/artifact-compare.component').then(
+                component => component.ArtifactCompareComponent
+              )
+          },
+          {
+            path: 'deployments/new',
+            canActivate: [projectDeploymentAccessGuard],
+            loadComponent: () =>
+              import('./pages/deployment-create/deployment-create.component').then(
+                component => component.DeploymentCreateComponent
+              )
+          },
+          {
+            path: 'deployments/recovery',
+            loadComponent: () =>
+              import('./pages/deployment-recovery/deployment-recovery.component').then(
+                component => component.DeploymentRecoveryComponent
+              )
+          },
+          {
+            path: 'deployments',
+            data: { releaseTab: 'deployments' },
+            loadComponent: () =>
+              import('./pages/project-overview/project-overview.component').then(
+                component => component.ProjectOverviewComponent
+              )
+          },
+          {
+            path: 'console',
+            loadComponent: () =>
+              import('./pages/contract-console/contract-console.component').then(
+                component => component.ContractConsoleComponent
+              )
+          }
+        ]
       },
       {
         path: 'artifacts',

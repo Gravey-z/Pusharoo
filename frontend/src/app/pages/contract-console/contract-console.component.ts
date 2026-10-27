@@ -1,7 +1,9 @@
+import { DestroyRef, Component, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { workspaceRoute, contractLink } from '../../services/workspace-route';
 import type { NetworkType } from 'neo-n3-walletkit';
 import {
   Artifact,
@@ -32,7 +34,7 @@ interface ContractTarget {
   contractHash: string;
   artifactId: string;
   version: string;
-  artifact: Artifact;
+  artifact: Artifact | null;
 }
 
 interface ConsoleEntry {
@@ -52,6 +54,12 @@ interface ConsoleEntry {
   styleUrl: './contract-console.component.scss'
 })
 export class ContractConsoleComponent implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
+  private loadGeneration = 0;
+  contractId: string | null = null;
+  contractPath(...segments: string[]): string[] {
+    return contractLink(this.projectId, this.contractId, ...segments);
+  }
   overview: ProjectOverviewViewModel | null = null;
   targets: ContractTarget[] = [];
   selectedTargetKey = '';
@@ -63,7 +71,7 @@ export class ContractConsoleComponent implements OnInit {
   loadError = '';
   errorMessage = '';
   consoleEntries: ConsoleEntry[] = [];
-  readonly projectId: string;
+  projectId = '';
   private readonly workspace = inject(ProjectWorkspaceContextService, { optional: true });
 
   get pageTitle(): string {
@@ -79,7 +87,7 @@ export class ContractConsoleComponent implements OnInit {
   }
 
   get methods(): NeoMethod[] {
-    return this.selectedTarget?.artifact.manifest.abi.methods ?? [];
+    return this.selectedTarget?.artifact?.manifest.abi.methods ?? [];
   }
 
   get canRun(): boolean {
@@ -94,12 +102,25 @@ export class ContractConsoleComponent implements OnInit {
     private readonly neoRpc: NeoRpcService,
     private readonly resultFormatter: NeoVmResultFormatterService,
     readonly wallet: WalletService
-  ) {
-    this.projectId = (this.route.parent ?? this.route).snapshot.paramMap.get('projectId') ?? '';
-  }
+  ) {}
 
   ngOnInit(): void {
-    this.loadProject();
+    workspaceRoute(this.route)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(scope => {
+        this.projectId = scope.projectId;
+        this.contractId = scope.contractId;
+        this.overview = null;
+        this.targets = [];
+        this.selectedTargetKey = '';
+        this.selectedMethodName = '';
+        this.parameterValues = {};
+        this.consoleEntries = [];
+        this.errorMessage = '';
+        this.isRunning = false;
+        this.mode = 'test';
+        this.loadProject();
+      });
   }
 
   retryLoad(): void {
@@ -107,7 +128,10 @@ export class ContractConsoleComponent implements OnInit {
   }
 
   private loadProject(): void {
-    const cachedOverview = this.workspace?.getFreshOverview(this.projectId);
+    const generation = ++this.loadGeneration;
+    const cachedOverview = this.contractId
+      ? null
+      : this.workspace?.getFreshOverview(this.projectId);
     if (cachedOverview?.project.id === this.projectId) {
       this.applyOverview(cachedOverview);
       return;
@@ -115,14 +139,19 @@ export class ContractConsoleComponent implements OnInit {
 
     this.isLoading = true;
     this.loadError = '';
-    this.api.getProjectOverview(this.projectId).subscribe({
+    (this.contractId
+      ? this.api.getContractOverview(this.projectId, this.contractId)
+      : this.api.getProjectOverview(this.projectId)
+    ).subscribe({
       next: overview => {
-        if (this.workspace) {
+        if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
+        if (this.workspace && !this.contractId) {
           this.workspace.overview = overview;
         }
         this.applyOverview(overview);
       },
       error: error => {
+        if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
         this.overview = null;
         this.targets = [];
         this.loadError = this.errors.format(error, 'Could not load this project.');
@@ -145,6 +174,10 @@ export class ContractConsoleComponent implements OnInit {
   }
 
   selectTarget(): void {
+    this.loadGeneration++;
+    this.consoleEntries = [];
+    this.errorMessage = '';
+    this.isRunning = false;
     this.selectedMethodName = this.methods[0]?.name ?? '';
     this.resetParameterValues();
   }
@@ -161,36 +194,51 @@ export class ContractConsoleComponent implements OnInit {
     }
 
     this.isRunning = true;
+    const generation = this.loadGeneration;
+    const targetKey = this.selectedTargetKey;
+    const mode = this.mode;
 
     try {
       const parameters = this.toContractParameters(method.parameters);
       const result =
-        this.mode === 'test'
+        mode === 'test'
           ? await this.testInvoke(target, method, parameters)
           : await this.sendTransaction(target, method, parameters);
 
+      if (
+        generation !== this.loadGeneration ||
+        targetKey !== this.selectedTargetKey ||
+        this.destroyRef.destroyed
+      )
+        return;
       this.addConsoleEntry({
         id: crypto.randomUUID(),
         at: new Date(),
-        mode: this.mode,
+        mode,
         methodName: method.name,
         status: 'success',
         result,
         returnType: method.returntype ?? method.returnType
       });
     } catch (error) {
+      if (
+        generation !== this.loadGeneration ||
+        targetKey !== this.selectedTargetKey ||
+        this.destroyRef.destroyed
+      )
+        return;
       const message = this.errors.format(error, 'Contract call failed.');
       this.errorMessage = message;
       this.addConsoleEntry({
         id: crypto.randomUUID(),
         at: new Date(),
-        mode: this.mode,
+        mode,
         methodName: method.name,
         status: 'error',
         result: { error: message }
       });
     } finally {
-      this.isRunning = false;
+      if (generation === this.loadGeneration && !this.destroyRef.destroyed) this.isRunning = false;
     }
   }
 
@@ -273,7 +321,7 @@ export class ContractConsoleComponent implements OnInit {
       target.contractHash,
       method.name,
       parameters,
-      target.artifact.contractName
+      target.artifact?.contractName ?? 'Contract'
     );
 
     return { transactionId };
@@ -375,17 +423,19 @@ export class ContractConsoleComponent implements OnInit {
     }
 
     return this.deploymentHistory
-      .latestConfirmedByNetwork(overview.deployments)
+      .latestConfirmedByNetwork(
+        overview.deployments.filter(item => (item.contractId ?? null) === this.contractId)
+      )
       .map(deployment => {
         const artifact = overview.artifacts.find(item => item.id === deployment.artifactId);
-        return artifact ? this.toTarget(deployment, artifact) : null;
+        return this.toTarget(deployment, artifact ?? null);
       })
       .filter((target): target is ContractTarget => target !== null);
   }
 
-  private toTarget(deployment: Deployment, artifact: Artifact): ContractTarget {
+  private toTarget(deployment: Deployment, artifact: Artifact | null): ContractTarget {
     return {
-      label: `${deployment.network} - ${deployment.version}`,
+      label: `${deployment.network} - ${deployment.version || 'Recovered deployment'}`,
       network: deployment.network,
       contractHash: deployment.contractHash ?? '',
       artifactId: deployment.artifactId,

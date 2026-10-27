@@ -88,9 +88,7 @@
               <strong>{{ deployment.version }}</strong>
               <span class="release-state status-badge status-badge--success">Deployed</span>
               <p>{{ shortText(deployment.contractHash, 10, 4) }}</p>
-              <a [routerLink]="['/projects', overview.project.id, 'deployments']"
-                >View deployment</a
-              >
+              <a [routerLink]="contractPath('deployments')">View deployment</a>
             } @else {
               <strong>Not deployed</strong>
               <span class="release-state pending status-badge status-badge--warning"
@@ -109,10 +107,7 @@
                   Switch wallet to deploy
                 </span>
               } @else if (canDeployToNetwork(overview, network)) {
-                <a
-                  class="deploy-network-button"
-                  [routerLink]="['/projects', overview.project.id, 'deployments', 'new']"
-                >
+                <a class="deploy-network-button" [routerLink]="contractPath('deployments', 'new')">
                   Deploy contract
                 </a>
               }
@@ -128,17 +123,12 @@
           <h2>Artifacts</h2>
           <div class="artifact-list-actions">
             @if (overview.artifacts.length >= 2) {
-              <a
-                class="secondary-button"
-                [routerLink]="['/projects', overview.project.id, 'compare']"
-              >
+              <a class="secondary-button" [routerLink]="contractPath('compare')">
                 Compare versions
               </a>
             }
             @if (releaseTab === 'artifacts' && canManageProject(overview)) {
-              <a class="primary-button" [routerLink]="['/projects', overview.project.id, 'upload']">
-                Upload Artifact
-              </a>
+              <a class="primary-button" [routerLink]="contractPath('upload')"> Upload Artifact </a>
             }
           </div>
         </header>
@@ -202,10 +192,7 @@
                 overview.artifacts.length &&
                 canStartDeploymentToNetwork(overview, wallet.session()?.network || '')
               ) {
-                <a
-                  class="primary-button"
-                  [routerLink]="['/projects', overview.project.id, 'deployments', 'new']"
-                >
+                <a class="primary-button" [routerLink]="contractPath('deployments', 'new')">
                   Deploy Contract
                 </a>
               }
@@ -213,9 +200,7 @@
                 !hasConfirmedDeploymentOnConnectedNetwork(overview) ||
                 hasUnrecordedAttemptForConnectedWallet(overview)
               ) {
-                <a
-                  class="secondary-button"
-                  [routerLink]="['/projects', overview.project.id, 'deployments', 'recovery']"
+                <a class="secondary-button" [routerLink]="contractPath('deployments', 'recovery')"
                   >Recover by transaction</a
                 >
               }
@@ -343,7 +328,7 @@
               }
               @if (hasUncertainBroadcast(deployment)) {
                 <a
-                  [routerLink]="['/projects', deployment.projectId, 'deployments', 'recovery']"
+                  [routerLink]="contractPath('deployments', 'recovery')"
                   [queryParams]="{ contractId: deployment.contractId }"
                 >
                   Wallet outcome uncertain. Recover by transaction hash.

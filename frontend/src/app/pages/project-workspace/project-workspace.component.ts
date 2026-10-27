@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink, RouterOutlet } from '@angular/router';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
@@ -16,6 +17,8 @@ import { ProjectReleaseNavComponent } from '../../components/project-release-nav
   styleUrl: './project-workspace.component.scss'
 })
 export class ProjectWorkspaceComponent implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
+  private generation = 0;
   projectId = '';
   isLoading = true;
   loadError = '';
@@ -30,19 +33,19 @@ export class ProjectWorkspaceComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.route.paramMap.subscribe(params => {
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
       this.projectId = params.get('projectId') ?? '';
       this.loadProject();
     });
   }
 
   get projectName(): string {
-    return this.workspace.overview?.project.name ?? 'Project';
+    return this.workspace.summary?.project.name ?? 'Project';
   }
 
   get canManageProject(): boolean {
     return this.ownership.canManage(
-      this.workspace.overview?.project,
+      this.workspace.summary?.project,
       this.wallet.account()?.address ?? ''
     );
   }
@@ -54,13 +57,16 @@ export class ProjectWorkspaceComponent implements OnInit {
   private loadProject(): void {
     this.isLoading = true;
     this.loadError = '';
-    this.workspace.overview = null;
-    this.api.getProjectOverview(this.projectId).subscribe({
+    this.workspace.summary = null;
+    const generation = ++this.generation;
+    this.api.getProjectSummary(this.projectId).subscribe({
       next: overview => {
-        this.workspace.overview = overview;
+        if (generation !== this.generation || this.destroyRef.destroyed) return;
+        this.workspace.summary = overview;
         this.isLoading = false;
       },
       error: error => {
+        if (generation !== this.generation || this.destroyRef.destroyed) return;
         this.loadError = this.errors.format(error, 'Could not load this project.');
         this.isLoading = false;
       }

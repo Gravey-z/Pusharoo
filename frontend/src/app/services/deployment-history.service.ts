@@ -15,12 +15,17 @@ export class DeploymentHistoryService {
     return [
       ...deployments
         .reduce((latestByNetwork, deployment) => {
-          const current = latestByNetwork.get(deployment.network);
+          const current = latestByNetwork.get(
+            `${deployment.projectId}:${deployment.contractId ?? 'legacy'}:${deployment.network}`
+          );
           const deploymentTime = new Date(deployment.createdAt).getTime();
           const currentTime = current ? new Date(current.createdAt).getTime() : 0;
 
           if (!current || deploymentTime > currentTime) {
-            latestByNetwork.set(deployment.network, deployment);
+            latestByNetwork.set(
+              `${deployment.projectId}:${deployment.contractId ?? 'legacy'}:${deployment.network}`,
+              deployment
+            );
           }
 
           return latestByNetwork;
@@ -33,20 +38,27 @@ export class DeploymentHistoryService {
     return this.latestByNetwork(this.confirmed(deployments));
   }
 
-  latestForNetwork(deployments: Deployment[], network: string): Deployment | null {
+  latestForNetwork(
+    deployments: Deployment[],
+    network: string,
+    contractId: string | null
+  ): Deployment | null {
     if (!network) {
       return null;
     }
 
     return (
       this.latestConfirmedByNetwork(deployments).find(
-        deployment => deployment.network === network
+        deployment =>
+          deployment.network === network && (deployment.contractId ?? null) === contractId
       ) ?? null
     );
   }
 
-  forNetwork(deployments: Deployment[], network: string): Deployment[] {
-    return deployments.filter(deployment => deployment.network === network);
+  forNetwork(deployments: Deployment[], network: string, contractId: string | null): Deployment[] {
+    return deployments.filter(
+      deployment => deployment.network === network && (deployment.contractId ?? null) === contractId
+    );
   }
 
   latestForArtifact(overview: ProjectOverviewViewModel, artifact: Artifact): Deployment[] {

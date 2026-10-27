@@ -1,6 +1,16 @@
-import { Component, OnInit } from '@angular/core';
+import {
+  DestroyRef,
+  Component,
+  inject,
+  OnInit,
+  ElementRef,
+  QueryList,
+  ViewChildren
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { workspaceRoute, contractLink } from '../../services/workspace-route';
 import { firstValueFrom } from 'rxjs';
 import { ProjectOverviewViewModel } from '../../models/pusharoo.models';
 import { ContractManifestAnalyzerService } from '../../services/contract-manifest-analyzer.service';
@@ -19,6 +29,13 @@ import { ProjectReleaseNavComponent } from '../../components/project-release-nav
   styleUrl: './artifact-upload.component.scss'
 })
 export class ArtifactUploadComponent implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
+  private loadGeneration = 0;
+  @ViewChildren('artifactFile') private artifactFiles?: QueryList<ElementRef<HTMLInputElement>>;
+  contractId: string | null = null;
+  contractPath(...segments: string[]): string[] {
+    return contractLink(this.projectId, this.contractId, ...segments);
+  }
   overview: ProjectOverviewViewModel | null = null;
   version = '0.1.0';
   notes = 'Initial testnet build';
@@ -32,7 +49,7 @@ export class ArtifactUploadComponent implements OnInit {
   latestVersion = '';
   suggestedVersion = '';
   existingVersions: string[] = [];
-  readonly projectId: string;
+  projectId = '';
   private uploadAttempt: {
     version: string;
     notes: string;
@@ -50,12 +67,29 @@ export class ArtifactUploadComponent implements OnInit {
     private readonly ownership: ProjectOwnershipService,
     private readonly auth: WalletAuthService,
     readonly wallet: WalletService
-  ) {
-    this.projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
-  }
+  ) {}
 
   ngOnInit(): void {
-    this.loadProject();
+    workspaceRoute(this.route)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(scope => {
+        this.projectId = scope.projectId;
+        this.contractId = scope.contractId;
+        this.overview = null;
+        this.version = '0.1.0';
+        this.notes = '';
+        this.artifactFiles?.forEach(file => (file.nativeElement.value = ''));
+        this.nefFile = null;
+        this.manifestFile = null;
+        this.manifestWarning = '';
+        this.uploadAttempt = null;
+        this.errorMessage = '';
+        this.isUploading = false;
+        this.existingVersions = [];
+        this.latestVersion = '';
+        this.suggestedVersion = '';
+        this.loadProject();
+      });
   }
 
   retryLoad(): void {
@@ -63,10 +97,15 @@ export class ArtifactUploadComponent implements OnInit {
   }
 
   private loadProject(): void {
+    const generation = ++this.loadGeneration;
     this.isLoading = true;
     this.loadError = '';
-    this.api.getProjectOverview(this.projectId).subscribe({
+    (this.contractId
+      ? this.api.getContractOverview(this.projectId, this.contractId)
+      : this.api.getProjectOverview(this.projectId)
+    ).subscribe({
       next: overview => {
+        if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
         this.overview = overview;
         const artifacts = overview?.artifacts ?? [];
         this.existingVersions = artifacts.map(artifact => artifact.version);
@@ -78,6 +117,7 @@ export class ArtifactUploadComponent implements OnInit {
         this.isLoading = false;
       },
       error: error => {
+        if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
         this.overview = null;
         this.loadError = this.errors.format(error, 'Could not load this project.');
         this.isLoading = false;
@@ -107,10 +147,21 @@ export class ArtifactUploadComponent implements OnInit {
       return;
     }
 
-    this.manifestWarning = await this.manifestAnalyzer.getUpdateWarning(this.manifestFile);
+    const file = this.manifestFile;
+    const generation = this.loadGeneration;
+    const warning = await this.manifestAnalyzer.getUpdateWarning(file);
+    if (
+      generation === this.loadGeneration &&
+      this.manifestFile === file &&
+      !this.destroyRef.destroyed
+    )
+      this.manifestWarning = warning;
   }
 
   async upload(): Promise<void> {
+    const generation = this.loadGeneration;
+    const projectId = this.projectId;
+    const contractId = this.contractId;
     this.errorMessage = '';
 
     if (!this.version.trim()) {
@@ -119,7 +170,7 @@ export class ArtifactUploadComponent implements OnInit {
     }
 
     if (this.versionAlreadyExists) {
-      this.errorMessage = `Version ${this.version.trim()} already exists for this project.`;
+      this.errorMessage = `Version ${this.version.trim()} already exists for this contract.`;
       return;
     }
 
@@ -147,6 +198,7 @@ export class ArtifactUploadComponent implements OnInit {
 
     try {
       await this.auth.ensureAuthenticated();
+      if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
       const version = this.version.trim();
       if (
         !this.uploadAttempt ||
@@ -165,19 +217,23 @@ export class ArtifactUploadComponent implements OnInit {
       }
       await firstValueFrom(
         this.api.uploadArtifact(
-          this.projectId,
+          projectId,
           version,
           this.notes,
           nefFile,
           manifestFile,
-          this.uploadAttempt.key
+          this.uploadAttempt.key,
+          contractId
         )
       );
-      await this.router.navigate(['/projects', this.projectId]);
+      if (generation === this.loadGeneration && !this.destroyRef.destroyed)
+        await this.router.navigate(contractLink(projectId, contractId, 'artifacts'));
     } catch (error) {
+      if (generation !== this.loadGeneration || this.destroyRef.destroyed) return;
       this.errorMessage = this.errors.format(error, 'Could not upload artifact.');
     } finally {
-      this.isUploading = false;
+      if (generation === this.loadGeneration && !this.destroyRef.destroyed)
+        this.isUploading = false;
     }
   }
 

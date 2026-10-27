@@ -6,7 +6,8 @@ import { PusharooApiService } from '../services/pusharoo-api.service';
 import { WalletService } from '../services/wallet.service';
 
 export const projectDeploymentAccessGuard: CanActivateFn = route => {
-  const projectId = route.paramMap.get('projectId') ?? '';
+  const projectId =
+    route.pathFromRoot.map(part => part.paramMap.get('projectId')).find(Boolean) ?? '';
   const wallet = inject(WalletService);
   const walletAddress = wallet.account()?.address;
   const walletNetwork = wallet.session()?.network;
@@ -20,7 +21,7 @@ export const projectDeploymentAccessGuard: CanActivateFn = route => {
   const router = inject(Router);
 
   return forkJoin({
-    overview: api.getProjectOverview(projectId),
+    overview: api.getProjectSummary(projectId),
     authorizedDeployers: api.getAuthorizedDeployers(projectId)
   }).pipe(
     map(

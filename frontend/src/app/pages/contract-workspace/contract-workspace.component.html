@@ -1,0 +1,49 @@
+<section class="contracts-workspace">
+  @if (error) {
+    <p class="form-error" role="alert">{{ error }}</p>
+  }
+  @if (contract; as selected) {
+    <nav aria-label="Contract breadcrumbs"
+      ><a [routerLink]="['/projects', projectId]">{{ summary?.project?.name }} / Contracts</a> /
+      {{ selected.name }}</nav
+    >
+    <header class="button-row">
+      <h2>{{ selected.name }}</h2>
+      <label
+        >Contract
+        <select name="contract" [ngModel]="contractId" (ngModelChange)="selectContract($event)">
+          @for (item of summary?.contracts ?? []; track item.contract.id) {
+            <option [value]="item.contract.id">{{ item.contract.name }}</option>
+          }
+        </select></label
+      >
+      @if (canManage) {
+        <button
+          type="button"
+          class="secondary-button"
+          (click)="editing = !editing; rename = selected.name"
+          >Rename</button
+        >
+      }
+    </header>
+    @if (editing && canManage) {
+      <form (ngSubmit)="saveName()"
+        ><label>Name <input name="rename" [(ngModel)]="rename" maxlength="128" required /></label>
+        <button class="primary-button" [disabled]="saving || !rename.trim()">Save name</button>
+      </form>
+    }
+    <nav class="button-row" aria-label="Contract workspace">
+      @for (tab of tabs; track tab; let index = $index) {
+        <a
+          [routerLink]="link(tab)"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          >{{ labels[index] }}</a
+        >
+      }
+    </nav>
+    <router-outlet />
+  } @else if (!error) {
+    <p aria-live="polite">Loading contract...</p>
+  }
+</section>

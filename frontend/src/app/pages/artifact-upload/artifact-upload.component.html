@@ -4,12 +4,12 @@
     { label: 'Projects', link: '/projects' },
     {
       label: overview?.project?.name ?? 'Project',
-      link: overview ? ['/projects', projectId] : undefined
+      link: overview ? contractPath() : undefined
     },
     { label: 'Upload Artifact' }
   ]"
 >
-  <a actions class="secondary-button" [routerLink]="['/projects', projectId]">Back</a>
+  <a actions class="secondary-button" [routerLink]="contractPath()">Back</a>
 
   @if (isLoading) {
     <p class="form-status" aria-live="polite">Loading project…</p>
@@ -39,12 +39,19 @@
 
       <label>
         <span>NEF file</span>
-        <input type="file" name="nefFile" accept=".nef" (change)="onNefSelected($event)" />
+        <input
+          #artifactFile
+          type="file"
+          name="nefFile"
+          accept=".nef"
+          (change)="onNefSelected($event)"
+        />
       </label>
 
       <label>
         <span>Manifest file</span>
         <input
+          #artifactFile
           type="file"
           name="manifestFile"
           accept=".json,.manifest.json"

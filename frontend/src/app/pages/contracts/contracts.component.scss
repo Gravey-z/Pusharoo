@@ -1,0 +1,26 @@
+.contracts-workspace {
+  display: grid;
+  gap: 1rem;
+}
+.contract-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 1rem;
+}
+.surface-panel {
+  padding: 1.25rem;
+}
+.button-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+code {
+  display: block;
+  overflow-wrap: anywhere;
+}
+input {
+  margin: 0.5rem;
+  max-width: 100%;
+}
