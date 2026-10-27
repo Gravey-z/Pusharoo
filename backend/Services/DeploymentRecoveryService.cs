@@ -57,6 +57,11 @@ public sealed class DeploymentRecoveryService(
             );
         }
 
+        if (existing?.ContractId is not null)
+            return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
+                "Contract-scoped recovery requires the next implementation phase."
+            );
+
         if (existing?.Status == "confirmed")
             return DeploymentWorkflowResult<DeploymentResponse>.Success(existing.ToResponse());
 
@@ -71,9 +76,15 @@ public sealed class DeploymentRecoveryService(
         }
 
         var deployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
+        if (existing is null && deployments.Any(deployment => deployment.ContractId is not null))
+            return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
+                "Choose a contract after contract-scoped recovery is implemented."
+            );
+
         var active = existing is null
             ? deployments.FirstOrDefault(item =>
-                item.Network == request.Network
+                item.ContractId == null
+                && item.Network == request.Network
                 && item.Status is "preparing" or "awaiting_wallet" or "submitted" or "confirming"
             )
             : null;

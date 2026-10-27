@@ -31,7 +31,11 @@ public sealed class NeoDeploymentVerificationService(
 
         var inspection = await InspectAsync(
             project,
-            existingDeployments,
+            existingDeployments
+                .Where(deployment =>
+                    deployment.ProjectId == project.Id && deployment.ContractId == null
+                )
+                .ToArray(),
             request.Network,
             request.TransactionId,
             null,
@@ -58,9 +62,32 @@ public sealed class NeoDeploymentVerificationService(
         CancellationToken cancellationToken
     )
     {
+        if (
+            attempt.ProjectId != project.Id
+            || (
+                attempt.ContractId is not null
+                && (
+                    attempt.AuthorizationSnapshot?.AuthorizationSchemaVersion != 4
+                    || attempt.AuthorizationSnapshot.ContractId != attempt.ContractId
+                    || attempt.AuthorizationSnapshot.ProjectId != project.Id
+                    || attempt.AuthorizationSnapshot.ArtifactId != attempt.ArtifactId
+                    || attempt.AuthorizationSnapshot.Network != attempt.Network
+                    || attempt.AuthorizationSnapshot.Operation != attempt.Operation
+                )
+            )
+        )
+            return Task.FromResult(
+                InspectFail("The deployment contract authorization parent is inconsistent.")
+            );
+
         return InspectAsync(
             project,
-            existingDeployments,
+            existingDeployments
+                .Where(deployment =>
+                    deployment.ProjectId == project.Id
+                    && deployment.ContractId == attempt.ContractId
+                )
+                .ToArray(),
             attempt.Network,
             attempt.TransactionId,
             attempt.AuthorizationSnapshot?.InitiatorScriptHash,

@@ -8,6 +8,19 @@ namespace backend.Repositories;
 
 public sealed class DeploymentRepository(MongoDbContext db) : IDeploymentRepository
 {
+    public async Task<IReadOnlyList<DeploymentDocument>> GetForScopeAsync(
+        string projectId,
+        string? contractId,
+        CancellationToken cancellationToken
+    ) =>
+        await db
+            .Deployments.Find(deployment =>
+                deployment.ProjectId == projectId && deployment.ContractId == contractId
+            )
+            .SortByDescending(deployment => deployment.CreatedAt)
+            .ThenByDescending(deployment => deployment.Id)
+            .ToListAsync(cancellationToken);
+
     public async Task InsertAsync(
         DeploymentDocument deployment,
         CancellationToken cancellationToken
@@ -64,11 +77,20 @@ public sealed class DeploymentRepository(MongoDbContext db) : IDeploymentReposit
         CancellationToken cancellationToken
     )
     {
-        await db.Deployments.ReplaceOneAsync(
-            item => item.Id == deployment.Id,
+        var result = await db.Deployments.ReplaceOneAsync(
+            item =>
+                item.Id == deployment.Id
+                && item.ProjectId == deployment.ProjectId
+                && item.ContractId == deployment.ContractId,
             deployment,
             cancellationToken: cancellationToken
         );
+        if (result.MatchedCount == 0)
+            throw new ContractOperationException(
+                409,
+                "deployment_changed",
+                "The deployment was removed or its parent changed. Refresh and try again."
+            );
     }
 
     public async Task<DeploymentDocument?> RenewCapabilityAsync(
@@ -81,6 +103,7 @@ public sealed class DeploymentRepository(MongoDbContext db) : IDeploymentReposit
         var filter = Builders<DeploymentDocument>.Filter.Where(item =>
             item.Id == deployment.Id
             && item.ProjectId == deployment.ProjectId
+            && item.ContractId == deployment.ContractId
             && item.AttemptCapabilityHash == deployment.AttemptCapabilityHash
             && item.Status == deployment.Status
         );

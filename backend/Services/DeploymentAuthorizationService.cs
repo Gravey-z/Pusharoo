@@ -32,7 +32,9 @@ public sealed class DeploymentAuthorizationService(
     {
         var confirmedForNetwork = deployments
             .Where(item =>
-                string.Equals(item.Network, network.Trim(), StringComparison.Ordinal)
+                item.ProjectId == project.Id
+                && item.ContractId == artifact.ContractId
+                && string.Equals(item.Network, network.Trim(), StringComparison.Ordinal)
                 && string.Equals(item.Status, "confirmed", StringComparison.Ordinal)
                 && !string.IsNullOrWhiteSpace(item.ContractHash)
             )
@@ -53,7 +55,8 @@ public sealed class DeploymentAuthorizationService(
             confirmedForNetwork.LongLength,
             deployedBy.Trim(),
             string.IsNullOrWhiteSpace(notes) ? string.Empty : notes.Trim(),
-            normalizedData ?? deploymentData.Normalize(null)
+            normalizedData ?? deploymentData.Normalize(null),
+            artifact.ContractId
         );
     }
 
@@ -72,7 +75,8 @@ public sealed class DeploymentAuthorizationService(
             context.DeploymentData.FormatVersion,
             Sha256Hex(context.Nef),
             Sha256Hex(context.ManifestJson),
-            Sha256Hex(context.Notes)
+            Sha256Hex(context.Notes),
+            context.ContractId
         );
 
     public DeploymentAuthorizationValidationResult ValidateSessionStart(
@@ -83,6 +87,16 @@ public sealed class DeploymentAuthorizationService(
         WalletSessionIdentity actor
     )
     {
+        if (
+            artifact.ProjectId != project.Id
+            || request.ArtifactId != artifact.Id
+            || request.ContractId != artifact.ContractId
+        )
+            return Fail(
+                StatusCodes.Status400BadRequest,
+                "Artifact and contract parent identities do not match."
+            );
+
         var permission = authorization.CanDeployToNetwork(project, actor.Address, request.Network);
 
         if (!permission.IsAllowed)
@@ -109,7 +123,11 @@ public sealed class DeploymentAuthorizationService(
             normalizedData
         );
 
-        if (context.Operation == "update" && request.DeploymentData is not null)
+        if (
+            context.Operation == "update"
+            && request.ExpectedOperation == "update"
+            && request.DeploymentData is not null
+        )
             return Fail(
                 StatusCodes.Status400BadRequest,
                 "Deployment initialization data can only be supplied for a new contract deployment."
@@ -158,10 +176,12 @@ public sealed class DeploymentAuthorizationService(
             ArtifactNefSha256 = review.ArtifactNefSha256,
             ArtifactManifestSha256 = review.ArtifactManifestSha256,
             AuthorizedAtUtc = clock.GetUtcNow().UtcDateTime,
-            AuthorizationSchemaVersion = 3,
+            AuthorizationSchemaVersion = context.ContractId is null ? 3 : 4,
             AuthorizationMethod = "wallet-session",
             SessionReference = actor.SessionHash[..Math.Min(32, actor.SessionHash.Length)],
             ProjectId = context.ProjectId,
+            ContractId = context.ContractId,
+            NotesSha256 = context.ContractId is null ? null : review.NotesSha256,
             ArtifactId = context.ArtifactId,
             Network = context.Network,
             Operation = context.Operation,
@@ -239,7 +259,8 @@ public sealed record DeploymentAuthorizationContext(
     long ExpectedDeploymentRevision,
     string DeployedBy,
     string Notes,
-    NormalizedDeploymentData DeploymentData
+    NormalizedDeploymentData DeploymentData,
+    string? ContractId = null
 );
 
 public sealed record DeploymentAuthorizationValidationResult(

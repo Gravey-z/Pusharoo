@@ -9,6 +9,7 @@ public sealed class DeploymentAttemptValidator(
     DeploymentAuthorizationService deploymentAuthorization,
     DeploymentDataService deploymentData,
     ProjectAuthorizationService projectAuthorization,
+    ProjectContractLoader contractLoader,
     TimeProvider? timeProvider = null
 )
 {
@@ -21,7 +22,8 @@ public sealed class DeploymentAttemptValidator(
         WalletSessionIdentity actor,
         bool requireCurrentAccess,
         CancellationToken cancellationToken,
-        bool allowExpiredFailedConfirmation = false
+        bool allowExpiredFailedConfirmation = false,
+        string? contractId = null
     )
     {
         var projectResult = await deploymentWorkflow.LoadProjectAsync(projectId, cancellationToken);
@@ -33,7 +35,7 @@ public sealed class DeploymentAttemptValidator(
 
         var attempt = await deploymentService.GetByIdAsync(deploymentId, cancellationToken);
 
-        if (attempt is null || attempt.ProjectId != projectId)
+        if (attempt is null || attempt.ProjectId != projectId || attempt.ContractId != contractId)
         {
             return DeploymentWorkflowResult<ProjectDeploymentAttemptContext>.NotFound(
                 "Deployment attempt was not found."
@@ -95,6 +97,19 @@ public sealed class DeploymentAttemptValidator(
             }
         }
 
+        if (contractId is not null)
+        {
+            await contractLoader.LoadAsync(projectId, contractId, cancellationToken);
+            var error = await ValidateSnapshotAsync(
+                projectResult.Value,
+                attempt,
+                cancellationToken,
+                requireCurrentTarget: attempt.Status == "awaiting_wallet"
+            );
+            if (error is not null)
+                return DeploymentWorkflowResult<ProjectDeploymentAttemptContext>.Conflict(error);
+        }
+
         return DeploymentWorkflowResult<ProjectDeploymentAttemptContext>.Success(
             new ProjectDeploymentAttemptContext(projectResult.Value, attempt)
         );
@@ -111,7 +126,8 @@ public sealed class DeploymentAttemptValidator(
     public async Task<string?> ValidateSnapshotAsync(
         ProjectDocument project,
         DeploymentDocument attempt,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool requireCurrentTarget = true
     )
     {
         var snapshot = attempt.AuthorizationSnapshot;
@@ -123,13 +139,13 @@ public sealed class DeploymentAttemptValidator(
 
         var authorizationSchemaVersion = snapshot.AuthorizationSchemaVersion ?? 1;
 
-        if (authorizationSchemaVersion is < 1 or > 3)
+        if (authorizationSchemaVersion is < 1 or > 4)
         {
             return "The deployment attempt uses an unsupported authorization format.";
         }
 
         if (
-            authorizationSchemaVersion == 3
+            authorizationSchemaVersion >= 3
             && (
                 snapshot.AuthorizationMethod != "wallet-session"
                 || string.IsNullOrWhiteSpace(snapshot.SessionReference)
@@ -142,6 +158,33 @@ public sealed class DeploymentAttemptValidator(
         {
             return "The deployment session authorization snapshot is incomplete or inconsistent.";
         }
+
+        if (
+            attempt.ProjectId != project.Id
+            || (attempt.ContractId is not null && authorizationSchemaVersion != 4)
+            || (
+                authorizationSchemaVersion == 4
+                && (
+                    string.IsNullOrWhiteSpace(attempt.ContractId)
+                    || snapshot.ContractId != attempt.ContractId
+                    || attempt.DeployedBy != snapshot.InitiatorWalletAddress
+                    || string.IsNullOrWhiteSpace(snapshot.NotesSha256)
+                    || attempt.Operation is not ("deploy" or "update")
+                    || (
+                        attempt.Operation == "deploy"
+                        && snapshot.ExpectedTargetContractHash is not null
+                    )
+                    || (
+                        attempt.Operation == "update"
+                        && string.IsNullOrWhiteSpace(snapshot.ExpectedTargetContractHash)
+                    )
+                )
+            )
+        )
+            return "The deployment contract authorization parent is incomplete or inconsistent.";
+
+        if (attempt.ContractId is not null)
+            await contractLoader.LoadAsync(project.Id, attempt.ContractId, cancellationToken);
 
         if (authorizationSchemaVersion >= 2)
         {
@@ -185,13 +228,18 @@ public sealed class DeploymentAttemptValidator(
 
         var artifact = await artifactService.GetByIdAsync(attempt.ArtifactId, cancellationToken);
 
-        if (artifact is null || artifact.ProjectId != project.Id)
+        if (
+            artifact is null
+            || artifact.ProjectId != project.Id
+            || artifact.ContractId != attempt.ContractId
+        )
         {
             return "The authorized deployment artifact is no longer available.";
         }
 
-        var deployments = await deploymentService.GetByProjectIdAsync(
+        var deployments = await deploymentService.GetForScopeAsync(
             project.Id,
+            attempt.ContractId,
             cancellationToken
         );
         var current = deploymentAuthorization.CreateContext(
@@ -220,13 +268,19 @@ public sealed class DeploymentAttemptValidator(
             return "The deployment artifact changed after the attempt was authorized.";
         }
 
+        if (authorizationSchemaVersion == 4 && snapshot.NotesSha256 != artifactReview.NotesSha256)
+            return "The deployment notes changed after the attempt was authorized.";
+
         if (
-            !string.Equals(current.Operation, attempt.Operation, StringComparison.Ordinal)
-            || current.ExpectedDeploymentRevision != snapshot.ExpectedDeploymentRevision
-            || !string.Equals(
-                current.ExpectedTargetContractHash,
-                snapshot.ExpectedTargetContractHash,
-                StringComparison.OrdinalIgnoreCase
+            requireCurrentTarget
+            && (
+                !string.Equals(current.Operation, attempt.Operation, StringComparison.Ordinal)
+                || current.ExpectedDeploymentRevision != snapshot.ExpectedDeploymentRevision
+                || !string.Equals(
+                    current.ExpectedTargetContractHash,
+                    snapshot.ExpectedTargetContractHash,
+                    StringComparison.OrdinalIgnoreCase
+                )
             )
         )
         {

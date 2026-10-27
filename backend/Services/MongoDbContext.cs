@@ -133,6 +133,15 @@ public sealed class MongoDbContext
         );
         Deployments.Indexes.CreateMany([
             new CreateIndexModel<DeploymentDocument>(
+                Builders<DeploymentDocument>
+                    .IndexKeys.Ascending(deployment => deployment.ProjectId)
+                    .Ascending(deployment => deployment.ContractId)
+                    .Ascending(deployment => deployment.Network)
+                    .Descending(deployment => deployment.CreatedAt)
+                    .Descending(deployment => deployment.Id),
+                new CreateIndexOptions { Name = "deployment_contract_history" }
+            ),
+            new CreateIndexModel<DeploymentDocument>(
                 Builders<DeploymentDocument>.IndexKeys.Ascending(deployment =>
                     deployment.TransactionId
                 ),

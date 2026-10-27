@@ -101,7 +101,8 @@ public sealed record DeploymentReviewResponse(
     string DeploymentDataFormatVersion,
     string ArtifactNefSha256,
     string ArtifactManifestSha256,
-    string NotesSha256
+    string NotesSha256,
+    string? ContractId = null
 );
 
 public sealed record StartSessionDeploymentAttemptRequest(
@@ -115,7 +116,8 @@ public sealed record StartSessionDeploymentAttemptRequest(
     string ArtifactManifestSha256,
     string NotesSha256,
     string DeploymentDataSha256,
-    DeploymentDataValue? DeploymentData = null
+    DeploymentDataValue? DeploymentData = null,
+    string? ContractId = null
 );
 
 public sealed record ResumeDeploymentAttemptRequest();

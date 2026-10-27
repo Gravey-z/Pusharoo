@@ -22,7 +22,8 @@ public sealed class DeploymentLifecycleService(
         string projectId,
         DeploymentReviewRequest request,
         WalletSessionIdentity actor,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? contractId = null
     )
     {
         if (
@@ -46,7 +47,11 @@ public sealed class DeploymentLifecycleService(
 
         var artifact = await artifactService.GetByIdAsync(request.ArtifactId, cancellationToken);
 
-        if (artifact is null || artifact.ProjectId != projectId)
+        if (
+            artifact is null
+            || artifact.ProjectId != projectId
+            || artifact.ContractId != contractId
+        )
         {
             return DeploymentWorkflowResult<DeploymentReviewResponse>.BadRequest(
                 "Artifact does not belong to this project."
@@ -76,7 +81,11 @@ public sealed class DeploymentLifecycleService(
             return DeploymentWorkflowResult<DeploymentReviewResponse>.BadRequest(exception.Message);
         }
 
-        var deployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
+        var deployments = await deploymentService.GetForScopeAsync(
+            projectId,
+            contractId,
+            cancellationToken
+        );
         var context = deploymentAuthorization.CreateContext(
             projectResult.Value,
             artifact,
@@ -101,7 +110,8 @@ public sealed class DeploymentLifecycleService(
 
     public async Task<DeploymentWorkflowResult<IReadOnlyList<DeploymentResponse>>> GetAllAsync(
         string projectId,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? contractId = null
     )
     {
         var project = await deploymentWorkflow.LoadProjectAsync(projectId, cancellationToken);
@@ -109,7 +119,9 @@ public sealed class DeploymentLifecycleService(
         if (!project.IsSuccess)
             return DeploymentWorkflowResult<IReadOnlyList<DeploymentResponse>>.Failure(project);
 
-        var deployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
+        var deployments = contractId is null
+            ? await deploymentService.GetByProjectIdAsync(projectId, cancellationToken)
+            : await deploymentService.GetForScopeAsync(projectId, contractId, cancellationToken);
         var response = deployments.Select(deployment => deployment.ToResponse()).ToArray();
 
         return DeploymentWorkflowResult<IReadOnlyList<DeploymentResponse>>.Success(response);
@@ -119,7 +131,8 @@ public sealed class DeploymentLifecycleService(
         string projectId,
         StartSessionDeploymentAttemptRequest request,
         WalletSessionIdentity actor,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? contractId = null
     )
     {
         if (
@@ -143,15 +156,20 @@ public sealed class DeploymentLifecycleService(
 
         var artifact = await artifactService.GetByIdAsync(request.ArtifactId, cancellationToken);
 
-        if (artifact is null || artifact.ProjectId != projectId)
+        if (
+            artifact is null
+            || artifact.ProjectId != projectId
+            || artifact.ContractId != contractId
+        )
         {
             return DeploymentWorkflowResult<DeploymentResponse>.BadRequest(
                 "Artifact does not belong to this project."
             );
         }
 
-        var existingDeployments = await deploymentService.GetByProjectIdAsync(
+        var existingDeployments = await deploymentService.GetForScopeAsync(
             projectId,
+            contractId,
             cancellationToken
         );
         var authorization = deploymentAuthorization.ValidateSessionStart(
@@ -195,7 +213,7 @@ public sealed class DeploymentLifecycleService(
             when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
         {
             return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
-                "Another deployment attempt is already active for this project network."
+                "Another deployment attempt is already active for this contract and network."
             );
         }
     }
@@ -205,7 +223,8 @@ public sealed class DeploymentLifecycleService(
         string deploymentId,
         SubmitDeploymentAttemptRequest request,
         WalletSessionIdentity actor,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? contractId = null
     )
     {
         if (
@@ -226,7 +245,8 @@ public sealed class DeploymentLifecycleService(
             request.AttemptCapability,
             actor,
             requireCurrentAccess: false,
-            cancellationToken
+            cancellationToken,
+            contractId: contractId
         );
 
         if (!context.IsSuccess || context.Value is null)
@@ -236,7 +256,8 @@ public sealed class DeploymentLifecycleService(
         var snapshotError = await attemptValidator.ValidateSnapshotAsync(
             context.Value.Project,
             attempt,
-            cancellationToken
+            cancellationToken,
+            requireCurrentTarget: attempt.Status == "awaiting_wallet"
         );
 
         if (snapshotError is not null)
@@ -275,12 +296,23 @@ public sealed class DeploymentLifecycleService(
         }
 
         var nextAttemptCapability = DeploymentAuthorizationService.CreateAttemptCapability();
-        var updated = await deploymentService.MarkSubmittedAsync(
-            attempt,
-            request.TransactionId,
-            nextAttemptCapability,
-            cancellationToken
-        );
+        DeploymentDocument updated;
+        try
+        {
+            updated = await deploymentService.MarkSubmittedAsync(
+                attempt,
+                request.TransactionId,
+                nextAttemptCapability,
+                cancellationToken
+            );
+        }
+        catch (MongoWriteException error)
+            when (error.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            return DeploymentWorkflowResult<DeploymentResponse>.Conflict(
+                "The transaction ID is already recorded for another deployment."
+            );
+        }
 
         return DeploymentWorkflowResult<DeploymentResponse>.Success(
             updated.ToResponse() with
@@ -295,7 +327,8 @@ public sealed class DeploymentLifecycleService(
         string deploymentId,
         ConfirmDeploymentAttemptRequest request,
         WalletSessionIdentity actor,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? contractId = null
     )
     {
         var context = await attemptValidator.LoadAsync(
@@ -305,7 +338,8 @@ public sealed class DeploymentLifecycleService(
             actor,
             requireCurrentAccess: false,
             cancellationToken,
-            allowExpiredFailedConfirmation: true
+            allowExpiredFailedConfirmation: true,
+            contractId: contractId
         );
 
         if (!context.IsSuccess || context.Value is null)
@@ -327,7 +361,11 @@ public sealed class DeploymentLifecycleService(
         }
 
         attempt = await deploymentService.MarkConfirmingAsync(attempt, cancellationToken);
-        var deployments = await deploymentService.GetByProjectIdAsync(projectId, cancellationToken);
+        var deployments = await deploymentService.GetForScopeAsync(
+            projectId,
+            contractId,
+            cancellationToken
+        );
         var verification = await deploymentVerification.RecoverAsync(
             project,
             deployments.Where(deployment => deployment.Id != attempt.Id).ToArray(),
@@ -421,7 +459,8 @@ public sealed class DeploymentLifecycleService(
         string deploymentId,
         FailDeploymentAttemptRequest request,
         WalletSessionIdentity actor,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? contractId = null
     )
     {
         var context = await attemptValidator.LoadAsync(
@@ -430,7 +469,8 @@ public sealed class DeploymentLifecycleService(
             request.AttemptCapability,
             actor,
             requireCurrentAccess: false,
-            cancellationToken
+            cancellationToken,
+            contractId: contractId
         );
 
         if (!context.IsSuccess || context.Value is null)
@@ -462,7 +502,8 @@ public sealed class DeploymentLifecycleService(
         string projectId,
         string deploymentId,
         WalletSessionIdentity actor,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? contractId = null
     )
     {
         var projectResult = await deploymentWorkflow.LoadProjectAsync(projectId, cancellationToken);
@@ -472,7 +513,7 @@ public sealed class DeploymentLifecycleService(
 
         var attempt = await deploymentService.GetByIdAsync(deploymentId, cancellationToken);
 
-        if (attempt is null || attempt.ProjectId != projectId)
+        if (attempt is null || attempt.ProjectId != projectId || attempt.ContractId != contractId)
             return DeploymentWorkflowResult<DeploymentResponse>.NotFound(
                 "Deployment attempt was not found."
             );
@@ -482,6 +523,18 @@ public sealed class DeploymentLifecycleService(
                 403,
                 "Sign in with the wallet that started this deployment attempt."
             );
+
+        if (contractId is not null)
+        {
+            var snapshotError = await attemptValidator.ValidateSnapshotAsync(
+                projectResult.Value,
+                attempt,
+                cancellationToken,
+                requireCurrentTarget: attempt.Status == "awaiting_wallet"
+            );
+            if (snapshotError is not null)
+                return DeploymentWorkflowResult<DeploymentResponse>.Conflict(snapshotError);
+        }
 
         var retryableFailure =
             attempt.Status == "failed"

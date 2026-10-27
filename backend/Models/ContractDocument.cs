@@ -19,6 +19,14 @@ public sealed record ContractDocument
     [BsonElement("description")]
     public string? Description { get; init; }
 
+    [BsonElement("testnetDeploymentWriteToken")]
+    [BsonIgnoreIfNull]
+    public string? TestnetDeploymentWriteToken { get; init; }
+
+    [BsonElement("mainnetDeploymentWriteToken")]
+    [BsonIgnoreIfNull]
+    public string? MainnetDeploymentWriteToken { get; init; }
+
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; init; }
 

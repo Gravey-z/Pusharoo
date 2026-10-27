@@ -6,7 +6,8 @@ public sealed class DeploymentWorkflowService(
     ProjectService projects,
     ArtifactService artifacts,
     DeploymentService deployments,
-    ProjectOwnershipService ownership
+    ProjectOwnershipService ownership,
+    ProjectContractLoader contractLoader
 )
 {
     public async Task<DeploymentWorkflowResult<ProjectDocument>> LoadProjectAsync(
@@ -25,7 +26,8 @@ public sealed class DeploymentWorkflowService(
         string projectId,
         string artifactId,
         string deployedBy,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? contractId = null
     )
     {
         var projectResult = await LoadProjectAsync(projectId, cancellationToken);
@@ -46,12 +48,19 @@ public sealed class DeploymentWorkflowService(
 
         var artifact = await artifacts.GetByIdAsync(artifactId, cancellationToken);
 
-        if (artifact is null || artifact.ProjectId != projectId)
+        if (
+            artifact is null
+            || artifact.ProjectId != projectId
+            || artifact.ContractId != contractId
+        )
         {
             return DeploymentWorkflowResult<ProjectArtifactContext>.BadRequest(
                 "Artifact does not belong to this project."
             );
         }
+
+        if (contractId is not null)
+            await contractLoader.LoadAsync(projectId, contractId, cancellationToken);
 
         return DeploymentWorkflowResult<ProjectArtifactContext>.Success(
             new ProjectArtifactContext(projectResult.Value, artifact)
@@ -65,7 +74,8 @@ public sealed class DeploymentWorkflowService(
         string deploymentId,
         string deployedBy,
         string errorMessage,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? contractId = null
     )
     {
         var projectTask = projects.GetByIdAsync(projectId, cancellationToken);
@@ -74,7 +84,12 @@ public sealed class DeploymentWorkflowService(
         var project = await projectTask;
         var attempt = await attemptTask;
 
-        if (project is null || attempt is null || attempt.ProjectId != projectId)
+        if (
+            project is null
+            || attempt is null
+            || attempt.ProjectId != projectId
+            || attempt.ContractId != contractId
+        )
         {
             return DeploymentWorkflowResult<ProjectDeploymentAttemptContext>.NotFound(
                 "Deployment attempt was not found."
@@ -93,6 +108,9 @@ public sealed class DeploymentWorkflowService(
             );
         }
 
+        if (contractId is not null)
+            await contractLoader.LoadAsync(projectId, contractId, cancellationToken);
+
         return DeploymentWorkflowResult<ProjectDeploymentAttemptContext>.Success(
             new ProjectDeploymentAttemptContext(project, attempt)
         );
@@ -101,10 +119,13 @@ public sealed class DeploymentWorkflowService(
     public async Task<string> DetermineOperationAsync(
         string projectId,
         string network,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? contractId = null
     )
     {
-        var current = await deployments.GetByProjectIdAsync(projectId, cancellationToken);
+        if (contractId is not null)
+            await contractLoader.LoadAsync(projectId, contractId, cancellationToken);
+        var current = await deployments.GetForScopeAsync(projectId, contractId, cancellationToken);
 
         return current.Any(deployment =>
             string.Equals(deployment.Network, network.Trim(), StringComparison.Ordinal)

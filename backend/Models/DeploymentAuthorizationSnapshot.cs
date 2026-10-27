@@ -56,6 +56,14 @@ public sealed record DeploymentAuthorizationSnapshot
     [BsonIgnoreIfNull]
     public string? ProjectId { get; init; }
 
+    [BsonElement("contractId")]
+    [BsonIgnoreIfNull]
+    public string? ContractId { get; init; }
+
+    [BsonElement("notesSha256")]
+    [BsonIgnoreIfNull]
+    public string? NotesSha256 { get; init; }
+
     [BsonElement("artifactId")]
     [BsonIgnoreIfNull]
     public string? ArtifactId { get; init; }

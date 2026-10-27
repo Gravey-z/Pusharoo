@@ -19,10 +19,18 @@ public sealed class DeploymentService(
         CancellationToken cancellationToken
     )
     {
+        if (artifact.ProjectId != projectId)
+            throw new ContractOperationException(
+                400,
+                "deployment_parent_mismatch",
+                "Artifact does not belong to this project."
+            );
+
         var deployment = new DeploymentDocument
         {
             Id = ObjectId.GenerateNewId().ToString(),
             ProjectId = projectId,
+            ContractId = artifact.ContractId,
             ArtifactId = artifact.Id,
             Version = artifact.Version,
             Network = request.Network.Trim(),
@@ -90,6 +98,12 @@ public sealed class DeploymentService(
         return await deployments.GetByProjectIdAsync(projectId, cancellationToken);
     }
 
+    public Task<IReadOnlyList<DeploymentDocument>> GetForScopeAsync(
+        string projectId,
+        string? contractId,
+        CancellationToken cancellationToken
+    ) => deployments.GetForScopeAsync(projectId, contractId, cancellationToken);
+
     public async Task<DeploymentDocument> StartAttemptAsync(
         string projectId,
         ArtifactDocument artifact,
@@ -100,11 +114,34 @@ public sealed class DeploymentService(
         CancellationToken cancellationToken
     )
     {
+        if (
+            artifact.ProjectId != projectId
+            || request.ArtifactId != artifact.Id
+            || request.ContractId != artifact.ContractId
+            || (
+                artifact.ContractId is not null
+                && (
+                    authorizationSnapshot.AuthorizationSchemaVersion != 4
+                    || authorizationSnapshot.ProjectId != projectId
+                    || authorizationSnapshot.ContractId != artifact.ContractId
+                    || authorizationSnapshot.ArtifactId != artifact.Id
+                    || authorizationSnapshot.Network != request.Network.Trim()
+                    || authorizationSnapshot.Operation != operation
+                )
+            )
+        )
+            throw new ContractOperationException(
+                400,
+                "deployment_parent_mismatch",
+                "Deployment authorization does not match the selected artifact and contract."
+            );
+
         var now = clock.GetUtcNow().UtcDateTime;
         var deployment = new DeploymentDocument
         {
             Id = ObjectId.GenerateNewId().ToString(),
             ProjectId = projectId,
+            ContractId = artifact.ContractId,
             ArtifactId = artifact.Id,
             Version = artifact.Version,
             Network = request.Network.Trim(),
@@ -112,7 +149,11 @@ public sealed class DeploymentService(
             Notes = TrimToNull(request.Notes),
             Operation = operation,
             Status = "awaiting_wallet",
-            ActiveAttemptKey = BuildActiveAttemptKey(projectId, request.Network),
+            ActiveAttemptKey = BuildActiveAttemptKey(
+                projectId,
+                request.Network,
+                artifact.ContractId
+            ),
             AuthorizationSnapshot = authorizationSnapshot,
             AttemptCapabilityHash = DeploymentAuthorizationService.HashAttemptCapability(
                 attemptCapability
@@ -228,6 +269,12 @@ public sealed class DeploymentService(
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
-    private static string BuildActiveAttemptKey(string projectId, string network) =>
-        $"{projectId.Trim()}:{network.Trim()}";
+    public static string BuildActiveAttemptKey(
+        string projectId,
+        string network,
+        string? contractId = null
+    ) =>
+        contractId is null
+            ? $"{projectId.Trim()}:{network.Trim()}"
+            : $"{projectId.Trim()}:{contractId}:{network.Trim()}";
 }
