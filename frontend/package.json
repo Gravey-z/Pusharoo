@@ -5,6 +5,8 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
+    "test": "node --test tests/*-checks.cjs",
+    "test:multi-contract": "node --test tests/contract-workspace-checks.cjs tests/deployment-recovery-checks.cjs tests/webhook-compatibility-checks.cjs",
     "test:relay-billing": "node --test tests/relay-billing-checks.cjs",
     "watch": "ng build --watch --configuration development"
   },

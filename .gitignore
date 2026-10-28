@@ -26,3 +26,10 @@ docker-compose.override.yml
 
 /event-relay.Tests/
 /backend.Tests/
+
+**/[Tt]est/
+**/[Tt]ests/
+**/*.[Tt]est/
+**/*.[Tt]ests/
+*.spec.*
+*.test.*

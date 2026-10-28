@@ -9,7 +9,6 @@ internal static class BackendOptionsRegistration
         IConfiguration configuration
     )
     {
-        services.Configure<MultiContractOptions>(configuration.GetSection("MultiContract"));
         services.Configure<MongoDbOptions>(configuration.GetSection(MongoDbOptions.SectionName));
 
         services.Configure<NeoRpcOptions>(configuration.GetSection(NeoRpcOptions.SectionName));

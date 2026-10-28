@@ -1,14 +1,9 @@
 using backend.Models;
-using backend.Options;
-using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
 namespace backend.Services;
 
-public sealed partial class ContractWriteGuard(
-    MongoDbContext db,
-    IOptions<MultiContractOptions> options
-)
+public sealed partial class ContractWriteGuard(MongoDbContext db)
 {
     public async Task<string> AcquireAsync(
         string projectId,
@@ -16,13 +11,6 @@ public sealed partial class ContractWriteGuard(
         bool allowMigrationReconciliation = false
     )
     {
-        if (!options.Value.WritesEnabled)
-            throw new ContractOperationException(
-                503,
-                "contracts_not_ready",
-                "Contract management is not enabled."
-            );
-
         await EnsureMigrationAllowsWritesAsync(cancellationToken, allowMigrationReconciliation);
         var token = Guid.NewGuid().ToString("N");
         var result = await db.Projects.UpdateOneAsync(

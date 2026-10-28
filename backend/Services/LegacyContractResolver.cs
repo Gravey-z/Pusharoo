@@ -1,7 +1,5 @@
 using backend.Models;
-using backend.Options;
 using backend.Repositories;
-using Microsoft.Extensions.Options;
 
 namespace backend.Services;
 
@@ -9,7 +7,6 @@ public sealed class LegacyContractResolver(
     ProjectContractLoader loader,
     IContractRepository contracts,
     DeploymentService deployments,
-    IOptions<MultiContractOptions> options,
     ContractWriteGuard migrationWrites
 )
 {
@@ -87,6 +84,6 @@ public sealed class LegacyContractResolver(
         return await ResolveOperationAsync(projectId, cancellationToken);
     }
 
-    private bool CanUseUnmappedLegacy(ProjectDocument project) =>
-        !options.Value.WritesEnabled && project.ContractSchemaVersion == 0;
+    private static bool CanUseUnmappedLegacy(ProjectDocument project) =>
+        project.ContractSchemaVersion == 0;
 }
