@@ -15,6 +15,27 @@ public sealed class MongoDbContext
         var database = client.GetDatabase(mongoOptions.DatabaseName);
 
         Projects = database.GetCollection<ProjectDocument>("projects");
+        Projects.Indexes.CreateOne(
+            new CreateIndexModel<ProjectDocument>(
+                Builders<ProjectDocument>
+                    .IndexKeys.Ascending(project => project.ContractSchemaVersion)
+                    .Ascending(project => project.CreatedAt)
+                    .Ascending(project => project.Id)
+                    .Ascending(project => project.IsDeleting),
+                new CreateIndexOptions { Name = "project_unused_candidates" }
+            )
+        );
+        database
+            .GetCollection<ProjectCleanupDocument>("projectCleanupOperations")
+            .Indexes.CreateOne(
+                new CreateIndexModel<ProjectCleanupDocument>(
+                    Builders<ProjectCleanupDocument>
+                        .IndexKeys.Ascending(operation => operation.Status)
+                        .Ascending(operation => operation.CheckedAtUtc)
+                        .Ascending(operation => operation.Id),
+                    new CreateIndexOptions { Name = "project_cleanup_pending" }
+                )
+            );
         Contracts = database.GetCollection<ContractDocument>("contracts");
         ContractArtifacts = database.GetCollection<ArtifactDocument>("contractArtifacts");
         Deployments = database.GetCollection<DeploymentDocument>("deployments");

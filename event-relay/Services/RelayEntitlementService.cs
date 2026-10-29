@@ -17,6 +17,9 @@ public sealed class RelayEntitlementService(
 
     public RelayLifecycleService Lifecycle => new(db, options, clock);
 
+    public Task<IAsyncDisposable> EnterProjectWriteAsync(string projectId, CancellationToken ct) =>
+        db.ProjectWrites.EnterAsync(projectId, ct);
+
     public Task<RelayEntitlementDocument> GetAsync(
         string projectId,
         string network,
@@ -43,6 +46,7 @@ public sealed class RelayEntitlementService(
         RelayPurchaseTerms? purchaseTerms = null
     )
     {
+        await using var projectWrite = await db.ProjectWrites.EnterAsync(projectId, ct);
         var now = DateTimeOffset
             .FromUnixTimeMilliseconds(clock.GetUtcNow().ToUnixTimeMilliseconds())
             .UtcDateTime;

@@ -18,6 +18,7 @@ public sealed class RelayBillingAdmissionService(
         CancellationToken ct
     )
     {
+        await using var projectWrite = await db.ProjectWrites.EnterAsync(projectId, ct);
         var prior = await db
             .PaymentIntents.Find(x => x.ProjectId == projectId && x.RequestKey == requestKey)
             .FirstOrDefaultAsync(ct);

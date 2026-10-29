@@ -25,6 +25,9 @@ public sealed class WebhookDeliveryService(
         CancellationToken cancellationToken
     )
     {
+        await using var projectWrite = subscription.ProjectId is null
+            ? null
+            : await entitlements.EnterProjectWriteAsync(subscription.ProjectId, cancellationToken);
         var id = Guid.NewGuid().ToString("n");
         var key = $"{subscription.Id}:{observedEvent.Id}";
         var payload = WebhookPayloadContract.Create(id, subscription, observedEvent);
@@ -61,6 +64,11 @@ public sealed class WebhookDeliveryService(
             delivery.SubscriptionId,
             cancellationToken
         );
+
+        var deliveryProjectId = delivery.ProjectId ?? subscription?.ProjectId;
+        await using var projectWrite = deliveryProjectId is null
+            ? null
+            : await entitlements.EnterProjectWriteAsync(deliveryProjectId, cancellationToken);
 
         if (subscription is null)
         {
@@ -349,6 +357,9 @@ public sealed class WebhookDeliveryService(
         CancellationToken cancellationToken
     )
     {
+        await using var projectWrite = subscription.ProjectId is null
+            ? null
+            : await entitlements.EnterProjectWriteAsync(subscription.ProjectId, cancellationToken);
         var deliveryId = Guid.NewGuid().ToString("n");
         var eventId = $"test-{deliveryId}";
         var payload = WebhookPayloadContract.CreateTest(deliveryId, eventId, subscription, clock);
@@ -372,6 +383,9 @@ public sealed class WebhookDeliveryService(
         CancellationToken cancellationToken
     )
     {
+        await using var projectWrite = subscription.ProjectId is null
+            ? null
+            : await entitlements.EnterProjectWriteAsync(subscription.ProjectId, cancellationToken);
         if (string.IsNullOrWhiteSpace(original.PayloadJson))
         {
             throw new InvalidOperationException(
@@ -392,6 +406,7 @@ public sealed class WebhookDeliveryService(
                 Id = deliveryId,
                 Network = subscription.Network,
                 SubscriptionId = subscription.Id,
+                ProjectId = subscription.ProjectId,
                 EventId = original.EventId,
                 WebhookUrl = subscription.WebhookUrl,
                 PayloadJson = payload,
@@ -423,6 +438,7 @@ public sealed class WebhookDeliveryService(
             Id = id,
             Network = subscription.Network,
             SubscriptionId = subscription.Id,
+            ProjectId = subscription.ProjectId,
             EventId = eventId,
             WebhookUrl = subscription.WebhookUrl,
             PayloadJson = payloadJson,

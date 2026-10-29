@@ -65,6 +65,7 @@ public sealed partial class RelayPaymentService(
         CancellationToken ct
     )
     {
+        await using var projectWrite = await db.ProjectWrites.EnterAsync(projectId, ct);
         EnsureAvailable();
 
         if (await Store.DescribeAsync(ct) is { BillingReady: false } readiness)
@@ -309,6 +310,7 @@ public sealed partial class RelayPaymentService(
         CancellationToken ct
     )
     {
+        await using var projectWrite = await db.ProjectWrites.EnterAsync(projectId, ct);
         if (!IsMainNet)
             throw new PaymentValidationException(
                 "Payments are available from the Mainnet relay only.",
@@ -879,6 +881,10 @@ public sealed partial class RelayPaymentService(
 
             try
             {
+                await using var projectWrite = await db.ProjectWrites.EnterAsync(
+                    intent.ProjectId,
+                    ct
+                );
                 await BindSubmissionAsync(intent.Id, tx, submitted, payment, ct);
 
                 if (
@@ -905,6 +911,10 @@ public sealed partial class RelayPaymentService(
                 deferred++;
             }
             catch (PaymentValidationException)
+            {
+                deferred++;
+            }
+            catch (Pusharoo.Retention.ProjectWriteBlockedException)
             {
                 deferred++;
             }

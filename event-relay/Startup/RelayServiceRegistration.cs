@@ -101,7 +101,7 @@ public static class RelayServiceRegistration
     {
         services.AddRelayManagementRateLimiting();
 
-        services.AddControllers();
+        services.AddControllers(options => options.Filters.Add<ProjectWriteBlockedFilter>());
         services.AddOpenApi();
     }
 }

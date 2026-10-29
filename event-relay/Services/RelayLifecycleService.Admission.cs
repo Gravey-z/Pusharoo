@@ -60,6 +60,7 @@ public sealed partial class RelayLifecycleService
         string? subscriptionId = null
     )
     {
+        await using var projectWrite = await db.ProjectWrites.EnterAsync(expected.ProjectId, ct);
         var state = await EnsureAsync(expected.ProjectId, ct);
         var budget = Budget(state, expected.Network)!;
         var periodId = RelayEntitlementService.PeriodId(expected);
@@ -209,6 +210,7 @@ public sealed partial class RelayLifecycleService
     )
     {
         var projectId = desired.ProjectId ?? throw new ArgumentException("A project is required.");
+        await using var projectWrite = await db.ProjectWrites.EnterAsync(projectId, ct);
 
         for (var attempt = 0; attempt < 100; attempt++)
         {
@@ -330,6 +332,7 @@ public sealed partial class RelayLifecycleService
         CancellationToken ct
     )
     {
+        await using var projectWrite = await db.ProjectWrites.EnterAsync(projectId, ct);
         var state = await EnsureAsync(projectId, ct);
         var filter = Builders<RelayProjectAdmissionDocument>.Filter.Where(x =>
             x.Id == projectId
@@ -462,6 +465,7 @@ public sealed partial class RelayLifecycleService
         CancellationToken ct
     )
     {
+        await using var projectWrite = await db.ProjectWrites.EnterAsync(projectId, ct);
         if (
             request.SubscriptionIds is null
             || request.SubscriptionIds.Distinct(StringComparer.Ordinal).Count()
@@ -556,29 +560,57 @@ public sealed partial class RelayLifecycleService
             .ToListAsync(ct);
 
         foreach (var projectId in known)
-            if (!await db.ProjectAdmissions.Find(x => x.Id == projectId).AnyAsync(ct))
+        {
+            if (await db.ProjectAdmissions.Find(x => x.Id == projectId).AnyAsync(ct))
+                continue;
+            try
+            {
                 await EnsureAsync(projectId, ct);
+            }
+            catch (Pusharoo.Retention.ProjectWriteBlockedException) { }
+        }
 
         var now = Now;
         var due = await db
-            .ProjectAdmissions.Find(x => x.NextCheckAt <= now)
-            .SortBy(x => x.NextCheckAt)
-            .Limit(100)
+            .ProjectAdmissions.Aggregate<RelayProjectAdmissionDocument>(
+                new BsonDocument[]
+                {
+                    new("$match", new BsonDocument("nextCheckAt", new BsonDocument("$lte", now))),
+                    new(
+                        "$lookup",
+                        new BsonDocument
+                        {
+                            { "from", Pusharoo.Retention.ProjectWriteAdmission.CollectionName },
+                            { "localField", "_id" },
+                            { "foreignField", "_id" },
+                            { "as", "cleanupBoundary" },
+                        }
+                    ),
+                    new(
+                        "$match",
+                        new BsonDocument("cleanupBoundary.retired", new BsonDocument("$ne", true))
+                    ),
+                    new("$sort", new BsonDocument("nextCheckAt", 1)),
+                    new("$limit", 100),
+                    new("$unset", "cleanupBoundary"),
+                }
+            )
             .ToListAsync(ct);
 
         foreach (var state in due)
         {
-            await db.ProjectAdmissions.UpdateOneAsync(
-                x => x.Id == state.Id && x.NextCheckAt <= now,
-                Builders<RelayProjectAdmissionDocument>.Update.Set(
-                    x => x.NextCheckAt,
-                    now.AddSeconds(5)
-                ),
-                cancellationToken: ct
-            );
-
             try
             {
+                await using var projectWrite = await db.ProjectWrites.EnterAsync(state.Id, ct);
+                await db.ProjectAdmissions.UpdateOneAsync(
+                    x => x.Id == state.Id && x.NextCheckAt <= now,
+                    Builders<RelayProjectAdmissionDocument>.Update.Set(
+                        x => x.NextCheckAt,
+                        now.AddSeconds(5)
+                    ),
+                    cancellationToken: ct
+                );
+
                 await EnsureAsync(state.Id, ct);
             }
             catch (Exception e)

@@ -6,8 +6,8 @@ public sealed record InventoryReport(
     string? NextAfterProjectId
 )
 {
-    public string PolicyVersion => "unused-project-v1";
-    public int RetentionDays => 30;
+    public string PolicyVersion => Pusharoo.Retention.UnusedProjectRetentionPolicy.Version;
+    public int RetentionDays => Pusharoo.Retention.UnusedProjectRetentionPolicy.RetentionDays;
     public bool DiagnosticOnly => true;
     public bool DeletionAuthorized => false;
 }

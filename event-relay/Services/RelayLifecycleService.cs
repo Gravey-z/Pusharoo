@@ -34,6 +34,7 @@ public sealed partial class RelayLifecycleService(
         CancellationToken ct
     )
     {
+        await using var projectWrite = await db.ProjectWrites.EnterAsync(projectId, ct);
         for (var attempt = 0; attempt < 100; attempt++)
         {
             var state = await db
@@ -655,6 +656,7 @@ public sealed partial class RelayLifecycleService(
         CancellationToken ct
     )
     {
+        await using var projectWrite = await db.ProjectWrites.EnterAsync(projectId, ct);
         for (var attempt = 0; attempt < 20; attempt++)
         {
             var state = await EnsureAsync(projectId, ct);

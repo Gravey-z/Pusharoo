@@ -15,6 +15,10 @@ public sealed record WebhookDeliveryDocument
     [BsonElement("subscriptionId")]
     public string SubscriptionId { get; init; } = string.Empty;
 
+    [BsonElement("projectId")]
+    [BsonIgnoreIfNull]
+    public string? ProjectId { get; init; }
+
     [BsonElement("eventId")]
     public string EventId { get; init; } = string.Empty;
 

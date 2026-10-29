@@ -6,10 +6,12 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY shared/Pusharoo.Contracts.csproj shared/
+COPY retention/Pusharoo.Retention.csproj retention/
 COPY backend/backend.csproj backend/
 RUN dotnet restore backend/backend.csproj
 
 COPY shared/ shared/
+COPY retention/ retention/
 COPY backend/ backend/
 RUN dotnet publish backend/backend.csproj -c Release -o /app/publish --no-restore
 

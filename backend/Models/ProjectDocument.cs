@@ -58,6 +58,10 @@ public sealed class ProjectDocument
     [BsonIgnoreIfNull]
     public string? ContractWriteToken { get; init; }
 
+    [BsonElement("cleanupOperationId")]
+    [BsonIgnoreIfNull]
+    public string? CleanupOperationId { get; init; }
+
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; init; }
 }

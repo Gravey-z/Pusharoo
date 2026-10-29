@@ -20,7 +20,9 @@ internal static class InventoryClassifier
             try
             {
                 created = date.ToUniversalTime();
-                deadline = created.Value.AddDays(30);
+                deadline = created.Value.AddDays(
+                    Pusharoo.Retention.UnusedProjectRetentionPolicy.RetentionDays
+                );
                 if (created == DateTime.MinValue || created > now)
                     reconciliation.Add("invalid_creation_time");
             }
@@ -42,6 +44,8 @@ internal static class InventoryClassifier
         var deletion = project.GetValue("isDeleting", false);
         if (!deletion.IsBoolean)
             reconciliation.Add("invalid_deletion_state");
+        if (!project.GetValue("cleanupOperationId", BsonNull.Value).IsBsonNull && deletion != true)
+            reconciliation.Add("orphaned_cleanup_marker");
         if (!project.GetValue("contractWriteToken", BsonNull.Value).IsBsonNull)
             blockers.Add("project_writer");
 

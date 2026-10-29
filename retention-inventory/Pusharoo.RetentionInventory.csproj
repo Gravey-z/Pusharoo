@@ -6,6 +6,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="MongoDB.Driver" Version="3.10.0" />
+    <ProjectReference Include="../retention/Pusharoo.Retention.csproj" />
   </ItemGroup>
 </Project>

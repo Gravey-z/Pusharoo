@@ -90,6 +90,7 @@ public sealed class ReplayAdmissionRepository(MongoDbContext db)
         CancellationToken ct
     )
     {
+        await using var projectWrite = await db.ProjectWrites.EnterAsync(job.ProjectId, ct);
         var entries = snapshot
             .Entries.Append(
                 new BsonDocument
@@ -190,14 +191,46 @@ public sealed class ReplayAdmissionRepository(MongoDbContext db)
         ).ToHashSet();
 
         foreach (var intent in intents.Where(x => !present.Contains(x["job"]["_id"].AsString)))
-            await MaterializeAsync(
-                BsonSerializer.Deserialize<ReplayJobDocument>(intent["job"].AsBsonDocument),
-                ct
-            );
+        {
+            var job = BsonSerializer.Deserialize<ReplayJobDocument>(intent["job"].AsBsonDocument);
+            try
+            {
+                await MaterializeAsync(job, ct);
+            }
+            catch (Pusharoo.Retention.ProjectWriteBlockedException)
+            {
+                if (!await db.ProjectWrites.IsRetiredAsync(job.ProjectId, ct))
+                    continue;
+                await db.ReplayAdmissions.UpdateOneAsync(
+                    new BsonDocument
+                    {
+                        { "_id", network },
+                        {
+                            "entries",
+                            new BsonDocument(
+                                "$elemMatch",
+                                new BsonDocument
+                                {
+                                    { "job._id", job.Id },
+                                    { "job.projectId", job.ProjectId },
+                                }
+                            )
+                        },
+                    },
+                    new BsonDocument
+                    {
+                        { "$set", new BsonDocument("entries.$.active", false) },
+                        { "$inc", new BsonDocument("revision", 1L) },
+                    },
+                    cancellationToken: ct
+                );
+            }
+        }
     }
 
     public async Task MaterializeAsync(ReplayJobDocument job, CancellationToken ct)
     {
+        await using var projectWrite = await db.ProjectWrites.EnterAsync(job.ProjectId, ct);
         try
         {
             await Jobs.InsertOneAsync(job, cancellationToken: ct);

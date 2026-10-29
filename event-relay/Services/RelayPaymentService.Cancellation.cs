@@ -12,6 +12,7 @@ public sealed partial class RelayPaymentService
         CancellationToken ct
     )
     {
+        await using var projectWrite = await db.ProjectWrites.EnterAsync(projectId, ct);
         if (!IsMainNet)
             throw new PaymentValidationException("Payments are available on Mainnet only.", 404);
 

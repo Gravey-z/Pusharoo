@@ -2,6 +2,7 @@ using backend.Models;
 using backend.Repositories;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Pusharoo.Retention;
 
 namespace backend.Services;
 
@@ -170,8 +171,35 @@ public sealed class ProjectService(
 
     public async Task DeleteAsync(string projectId, CancellationToken cancellationToken)
     {
-        await contractWrites.BeginDeletionAsync(projectId, cancellationToken);
+        await contractWrites.EnsureMigrationAllowsWritesAsync(cancellationToken);
+        var token = Guid.NewGuid().ToString("N");
+        var admissions = new ProjectWriteAdmission(db.Projects.Database);
+        if (!await admissions.TryExcludeWritersAsync(projectId, token, cancellationToken))
+            throw new ContractOperationException(
+                409,
+                "project_busy",
+                "The project has an active operation. Retry deletion after it completes."
+            );
+        try
+        {
+            await contractWrites.BeginDeletionAsync(projectId, cancellationToken);
+            await admissions.RetireAsync(projectId, token, cancellationToken);
+            await DeleteOwnerRequestedDataAsync(projectId, cancellationToken);
+        }
+        finally
+        {
+            var current = await projects.GetByIdAsync(projectId, CancellationToken.None);
+            if (current is null || current.IsDeleting)
+                await admissions.RetireAsync(projectId, token, CancellationToken.None);
+            await admissions.ReleaseExclusionAsync(projectId, token);
+        }
+    }
 
+    private async Task DeleteOwnerRequestedDataAsync(
+        string projectId,
+        CancellationToken cancellationToken
+    )
+    {
         var subscriptions = await db
             .WebhookSubscriptions.Find(Builders<BsonDocument>.Filter.Eq("projectId", projectId))
             .Project(Builders<BsonDocument>.Projection.Include("_id"))
@@ -240,7 +268,11 @@ public sealed class ProjectService(
             contract => contract.ProjectId == projectId,
             cancellationToken
         );
-        await db.Projects.DeleteOneAsync(project => project.Id == projectId, cancellationToken);
+        await new ProjectCleanupRepository(db).DeleteParentAsync(
+            projectId,
+            null,
+            cancellationToken
+        );
     }
 
     private sealed record ProjectListArtifact(string ProjectId, string Version, DateTime CreatedAt);

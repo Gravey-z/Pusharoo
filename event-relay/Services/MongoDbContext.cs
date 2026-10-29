@@ -3,6 +3,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Pusharoo.EventRelay.Models;
 using Pusharoo.EventRelay.Options;
+using Pusharoo.Retention;
 
 namespace Pusharoo.EventRelay.Services;
 
@@ -13,6 +14,7 @@ public sealed class MongoDbContext
         var mongoOptions = options.Value;
         var client = new MongoClient(mongoOptions.ConnectionString);
         var database = client.GetDatabase(mongoOptions.DatabaseName);
+        ProjectWrites = new ProjectWriteAdmission(database);
 
         ProjectAdmissions = database
             .GetCollection<RelayProjectAdmissionDocument>("relayProjectAdmissions")
@@ -315,6 +317,8 @@ public sealed class MongoDbContext
     public IMongoCollection<RelayPeriodUpgradeDocument> PeriodUpgrades { get; }
     public IMongoCollection<RelayBillingDecisionDocument> BillingDecisions { get; }
     public IMongoCollection<RelayGrantProgressDocument> GrantProgress { get; }
+
+    public ProjectWriteAdmission ProjectWrites { get; }
     public IMongoCollection<BsonDocument> BillingSchema { get; }
     public IMongoCollection<BsonDocument> LegacyBillingSnapshots { get; }
     public IMongoCollection<RelayBillingLedgerDocument> BillingLedgers { get; }

@@ -69,7 +69,10 @@ public sealed partial class ContractWriteGuard(MongoDbContext db)
     {
         await EnsureMigrationAllowsWritesAsync(cancellationToken);
         var result = await db.Projects.UpdateOneAsync(
-            project => project.Id == projectId && project.ContractWriteToken == null,
+            project =>
+                project.Id == projectId
+                && project.ContractWriteToken == null
+                && project.CleanupOperationId == null,
             Builders<ProjectDocument>.Update.Set(project => project.IsDeleting, true),
             cancellationToken: cancellationToken
         );

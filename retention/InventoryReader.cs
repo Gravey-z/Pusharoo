@@ -31,6 +31,56 @@ public sealed class InventoryReader(IMongoDatabase database, TimeProvider clock)
         "faucetDailyFeeBudgets",
     ];
 
+    public async Task<ProjectInventory?> EvaluateAsync(
+        string projectId,
+        CancellationToken ct = default,
+        string? heldParentToken = null,
+        string? heldCleanupToken = null,
+        string? cleanupOperationId = null
+    )
+    {
+        var names = (
+            await (await database.ListCollectionNamesAsync(cancellationToken: ct)).ToListAsync(ct)
+        ).ToHashSet(StringComparer.Ordinal);
+        var project = await database
+            .GetCollection<BsonDocument>("projects")
+            .Find(new BsonDocument("_id", projectId))
+            .Project<BsonDocument>(
+                Projection(
+                    "createdAt",
+                    "contractSchemaVersion",
+                    "isDeleting",
+                    "contractWriteToken",
+                    "contractMigrationState",
+                    "cleanupOperationId"
+                )
+            )
+            .FirstOrDefaultAsync(ct);
+        if (project is null)
+            return null;
+        if (
+            heldParentToken is not null
+            && project.GetValue("contractWriteToken", BsonNull.Value) == heldParentToken
+        )
+            project.Remove("contractWriteToken");
+        var migration = names.Contains("contractMigrationState")
+            ? await database
+                .GetCollection<BsonDocument>("contractMigrationState")
+                .Find(new BsonDocument("_id", "multi-contract-v1"))
+                .Project<BsonDocument>(Projection("status", "leaseToken"))
+                .FirstOrDefaultAsync(ct)
+            : null;
+        return await ReadProjectAsync(
+            project,
+            names,
+            migration,
+            clock.GetUtcNow().UtcDateTime,
+            ct,
+            heldCleanupToken,
+            cleanupOperationId
+        );
+    }
+
     public async Task<InventoryReport> ReadAsync(
         int take = 100,
         string? afterProjectId = null,
@@ -75,7 +125,8 @@ public sealed class InventoryReader(IMongoDatabase database, TimeProvider clock)
                     "contractSchemaVersion",
                     "isDeleting",
                     "contractWriteToken",
-                    "contractMigrationState"
+                    "contractMigrationState",
+                    "cleanupOperationId"
                 )
             )
             .Sort(new BsonDocument("_id", 1))
@@ -99,7 +150,9 @@ public sealed class InventoryReader(IMongoDatabase database, TimeProvider clock)
         HashSet<string> names,
         BsonDocument? migration,
         DateTime now,
-        CancellationToken ct
+        CancellationToken ct,
+        string? heldCleanupToken = null,
+        string? cleanupOperationId = null
     )
     {
         var id = project["_id"].AsString;
@@ -260,11 +313,47 @@ public sealed class InventoryReader(IMongoDatabase database, TimeProvider clock)
             "mutation",
             "publication",
             "selections",
-            "lastTransition",
+            "lastTransition.Id",
+            "lastTransition._id",
+            "lastTransition.AppliedAt",
+            "lastTransition.PausedSubscriptionIds",
             "attemptAdmissions"
         );
         if (admissions.Any(doc => !IsIdleFreeAdmission(doc)))
             blockers.Add("relay_admission_or_pending_work");
+
+        var writers = await Read(
+            "projectWriteAdmissions",
+            new BsonDocument("_id", id),
+            "writers",
+            "cleanupToken",
+            "retired"
+        );
+        if (
+            writers.Any(doc =>
+                !EmptyArray(doc, "writers")
+                || !doc.GetValue("cleanupToken", BsonNull.Value).IsBsonNull
+                    && doc.GetValue("cleanupToken", BsonNull.Value) != heldCleanupToken
+                || doc.GetValue("retired", false) != false
+            )
+        )
+            blockers.Add("project_write_admission");
+        var operations = await Read(
+            "projectCleanupOperations",
+            new BsonDocument("_id", id),
+            "operationId",
+            "status"
+        );
+        if (
+            operations.Any(doc =>
+                doc.GetValue("status", "") != "deferred"
+                && !(
+                    cleanupOperationId is not null
+                    && doc.GetValue("operationId", "") == cleanupOperationId
+                )
+            )
+        )
+            blockers.Add("cleanup_operation_requires_recovery");
 
         foreach (var name in names.Except(queried).Order())
         {
@@ -313,6 +402,10 @@ public sealed class InventoryReader(IMongoDatabase database, TimeProvider clock)
         document.GetValue("plan", "") == "free_beta"
         && (
             document.GetValue("network", "") == "neo3:testnet"
+                && (
+                    document.GetValue("status", "active") == "active"
+                    || document.GetValue("status", "active") == "expired"
+                )
             || document.GetValue("network", "") == "neo3:mainnet"
                 && document.GetValue("status", "") == "expired"
                 && Zero(document, "maxEvents")
@@ -337,8 +430,18 @@ public sealed class InventoryReader(IMongoDatabase database, TimeProvider clock)
             !EmptyArray(document, "slots")
             || !EmptyArray(document, "selections")
             || !Zero(document, "attemptAdmissions")
-            || new[] { "transition", "mutation", "publication", "lastTransition" }.Any(field =>
+            || new[] { "transition", "mutation", "publication" }.Any(field =>
                 !document.GetValue(field, BsonNull.Value).IsBsonNull
+            )
+        )
+            return false;
+        var lastTransition = document.GetValue("lastTransition", BsonNull.Value);
+        if (
+            !lastTransition.IsBsonNull
+            && (
+                !lastTransition.IsBsonDocument
+                || !lastTransition.AsBsonDocument.Contains("PausedSubscriptionIds")
+                || !EmptyArray(lastTransition.AsBsonDocument, "PausedSubscriptionIds")
             )
         )
             return false;
