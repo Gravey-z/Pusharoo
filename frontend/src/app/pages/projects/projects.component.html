@@ -72,28 +72,36 @@
 
       <section class="project-grid">
         @for (item of visibleProjects(projects); track item.project.id) {
-          <a class="project-card" [routerLink]="['/projects', item.project.id]">
+          <article class="project-card">
             <header class="project-card-header">
               <div>
-                <h2>{{ item.project.name }}</h2>
+                <h2
+                  ><a class="project-card-link" [routerLink]="['/projects', item.project.id]">{{
+                    item.project.name
+                  }}</a></h2
+                >
               </div>
-              <div class="project-network-chips" aria-label="Deployment networks">
-                @for (network of item.deploymentNetworks; track network) {
-                  <span
-                    class="network-badge"
-                    [class.network-badge--testnet]="network === 'neo3:testnet'"
-                    [class.network-badge--mainnet]="network === 'neo3:mainnet'"
-                    >{{ networkLabel(network) }}</span
-                  >
-                }
+              <div class="project-card-indicators">
+                <div class="project-network-chips" aria-label="Deployment networks">
+                  @for (network of item.deploymentNetworks; track network) {
+                    <span
+                      class="network-badge"
+                      [class.network-badge--testnet]="network === 'neo3:testnet'"
+                      [class.network-badge--mainnet]="network === 'neo3:mainnet'"
+                      >{{ networkLabel(network) }}</span
+                    >
+                  }
+                </div>
+                <app-project-retention-warning
+                  [retention]="item.project.retention"
+                  [projectName]="item.project.name"
+                />
               </div>
             </header>
 
             <p class="project-description">
               {{ item.project.description || 'No project description yet.' }}
             </p>
-
-            <app-project-retention-notice [retention]="item.project.retention" [compact]="true" />
 
             <section class="project-release">
               <div>
@@ -126,7 +134,7 @@
               </ul>
             </section>
             <span class="card-affordance">Open workspace <span aria-hidden="true">→</span></span>
-          </a>
+          </article>
         } @empty {
           <p class="no-results empty-state">No projects match your search.</p>
         }

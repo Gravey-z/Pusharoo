@@ -19,7 +19,6 @@ export function retentionTimeRemaining(retention: ProjectRetention, now: number)
 })
 export class ProjectRetentionNoticeComponent implements OnChanges {
   @Input() retention: ProjectRetention | null | undefined;
-  @Input() compact = false;
   private readonly now = signal(performance.now());
 
   constructor() {
@@ -75,11 +74,8 @@ export class ProjectRetentionNoticeComponent implements OnChanges {
   get countdown(): string {
     const remaining = this.remaining;
     if (remaining === null || remaining === 0) return '';
-    const minutes = Math.ceil(remaining / 60_000);
-    const days = Math.floor(minutes / 1440);
-    const hours = Math.floor((minutes % 1440) / 60);
-    if (days > 0) return `${days} ${days === 1 ? 'day' : 'days'} ${hours}h remaining`;
-    if (hours > 0) return `${hours}h ${minutes % 60}m remaining`;
-    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} remaining`;
+    const days = Math.floor(remaining / 86_400_000);
+    if (days > 0) return `${days} ${days === 1 ? 'day' : 'days'} remaining`;
+    return 'Less than a day remaining';
   }
 }

@@ -23,6 +23,7 @@ backend-run.out.log
 docker-compose.override.yml
 /*.md
 */*.md
+/ops/*
 
 /event-relay.Tests/
 /backend.Tests/

@@ -1,0 +1,53 @@
+:host {
+  display: contents;
+}
+
+.retention-warning {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.retention-warning-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--warning);
+  cursor: pointer;
+}
+
+.retention-warning-trigger:hover,
+.retention-warning-trigger:focus-visible {
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+}
+
+.retention-warning-trigger:focus-visible {
+  outline: 2px solid var(--warning);
+  outline-offset: 2px;
+}
+
+.retention-tooltip {
+  position: absolute;
+  inset-inline-end: 0;
+  top: 100%;
+  width: min(300px, calc(100vw - 48px));
+  padding-top: var(--space-2);
+  text-align: start;
+}
+
+.retention-tooltip-surface {
+  display: flow-root;
+  max-height: min(28rem, 70dvh);
+  overflow: auto;
+  border-radius: var(--radius-small);
+  background: var(--card);
+  box-shadow: var(--shadow-overlay);
+}

@@ -9,11 +9,11 @@ import { ApiErrorFormatterService } from '../../services/api-error-formatter.ser
 import { WalletService } from '../../services/wallet.service';
 import { WalletAuthService } from '../../services/wallet-auth.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
-import { ProjectRetentionNoticeComponent } from '../../components/project-retention-notice/project-retention-notice.component';
+import { ProjectRetentionWarningComponent } from '../../components/project-retention-warning/project-retention-warning.component';
 
 @Component({
   selector: 'app-projects',
-  imports: [FormsModule, PageShellComponent, RouterLink, ProjectRetentionNoticeComponent],
+  imports: [FormsModule, PageShellComponent, RouterLink, ProjectRetentionWarningComponent],
   templateUrl: './projects.component.html',
   styleUrl: './projects.component.scss'
 })
