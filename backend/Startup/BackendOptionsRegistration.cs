@@ -1,4 +1,5 @@
 using backend.Options;
+using Microsoft.Extensions.Options;
 
 namespace backend.Startup;
 
@@ -9,6 +10,15 @@ internal static class BackendOptionsRegistration
         IConfiguration configuration
     )
     {
+        services.AddSingleton<
+            IValidateOptions<UnusedProjectCleanupOptions>,
+            UnusedProjectCleanupOptionsValidator
+        >();
+        services
+            .AddOptions<UnusedProjectCleanupOptions>()
+            .Bind(configuration.GetSection(UnusedProjectCleanupOptions.SectionName))
+            .ValidateOnStart();
+
         services.Configure<MongoDbOptions>(configuration.GetSection(MongoDbOptions.SectionName));
 
         services.Configure<NeoRpcOptions>(configuration.GetSection(NeoRpcOptions.SectionName));

@@ -67,6 +67,7 @@ public static class BackendServiceRegistration
         services.AddScoped<ProjectService>();
         services.AddScoped<ProjectCleanupRepository>();
         services.AddScoped<UnusedProjectCleanupService>();
+        services.AddHostedService<UnusedProjectCleanupWorker>();
         services.AddScoped<IContractRepository, ContractRepository>();
         services.AddScoped<ProjectContractLoader>();
         services.AddScoped<ContractService>();
