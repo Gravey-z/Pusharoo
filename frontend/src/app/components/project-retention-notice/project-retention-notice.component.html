@@ -1,0 +1,38 @@
+@if (retention; as policy) {
+  @if (policy.status !== 'protected') {
+    <section
+      class="retention-notice"
+      [class.retention-notice--compact]="compact"
+      role="note"
+      aria-label="Project retention"
+    >
+      <strong>{{ heading }}</strong>
+      @if (policy.status === 'unused' || policy.status === 'awaiting_cleanup') {
+        @if (countdown) {
+          <span class="retention-countdown">{{ countdown }}</span>
+        }
+        @if (policy.deadlineUtc) {
+          <p>
+            30-day deadline:
+            <time [attr.datetime]="policy.deadlineUtc"
+              >{{ policy.deadlineUtc | date: 'd MMM y, HH:mm' : 'UTC' }} UTC</time
+            >.
+          </p>
+        }
+        @if (!compact) {
+          <p>
+            {{
+              due
+                ? 'Upload an artifact or recover a deployment before cleanup starts to keep this project.'
+                : 'Upload an artifact or recover a deployment before the deadline to keep this project.'
+            }}
+            Activity on any contract or network protects the whole project.
+          </p>
+        }
+      }
+      @if (modeNotice) {
+        <p>{{ modeNotice }}</p>
+      }
+    </section>
+  }
+}

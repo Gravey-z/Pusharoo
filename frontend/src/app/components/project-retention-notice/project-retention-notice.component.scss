@@ -1,0 +1,30 @@
+:host {
+  display: block;
+}
+
+.retention-notice {
+  padding: var(--space-4);
+  margin-block: var(--space-3);
+  border: 1px solid var(--line);
+  border-inline-start: 3px solid var(--warning, #c7923e);
+  border-radius: var(--radius-small);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.retention-notice p {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.retention-countdown {
+  display: block;
+  margin-top: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.retention-notice--compact {
+  padding: var(--space-3);
+  font-size: 0.875rem;
+}

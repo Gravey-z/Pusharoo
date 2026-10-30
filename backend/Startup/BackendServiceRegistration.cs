@@ -65,6 +65,7 @@ public static class BackendServiceRegistration
         services.AddScoped<IArtifactRepository, ArtifactRepository>();
         services.AddScoped<IDeploymentRepository, DeploymentRepository>();
         services.AddScoped<ProjectService>();
+        services.AddScoped<ProjectRetentionService>();
         services.AddScoped<ProjectCleanupRepository>();
         services.AddScoped<UnusedProjectCleanupService>();
         services.AddHostedService<UnusedProjectCleanupWorker>();

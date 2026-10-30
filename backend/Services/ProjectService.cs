@@ -9,7 +9,8 @@ namespace backend.Services;
 public sealed class ProjectService(
     IProjectRepository projects,
     MongoDbContext db,
-    ContractWriteGuard contractWrites
+    ContractWriteGuard contractWrites,
+    ProjectRetentionService retention
 )
 {
     public async Task<ProjectDocument> CreateAsync(
@@ -118,6 +119,10 @@ public sealed class ProjectService(
                 group => group.OrderByDescending(deployment => deployment.CreatedAt).ToArray()
             );
 
+        var responses = new Dictionary<string, ProjectResponse>();
+        foreach (var project in projectList)
+            responses[project.Id] = await retention.ToResponseAsync(project, cancellationToken);
+
         return projectList
             .Select(project =>
             {
@@ -144,7 +149,7 @@ public sealed class ProjectService(
                 );
 
                 return new ProjectListItemResponse(
-                    project.ToResponse(),
+                    responses[project.Id],
                     latestArtifact is null
                         ? null
                         : new ProjectListArtifactResponse(

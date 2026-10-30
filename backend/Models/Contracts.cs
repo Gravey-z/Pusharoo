@@ -37,7 +37,15 @@ public sealed record ProjectResponse(
     string? Description,
     string? CreatedByWalletAddress,
     string? CreatorNetwork,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    ProjectRetentionResponse? Retention = null
+);
+
+public sealed record ProjectRetentionResponse(
+    string Status,
+    string Mode,
+    DateTime? DeadlineUtc,
+    DateTime ServerTimeUtc
 );
 
 public sealed record ProjectListItemResponse(

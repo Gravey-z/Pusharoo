@@ -6,7 +6,8 @@ namespace backend.Services;
 public sealed class WorkspaceReadService(
     ProjectContractLoader loader,
     WorkspaceReadRepository workspace,
-    IDeploymentRepository deployments
+    IDeploymentRepository deployments,
+    ProjectRetentionService retention
 )
 {
     public async Task<ProjectWorkspaceResponse> GetProjectAsync(
@@ -38,7 +39,7 @@ public sealed class WorkspaceReadService(
             .ToArray();
 
         return new(
-            project.ToResponse(),
+            await retention.ToResponseAsync(project, cancellationToken),
             summaries,
             artifacts.Count,
             history.Count,
@@ -64,7 +65,7 @@ public sealed class WorkspaceReadService(
         var history = await deploymentTask;
         var latest = Confirmed(history).FirstOrDefault()?.ToResponse();
         return new(
-            context.Project.ToResponse(),
+            await retention.ToResponseAsync(context.Project, cancellationToken),
             context.Contract.ToResponse(),
             artifacts,
             artifacts.FirstOrDefault(),

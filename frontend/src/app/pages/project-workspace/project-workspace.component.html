@@ -18,7 +18,12 @@
 
   <app-project-release-nav [projectId]="projectId" [workspaceNavigation]="true" />
 
-  @if (isLoading) {
+  @if (unavailable) {
+    <section class="workspace-error page-error" aria-live="polite">
+      <p>This project is no longer available. It may have been deleted.</p>
+      <a class="secondary-button" routerLink="/projects">Back to projects</a>
+    </section>
+  } @else if (isLoading) {
     <p class="workspace-status" aria-live="polite">Loading project...</p>
   } @else if (loadError) {
     <section class="workspace-error page-error" aria-live="assertive">
@@ -26,6 +31,7 @@
       <button class="secondary-button" type="button" (click)="retryLoad()">Try again</button>
     </section>
   } @else {
+    <app-project-retention-notice [retention]="retention" />
     <router-outlet />
   }
 </app-page-shell>

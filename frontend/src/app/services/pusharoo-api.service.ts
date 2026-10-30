@@ -1,6 +1,6 @@
 import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { defer, forkJoin, map, Observable, shareReplay, tap } from 'rxjs';
+import { defer, forkJoin, map, Observable, shareReplay, Subject, tap } from 'rxjs';
 import {
   ProjectContract,
   ProjectWorkspaceSummary,
@@ -37,6 +37,8 @@ interface CachedGetRequest {
 
 @Injectable({ providedIn: 'root' })
 export class PusharooApiService {
+  private readonly projectChangesSource = new Subject<string>();
+  readonly projectChanges = this.projectChangesSource.asObservable();
   private readonly getCache = new Map<string, CachedGetRequest>();
   private get apiBaseUrl(): string {
     return this.runtimeConfig.value.apiBaseUrl.replace(/\/$/, '');
@@ -47,7 +49,8 @@ export class PusharooApiService {
     private readonly runtimeConfig: RuntimeConfigService
   ) {}
 
-  getProjectCards(): Observable<ProjectListItem[]> {
+  getProjectCards(refresh = false): Observable<ProjectListItem[]> {
+    if (refresh) this.getCache.delete('projects:cards');
     return this.cachedGet('projects:cards', () =>
       this.http.get<ProjectListItem[]>(`${this.apiBaseUrl}/projects/cards`)
     );
@@ -67,7 +70,8 @@ export class PusharooApiService {
     );
   }
 
-  getProjectSummary(projectId: string): Observable<ProjectWorkspaceSummary> {
+  getProjectSummary(projectId: string, refresh = false): Observable<ProjectWorkspaceSummary> {
+    if (refresh) this.invalidateProjectCache(projectId, false);
     return this.cachedGet(`project:${projectId}:summary`, () =>
       this.http.get<ProjectWorkspaceSummary>(
         `${this.apiBaseUrl}/projects/${encodeURIComponent(projectId)}/workspace`
@@ -488,7 +492,8 @@ export class PusharooApiService {
     let entry!: CachedGetRequest;
     const response = defer(request).pipe(
       tap({
-        next: () => {
+        next: value => {
+          this.observeRetention(value);
           if (this.getCache.get(key) === entry) {
             entry.expiresAt = Date.now() + PROJECT_DATA_CACHE_TTL_MS;
           }
@@ -513,12 +518,21 @@ export class PusharooApiService {
     return response;
   }
 
-  private invalidateProjectCache(projectId: string): void {
+  private invalidateProjectCache(projectId: string, notify = true): void {
     const prefix = `project:${projectId}:`;
     for (const key of this.getCache.keys()) {
       if (key === 'projects:cards' || key.startsWith(prefix)) {
         this.getCache.delete(key);
       }
+    }
+    if (notify) this.projectChangesSource.next(projectId);
+  }
+
+  private observeRetention(value: unknown): void {
+    for (const entry of Array.isArray(value) ? value : [value]) {
+      if (!entry || typeof entry !== 'object') continue;
+      const project = (entry.project ?? entry) as Project;
+      if (project.retention) project.retention.observedAt = performance.now();
     }
   }
 

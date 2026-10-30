@@ -10,7 +10,8 @@ namespace backend.Controllers;
 public sealed class ProjectsController(
     ProjectService projectService,
     CurrentWalletSessionAccessor walletSession,
-    ProjectAuthorizationService authorization
+    ProjectAuthorizationService authorization,
+    ProjectRetentionService retention
 ) : ControllerBase
 {
     [HttpPost]
@@ -74,7 +75,7 @@ public sealed class ProjectsController(
             if (existing is not null)
             {
                 return existing.IdempotencyPayloadHash == payloadHash
-                    ? Ok(existing.ToResponse())
+                    ? Ok(await retention.ToResponseAsync(existing, cancellationToken))
                     : Conflict(
                         new
                         {
@@ -94,7 +95,10 @@ public sealed class ProjectsController(
                 cancellationToken
             );
 
-            return Created($"/api/projects/{project.Id}", project.ToResponse());
+            return Created(
+                $"/api/projects/{project.Id}",
+                await retention.ToResponseAsync(project, cancellationToken)
+            );
         }
         catch (MongoWriteException exception)
             when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey
@@ -107,7 +111,7 @@ public sealed class ProjectsController(
             );
 
             return existing?.IdempotencyPayloadHash == payloadHash
-                ? Ok(existing.ToResponse())
+                ? Ok(await retention.ToResponseAsync(existing!, cancellationToken))
                 : Conflict(
                     new
                     {
@@ -123,7 +127,9 @@ public sealed class ProjectsController(
     )
     {
         var projects = await projectService.GetAllAsync(cancellationToken);
-        var response = projects.Select(project => project.ToResponse()).ToArray();
+        var response = new List<ProjectResponse>();
+        foreach (var project in projects)
+            response.Add(await retention.ToResponseAsync(project, cancellationToken));
 
         return Ok(response);
     }
@@ -146,7 +152,9 @@ public sealed class ProjectsController(
     {
         var project = await projectService.GetByIdAsync(projectId, cancellationToken);
 
-        return project is null ? NotFound() : Ok(project.ToResponse());
+        return project is null
+            ? NotFound()
+            : Ok(await retention.ToResponseAsync(project, cancellationToken));
     }
 
     [HttpDelete("{projectId}")]

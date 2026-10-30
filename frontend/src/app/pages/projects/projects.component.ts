@@ -1,21 +1,25 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, interval } from 'rxjs';
 import { ProjectListItem } from '../../models/pusharoo.models';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
 import { ApiErrorFormatterService } from '../../services/api-error-formatter.service';
 import { WalletService } from '../../services/wallet.service';
 import { WalletAuthService } from '../../services/wallet-auth.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
+import { ProjectRetentionNoticeComponent } from '../../components/project-retention-notice/project-retention-notice.component';
 
 @Component({
   selector: 'app-projects',
-  imports: [FormsModule, PageShellComponent, RouterLink],
+  imports: [FormsModule, PageShellComponent, RouterLink, ProjectRetentionNoticeComponent],
   templateUrl: './projects.component.html',
   styleUrl: './projects.component.scss'
 })
 export class ProjectsComponent implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
+  private loadGeneration = 0;
   projects: ProjectListItem[] = [];
   isLoading = true;
   loadError = '';
@@ -38,6 +42,11 @@ export class ProjectsComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadProjects();
+    interval(60_000)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (!this.isLoading && !this.loadError) this.loadProjects(true, true);
+      });
   }
 
   openCreateProject(): void {
@@ -145,19 +154,26 @@ export class ProjectsComponent implements OnInit {
     return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Legacy';
   }
 
-  loadProjects(): void {
-    this.isLoading = true;
+  loadProjects(refresh = false, background = false): void {
+    const generation = ++this.loadGeneration;
+    if (!background) this.isLoading = true;
     this.loadError = '';
-    this.api.getProjectCards().subscribe({
-      next: projects => {
-        this.projects = projects;
-        this.isLoading = false;
-      },
-      error: error => {
-        this.projects = [];
-        this.loadError = this.errors.format(error, 'Could not load projects.');
-        this.isLoading = false;
-      }
-    });
+    this.api
+      .getProjectCards(refresh)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: projects => {
+          if (generation !== this.loadGeneration) return;
+          this.projects = projects;
+          this.isLoading = false;
+        },
+        error: error => {
+          if (generation !== this.loadGeneration) return;
+          if (background) return;
+          this.projects = [];
+          this.loadError = this.errors.format(error, 'Could not load projects.');
+          this.isLoading = false;
+        }
+      });
   }
 }

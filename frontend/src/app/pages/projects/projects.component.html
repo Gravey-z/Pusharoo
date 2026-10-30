@@ -32,9 +32,9 @@
         >
           {{ isSaving ? 'Saving...' : 'Create project' }}
         </button>
-        <button class="secondary-button" type="button" (click)="cancelCreateProject()"
-          >Cancel</button
-        >
+        <button class="secondary-button" type="button" (click)="cancelCreateProject()">
+          Cancel
+        </button>
       </div>
     </section>
   }
@@ -89,9 +89,11 @@
               </div>
             </header>
 
-            <p class="project-description">{{
-              item.project.description || 'No project description yet.'
-            }}</p>
+            <p class="project-description">
+              {{ item.project.description || 'No project description yet.' }}
+            </p>
+
+            <app-project-retention-notice [retention]="item.project.retention" [compact]="true" />
 
             <section class="project-release">
               <div>
@@ -108,10 +110,10 @@
 
             <section class="project-details" aria-label="Project details">
               <ul>
-                <li
-                  ><i aria-hidden="true"></i><span>Owner</span
-                  ><strong>{{ creatorSummary(item) }}</strong></li
-                >
+                <li>
+                  <i aria-hidden="true"></i><span>Owner</span
+                  ><strong>{{ creatorSummary(item) }}</strong>
+                </li>
                 <li>
                   <i [class.success-dot]="item.deployed" aria-hidden="true"></i>
                   <span>Networks</span>
@@ -137,16 +139,18 @@
             type="button"
             (click)="changePage(projects, -1)"
             [disabled]="page === 1"
-            >Previous</button
           >
+            Previous
+          </button>
           <span>Page {{ page }} of {{ totalPages(projects) }}</span>
           <button
             class="secondary-button"
             type="button"
             (click)="changePage(projects, 1)"
             [disabled]="page === totalPages(projects)"
-            >Next</button
           >
+            Next
+          </button>
         </nav>
       }
     </section>
@@ -158,9 +162,9 @@
         <li>Upload the matching compiled <code>.nef</code> and manifest.</li>
         <li>Review the release, deploy with your wallet, then monitor it here.</li>
       </ol>
-      <button class="primary-button" type="button" (click)="openCreateProject()"
-        >Create your first project</button
-      >
+      <button class="primary-button" type="button" (click)="openCreateProject()">
+        Create your first project
+      </button>
     </section>
   }
 </app-page-shell>

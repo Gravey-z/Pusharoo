@@ -5,6 +5,15 @@ export interface Project {
   createdByWalletAddress?: string | null;
   creatorNetwork?: string | null;
   createdAt: string;
+  retention?: ProjectRetention | null;
+}
+
+export interface ProjectRetention {
+  status: 'protected' | 'unused' | 'awaiting_cleanup' | 'on_hold' | 'deleting' | 'unavailable';
+  mode: 'disabled' | 'dry-run' | 'enabled';
+  deadlineUtc: string | null;
+  serverTimeUtc: string;
+  observedAt?: number;
 }
 
 export interface WalletActionSignature {

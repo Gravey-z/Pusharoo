@@ -1,5 +1,7 @@
 import { Component, OnInit, DestroyRef, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { HttpErrorResponse } from '@angular/common/http';
+import { debounceTime, filter, interval } from 'rxjs';
 import { ActivatedRoute, RouterLink, RouterOutlet } from '@angular/router';
 import { ProjectOwnershipService } from '../../services/project-ownership.service';
 import { PusharooApiService } from '../../services/pusharoo-api.service';
@@ -8,10 +10,17 @@ import { WalletService } from '../../services/wallet.service';
 import { ProjectWorkspaceContextService } from '../../services/project-workspace-context.service';
 import { PageShellComponent } from '../page-shell/page-shell.component';
 import { ProjectReleaseNavComponent } from '../../components/project-release-nav/project-release-nav.component';
+import { ProjectRetentionNoticeComponent } from '../../components/project-retention-notice/project-retention-notice.component';
 
 @Component({
   selector: 'app-project-workspace',
-  imports: [PageShellComponent, ProjectReleaseNavComponent, RouterLink, RouterOutlet],
+  imports: [
+    PageShellComponent,
+    ProjectReleaseNavComponent,
+    RouterLink,
+    RouterOutlet,
+    ProjectRetentionNoticeComponent
+  ],
   providers: [ProjectWorkspaceContextService],
   templateUrl: './project-workspace.component.html',
   styleUrl: './project-workspace.component.scss'
@@ -22,6 +31,11 @@ export class ProjectWorkspaceComponent implements OnInit {
   projectId = '';
   isLoading = true;
   loadError = '';
+  unavailable = false;
+
+  get retention() {
+    return this.workspace.summary?.project.retention;
+  }
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -37,6 +51,22 @@ export class ProjectWorkspaceComponent implements OnInit {
       this.projectId = params.get('projectId') ?? '';
       this.loadProject();
     });
+    this.api.projectChanges
+      .pipe(
+        filter(id => id === this.projectId),
+        debounceTime(100),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(() => {
+        this.workspace.overview = null;
+        this.loadProject(true, true);
+      });
+    interval(60_000)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (!this.isLoading && !this.unavailable && this.workspace.summary)
+          this.loadProject(true, true);
+      });
   }
 
   get projectName(): string {
@@ -51,25 +81,39 @@ export class ProjectWorkspaceComponent implements OnInit {
   }
 
   retryLoad(): void {
-    this.loadProject();
+    this.loadProject(true);
   }
 
-  private loadProject(): void {
-    this.isLoading = true;
+  private loadProject(refresh = false, background = false): void {
+    this.isLoading = !background;
     this.loadError = '';
-    this.workspace.summary = null;
+    if (!background) {
+      this.unavailable = false;
+      this.workspace.summary = null;
+      this.workspace.overview = null;
+    }
     const generation = ++this.generation;
-    this.api.getProjectSummary(this.projectId).subscribe({
-      next: overview => {
-        if (generation !== this.generation || this.destroyRef.destroyed) return;
-        this.workspace.summary = overview;
-        this.isLoading = false;
-      },
-      error: error => {
-        if (generation !== this.generation || this.destroyRef.destroyed) return;
-        this.loadError = this.errors.format(error, 'Could not load this project.');
-        this.isLoading = false;
-      }
-    });
+    this.api
+      .getProjectSummary(this.projectId, refresh)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: overview => {
+          if (generation !== this.generation || this.destroyRef.destroyed) return;
+          this.unavailable = overview.project.retention?.status === 'unavailable';
+          this.workspace.summary = this.unavailable ? null : overview;
+          this.isLoading = false;
+        },
+        error: error => {
+          if (generation !== this.generation || this.destroyRef.destroyed) return;
+          this.unavailable = error instanceof HttpErrorResponse && error.status === 404;
+          if (this.unavailable) {
+            this.workspace.summary = null;
+            this.workspace.overview = null;
+          } else if (!background) {
+            this.loadError = this.errors.format(error, 'Could not load this project.');
+          }
+          this.isLoading = false;
+        }
+      });
   }
 }
